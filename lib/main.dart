@@ -82,14 +82,11 @@ Future<void> main() async {
   await _configurarFirestore();
   await AppSettings.init();
 
-  if (!kIsWeb &&
-      !kDebugMode &&
-      defaultTargetPlatform != TargetPlatform.windows &&
-      defaultTargetPlatform != TargetPlatform.linux &&
-      defaultTargetPlatform != TargetPlatform.macOS) {
+  if (!kIsWeb && !kDebugMode) {
     await FirebaseAppCheck.instance.activate(
-      androidProvider: AndroidProvider.playIntegrity,
-      appleProvider: AppleProvider.deviceCheck,
+      providerAndroid: const AndroidPlayIntegrityProvider(),
+      providerApple: const AppleDeviceCheckProvider(),
+      providerWindows: const WindowsDebugProvider(),
     );
   }
 

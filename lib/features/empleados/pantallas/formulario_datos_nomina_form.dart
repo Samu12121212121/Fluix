@@ -6,6 +6,7 @@ import '../../../domain/modelos/nomina.dart';
 import '../../../domain/modelos/convenio_colectivo.dart';
 import '../../../services/nominas_service.dart';
 import '../../../services/sepa_xml_generator.dart';
+import '../../../core/utils/validador_nif_cif.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Colores consistentes con el sistema de diseño
@@ -159,10 +160,12 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
   double _pctDiscapacidad = 0.0;
   bool _discapacidad      = false;
   int  _numHijosMenores3  = 0;
+  bool _irpfAuto          = false;
   bool _prorrateoPagas    = true;
   bool _antiguedadManual  = false;
   int  _numPagas          = 12;
   GrupoCotizacion _grupoCotizacion = GrupoCotizacion.grupo7;
+  DateTime? _fechaAltaRealEmpresa;
 
   // ── Sector detectado desde el convenio ─────────────────────────────────────
   String get _sectorActual {
@@ -198,6 +201,7 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
         text: (d?['salario_bruto_anual'] ?? '').toString());
     _complementoFijoCtrl = TextEditingController(
         text: ((d?['complemento_fijo'] as num?)?.toDouble() ?? 0).toString());
+    _irpfAuto = d?['irpf_auto'] as bool? ?? (d?['irpf_porcentaje'] == null);
     _irpfPctCtrl = TextEditingController(
         text: ((d?['irpf_porcentaje'] as num?) ?? 15.0).toString());
     _otrasRentasCtrl = TextEditingController(
@@ -241,6 +245,15 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
     }
     if (_fechaNacimiento != null) {
       _fechaNacCtrl.text = _formatearFecha(_fechaNacimiento!);
+    }
+
+    final fechaAltaRaw = d?['fecha_alta_real_empresa'];
+    if (fechaAltaRaw is Timestamp) {
+      _fechaAltaRealEmpresa = fechaAltaRaw.toDate();
+    } else if (fechaAltaRaw is String) {
+      _fechaAltaRealEmpresa = DateTime.tryParse(fechaAltaRaw);
+    } else if (fechaAltaRaw is DateTime) {
+      _fechaAltaRealEmpresa = fechaAltaRaw;
     }
 
     final gcRaw = d?['grupo_cotizacion'] as String?;
@@ -295,7 +308,9 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
     setState(() => _guardando = true);
 
     final salario = double.tryParse(_salarioCtrl.text) ?? 0;
-    final irpf    = double.tryParse(_irpfPctCtrl.text) ?? 15.0;
+    final irpf    = _irpfAuto
+        ? _calcularPctIrpf()
+        : (double.tryParse(_irpfPctCtrl.text) ?? 15.0);
     _numHijos         = int.tryParse(_hijosCtrl.text) ?? 0;
     _numHijosMenores3 = int.tryParse(_hijosMenoresCtrl.text) ?? 0;
     _pctDiscapacidad  = double.tryParse(_pctDiscapacidadCtrl.text) ?? _pctDiscapacidad;
@@ -330,6 +345,7 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
     final datos = {
       'salario_bruto_anual':     salario,
       'irpf_porcentaje':         irpf,
+      'irpf_auto':               _irpfAuto,
       'nif':                     _nifCtrl.text.trim(),
       'nss':                     _nssCtrl.text.trim(),
       'cuenta_bancaria':         _ibanCtrl.text.trim(),
@@ -355,6 +371,8 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
           double.tryParse(_antiguedadManualImporteCtrl.text) ?? 0,
       'nivel_categoria_carnicas':
           int.tryParse(_nivelCarnicasCtrl.text) ?? 5,
+      if (_fechaAltaRealEmpresa != null)
+        'fecha_alta_real_empresa': Timestamp.fromDate(_fechaAltaRealEmpresa!),
       if (plusesVariables.isNotEmpty) 'pluses_variables': plusesVariables,
     };
 
@@ -475,11 +493,17 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       children: [
         _sectionLabel('Identificación'),
-        _campo(_nifCtrl, 'NIF / NIE', 'Ej: 12345678A', Icons.badge_outlined),
+        _campo(_nifCtrl, 'NIF / NIE', 'Ej: 12345678A', Icons.badge_outlined,
+            customValidator: (v) {
+              if (v == null || v.trim().isEmpty) return 'NIF/NIE obligatorio';
+              final res = ValidadorNifCif.validar(v.trim());
+              return res.valido ? null : res.razon;
+            }),
         const SizedBox(height: 12),
-        _campo(_nssCtrl, 'Nº Seguridad Social', 'Ej: 28/1234567890/12',
+        _campo(_nssCtrl, 'Nº Seguridad Social', 'Ej: 28/12345678/40',
             Icons.health_and_safety_outlined,
-            helpText: 'Encuéntralo en tu tarjeta de la Seguridad Social'),
+            helpText: 'Formato: PP/NNNNNNNN/CC — 2 dígitos provincia · 8 número · 2 control',
+            customValidator: _validarNss),
         const SizedBox(height: 12),
         _buildCampoIBAN(),
         const SizedBox(height: 16),
@@ -568,9 +592,7 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       children: [
         _sectionLabel('Retención e IRPF'),
-        _campo(_irpfPctCtrl, 'Retención IRPF (%)', 'Ej: 15',
-            Icons.percent_rounded, numerico: true,
-            helpText: 'Consulta tu nómina anterior o usa la estimación de abajo'),
+        _buildCampoIrpf(),
         const SizedBox(height: 12),
         _campo(_otrasRentasCtrl, 'Otras rentas anuales (€)', 'Ej: 0',
             Icons.savings_outlined, numerico: true,
@@ -663,6 +685,117 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
     );
   }
 
+  Widget _buildCampoIrpf() {
+    final irpfCalculado = _calcularPctIrpf();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // Toggle "Calcular automáticamente"
+      GestureDetector(
+        onTap: () => setState(() {
+          _irpfAuto = !_irpfAuto;
+          if (!_irpfAuto) {
+            // Al desactivar, pre-carga el valor calculado para que el usuario lo edite
+            _irpfPctCtrl.text = irpfCalculado.toStringAsFixed(1);
+          }
+        }),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _irpfAuto
+                ? _kGreen.withValues(alpha: 0.08)
+                : _kBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _irpfAuto
+                  ? _kGreen.withValues(alpha: 0.3)
+                  : _kBorder,
+            ),
+          ),
+          child: Row(children: [
+            Icon(
+              _irpfAuto ? Icons.auto_awesome_rounded : Icons.edit_outlined,
+              size: 15,
+              color: _irpfAuto ? _kGreen : _kSub,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text(
+                  _irpfAuto
+                      ? 'IRPF calculado automáticamente'
+                      : 'IRPF manual',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _irpfAuto ? _kGreen : _kSub,
+                  ),
+                ),
+                Text(
+                  _irpfAuto
+                      ? 'Se recalcula al guardar según salario, hijos y situación familiar'
+                      : 'Toca para activar el cálculo automático',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: _irpfAuto ? _kGreen.withValues(alpha: 0.7) : _kSub,
+                  ),
+                ),
+              ]),
+            ),
+            Switch.adaptive(
+              value: _irpfAuto,
+              onChanged: (v) => setState(() {
+                _irpfAuto = v;
+                if (!v) _irpfPctCtrl.text = irpfCalculado.toStringAsFixed(1);
+              }),
+              activeColor: _kGreen,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ]),
+        ),
+      ),
+      const SizedBox(height: 8),
+      // Campo IRPF: en auto muestra el valor calculado read-only; en manual es editable
+      _irpfAuto
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                color: _kGreen.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _kGreen.withValues(alpha: 0.25)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.percent_rounded, size: 18, color: _kGreen),
+                const SizedBox(width: 10),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Retención IRPF',
+                        style: TextStyle(fontSize: 11, color: _kSub)),
+                    Text('${irpfCalculado.toStringAsFixed(1)} %',
+                        style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: _kGreen)),
+                  ],
+                )),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _kGreen.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text('Auto',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                          color: _kGreen)),
+                ),
+              ]),
+            )
+          : _campo(_irpfPctCtrl, 'Retención IRPF (%)', 'Ej: 15',
+              Icons.percent_rounded, numerico: true,
+              helpText: 'Consulta tu nómina anterior o escribe el % acordado'),
+    ]);
+  }
+
   Widget _buildGrupoCotizacion() {
     return Column(children: [
       _buildDropdown<GrupoCotizacion>(
@@ -715,6 +848,49 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13,
                   color: Color(0xFF5D4037))),
         ]),
+        const SizedBox(height: 8),
+        // Fecha de alta real — para calcular antigüedad correcta
+        GestureDetector(
+          onTap: _pickFechaAltaReal,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF5D4037).withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF5D4037).withValues(alpha: 0.2)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.calendar_today_rounded, size: 15, color: Color(0xFF5D4037)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Fecha de alta real en la empresa',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF5D4037))),
+                  const SizedBox(height: 2),
+                  Text(
+                    _fechaAltaRealEmpresa != null
+                        ? _formatearFecha(_fechaAltaRealEmpresa!)
+                        : 'Sin definir (usa fecha inicio contrato)',
+                    style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600,
+                      color: _fechaAltaRealEmpresa != null
+                          ? const Color(0xFF5D4037) : const Color(0xFF9CA3AF)),
+                  ),
+                ]),
+              ),
+              if (_fechaAltaRealEmpresa != null)
+                GestureDetector(
+                  onTap: () => setState(() => _fechaAltaRealEmpresa = null),
+                  child: const Icon(Icons.clear_rounded, size: 16, color: Color(0xFF5D4037)),
+                ),
+            ]),
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Úsala si el empleado tuvo contratos anteriores en esta empresa — así la antigüedad se calcula desde que realmente entró.',
+          style: TextStyle(fontSize: 10, color: Color(0xFF9CA3AF)),
+        ),
         const SizedBox(height: 8),
         _buildSwitchTile(
             'Importe manual (sobreescribe el convenio)',
@@ -879,7 +1055,8 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
       IconData icon,
       {bool numerico = false,
       bool obligatorio = true,
-      String? helpText}) =>
+      String? helpText,
+      String? Function(String?)? customValidator}) =>
       TextFormField(
         controller: ctrl,
         style: const TextStyle(fontSize: 13, color: _kText),
@@ -887,13 +1064,13 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
         keyboardType: numerico
             ? const TextInputType.numberWithOptions(decimal: true)
             : TextInputType.text,
-        validator: obligatorio
+        validator: customValidator ?? (obligatorio
             ? (v) {
                 if (v == null || v.isEmpty) return 'Campo obligatorio';
                 if (numerico && double.tryParse(v) == null) return 'Número inválido';
                 return null;
               }
-            : null,
+            : null),
       );
 
   Widget _buildCampoIBAN() {
@@ -994,6 +1171,27 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
 
   // ── Lógica ────────────────────────────────────────────────────────────────
 
+  /// Valida NSS según normativa TGSS: 2 dígitos provincia + 8 número + 2 control (mod 97).
+  /// Acepta formatos: "281234567840", "28/12345678/40", "28 12345678 40".
+  String? _validarNss(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return 'NSS obligatorio';
+    final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length != 12) {
+      return 'El NSS debe tener 12 dígitos — PP/NNNNNNNN/CC';
+    }
+    final prov = int.parse(digits.substring(0, 2));
+    if (prov < 1 || prov > 52) {
+      return 'Código de provincia inválido (01–52)';
+    }
+    final base    = int.parse(digits.substring(0, 10));
+    final control = int.parse(digits.substring(10, 12));
+    if (base % 97 != control) {
+      final esperado = (base % 97).toString().padLeft(2, '0');
+      return 'Dígito de control incorrecto (esperado: $esperado)';
+    }
+    return null;
+  }
+
   double _calcularSalarioMensual() {
     final bruto = double.tryParse(_salarioCtrl.text) ?? 0;
     if (!_prorrateoPagas) return _numPagas > 0 ? bruto / _numPagas : bruto;
@@ -1044,5 +1242,17 @@ class _FormularioDatosNominaState extends State<FormularioDatosNomina>
         _fechaNacCtrl.text = _formatearFecha(elegido);
       });
     }
+  }
+
+  Future<void> _pickFechaAltaReal() async {
+    final ahora   = DateTime.now();
+    final inicial = _fechaAltaRealEmpresa ?? DateTime(2000, 1, 1);
+    final elegido = await showDatePicker(
+      context: context,
+      initialDate: inicial.isAfter(ahora) ? ahora : inicial,
+      firstDate: DateTime(1950),
+      lastDate:  ahora,
+    );
+    if (elegido != null) setState(() => _fechaAltaRealEmpresa = elegido);
   }
 }

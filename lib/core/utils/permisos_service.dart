@@ -70,12 +70,14 @@ class SesionUsuario {
           'propietario', 'dashboard', 'reservas', 'clientes', 'valoraciones',
           'estadisticas', 'servicios', 'pedidos', 'tpv', 'whatsapp', 'tareas',
           'empleados', 'facturacion', 'nominas', 'vacaciones', 'fichaje', 'web',
+          'operaciones',
         ];
       case RolApp.admin:
         return [
           'dashboard', 'reservas', 'clientes', 'valoraciones', 'estadisticas',
           'servicios', 'pedidos', 'tpv', 'whatsapp', 'tareas', 'empleados',
           'facturacion', 'nominas', 'vacaciones', 'fichaje', 'web',
+          'operaciones',
         ];
       case RolApp.staff:
         return ['reservas', 'clientes', 'valoraciones', 'fichaje', 'empleados', 'web'];

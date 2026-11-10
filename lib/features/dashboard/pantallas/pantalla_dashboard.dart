@@ -50,6 +50,8 @@ import '../../tpv/pantallas/tpv_peluqueria_screen.dart';
 import '../../tpv/pantallas/tpv_tienda_screen.dart';
 import '../../tpv/pantallas/tpv_selector_negocio_screen.dart';
 import '../../fichajes/pantallas/gestion_fichajes_screen.dart';
+import '../../fichajes/pantallas/pantalla_alerta_despacho.dart';
+import '../../operaciones/pantallas/modulo_operaciones_screen.dart';
 import '../../../core/navigation/app_navigator.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../suscripcion/widgets/banner_suscripcion.dart';
@@ -101,9 +103,11 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   StreamSubscription? _mensajesWebSub;      // listener contacto_web (cancelado en dispose)
   StreamSubscription? _pedidosPendientesSub; // listener pedidos pendientes (cancelado en dispose)
   StreamSubscription? _noLeidasSub;          // listener bandeja no-leídas (cancelado en dispose)
+  StreamSubscription? _alertasDespachoSub;   // listener alertas_despacho — abre diálogo automáticamente
   int _mensajesSinLeer = 0; // Contador de mensajes sin leer en módulo web
   int _indiceSeleccionado = 0; // Para NavigationRail en desktop
   int _paginaHome = 0; // 0=inicio, 1=módulos (mobile bottom nav)
+  bool _modoReordenModulos = false;
   String? _moduloDesktopActivo; // null=home, 'personal', 'perfil', 'mas', o id de módulo
   DateTime _fechaFiltro = DateTime.now(); // filtro de día en actividad reciente
   final TextEditingController _searchCtrl = TextEditingController();
@@ -129,6 +133,9 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   bool _sidebarCollapsado = false;
   /// True solo cuando estamos en TPV Y el usuario lo ha colapsado
   bool get _sidebarEfectivoCollapsado => _moduloDesktopActivo == 'tpv' && _sidebarCollapsado;
+
+  /// Operaciones CAD ocupa toda la pantalla — el sidebar no tiene sentido aquí
+  bool get _modoFullscreen => _moduloDesktopActivo == 'operaciones';
 
   // ── Facturación: mes seleccionado + ventana de 6 meses del gráfico ─────────
   late DateTime _facturacionMes;
@@ -172,9 +179,10 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     _AppTile('app',           Icons.storefront_rounded,           'Mi App',       Color(0xFF00ACC1)),
     _AppTile('fichaje',       Icons.schedule_rounded,            'Fichaje',      Color(0xFF14B8A6)),
     _AppTile('vacaciones',    Icons.beach_access_rounded,        'Vacaciones',   Color(0xFF0EA5E9)),
+    _AppTile('operaciones',   Icons.emergency_share_rounded,     'Operaciones',  Color(0xFFDC2626)),
     _AppTile('plantillas_pdf',Icons.picture_as_pdf_rounded,      'Plantillas',   Color(0xFFEF4444)),
     _AppTile('propietario',   Icons.admin_panel_settings_rounded,'Admin',        Color(0xFFDC2626)),
-    _AppTile('perfil',              Icons.account_circle_rounded,   'Mi Perfil',    Color(0xFF6366F1)),
+    _AppTile('perfil',              Icons.settings_rounded,         'Config.',      Color(0xFF6366F1)),
     _AppTile('carpeta',             Icons.folder_special_rounded,   'Más',          Color(0xFF6366F1)),
     _AppTile('documentos_empleado', Icons.folder_open_rounded,      'Documentos',   Color(0xFF8B5CF6)),
   ];
@@ -204,6 +212,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         if (t.id == 'personal' && sesion.esStaff) return false;
         // Documentos del empleado: solo para staff
         if (t.id == 'documentos_empleado') return sesion.esStaff;
+        // Operaciones (alertas de despacho): siempre visible para staff
+        if (t.id == 'operaciones') return true;
         final moduloId = aliases[t.id] ?? t.id;
         final enRol = sesion.modulosVisibles.contains(t.id) ||
                       sesion.modulosVisibles.contains(moduloId);
@@ -247,6 +257,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     'plantillas_pdf':     'Personaliza el diseño de tus documentos PDF',
     'propietario':        'Configuración avanzada del sistema',
     'documentos_empleado':'Consulta tus documentos y archivos de empresa',
+    'operaciones':        'Alertas de despacho y servicios activos',
   };
 
   // Texto de acción / stat para list/card view (color accent)
@@ -479,6 +490,61 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     }, onError: (_) {});
   }
 
+  // ── Alertas de despacho — abre diálogo automáticamente en CUALQUIER pantalla ──
+  void _escucharAlertasDespacho() {
+    if (_empresaId == null) return;
+    bool _alertasInicial = true;
+    _alertasDespachoSub?.cancel();
+    _alertasDespachoSub = FirebaseFirestore.instance
+        .collection('empresas').doc(_empresaId)
+        .collection('alertas_despacho')
+        .where('estado', isEqualTo: 'pendiente')
+        .snapshots().listen((snapshot) {
+      if (!mounted) return;
+      // Primera carga: no abrir diálogos para alertas antiguas
+      if (_alertasInicial) {
+        _alertasInicial = false;
+        return;
+      }
+      // Solo cuando se añade una alerta nueva
+      final nuevas = snapshot.docChanges
+          .where((c) => c.type == DocumentChangeType.added)
+          .toList();
+      if (nuevas.isEmpty) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final doc = nuevas.last.doc;
+        final alerta = AlertaDespacho.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+        final col = alerta.prioridad.color;
+        final isWide = MediaQuery.sizeOf(context).width >= 700;
+        HapticFeedback.heavyImpact();
+        if (isWide) {
+          showDialog(
+            context: context,
+            barrierColor: Colors.black54,
+            barrierDismissible: true,
+            builder: (_) => Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: EdgeInsets.zero,
+              child: PantallaAlertaDespacho(
+                empresaId: _empresaId!,
+                alertaId: doc.id,
+              ),
+            ),
+          );
+        } else {
+          Navigator.push(context, MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => PantallaAlertaDespacho(
+              empresaId: _empresaId!,
+              alertaId: doc.id,
+            ),
+          ));
+        }
+      });
+    }, onError: (_) {});
+  }
+
   void _mostrarToast({
     required String titulo,
     required String cuerpo,
@@ -510,6 +576,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     _mensajesWebSub?.cancel();
     _pedidosPendientesSub?.cancel();
     _noLeidasSub?.cancel();
+    _alertasDespachoSub?.cancel();
     super.dispose();
   }
 
@@ -750,6 +817,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           NotificacionesService().guardarTokenConEmpresa(empresaId);
           await _suscripcionService.cargarSuscripcion(empresaId);
           _escucharMensajesSinLeer();
+          _escucharAlertasDespacho();
           // Cargar nombre de la empresa para el header desktop
           try {
             final empDoc = await FirebaseFirestore.instance
@@ -913,8 +981,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
               const PopupMenuItem(
                 value: 'perfil',
                 child: ListTile(
-                  leading: Icon(Icons.person),
-                  title: Text('Mi Perfil'),
+                  leading: Icon(Icons.settings_rounded),
+                  title: Text('Configuración General'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -1082,57 +1150,66 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                     children: [
                       SizedBox(
                         width: 120,
-                        child: SingleChildScrollView(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: MediaQuery.of(context).size.height,
-                            ),
-                            child: IntrinsicHeight(
-                              child: NavigationRail(
-                                selectedIndex: _indiceSeleccionado.clamp(0, modulosVisibles.length - 1),
-                                onDestinationSelected: (index) {
-                                  setState(() {
+                        child: Container(
+                          color: Colors.white,
+                          child: SingleChildScrollView(
+                            child: Column(
+                              children: List.generate(modulosVisibles.length, (index) {
+                                final m = modulosVisibles[index];
+                                final sel = _indiceSeleccionado.clamp(0, modulosVisibles.length - 1) == index;
+                                Widget iconWidget = Icon(
+                                  m.icono,
+                                  size: sel ? 28 : 24,
+                                  color: sel ? const Color(0xFF0D47A1) : Colors.grey[600],
+                                );
+                                if (m.id == 'web' && _mensajesSinLeer > 0) {
+                                  iconWidget = Badge(
+                                    label: Text(_mensajesSinLeer.toString()),
+                                    backgroundColor: Colors.red,
+                                    child: iconWidget,
+                                  );
+                                }
+                                return InkWell(
+                                  onTap: () => setState(() {
                                     _indiceSeleccionado = index;
                                     _tabController?.animateTo(index);
-                                  });
-                                },
-                                labelType: NavigationRailLabelType.all,
-                                backgroundColor: Colors.white,
-                                minWidth: 120,
-                                selectedIconTheme: const IconThemeData(
-                                  color: Color(0xFF0D47A1),
-                                  size: 28,
-                                ),
-                                unselectedIconTheme: IconThemeData(
-                                  color: Colors.grey[600],
-                                  size: 24,
-                                ),
-                                selectedLabelTextStyle: const TextStyle(
-                                  color: Color(0xFF0D47A1),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                                unselectedLabelTextStyle: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 12,
-                                ),
-                                destinations: modulosVisibles.map((m) {
-                                  if (m.id == 'web' && _mensajesSinLeer > 0) {
-                                    return NavigationRailDestination(
-                                      icon: Badge(
-                                        label: Text(_mensajesSinLeer.toString()),
-                                        backgroundColor: Colors.red,
-                                        child: Icon(m.icono),
+                                  }),
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: sel ? const Color(0xFF0D47A1).withOpacity(0.08) : null,
+                                      border: Border(
+                                        left: BorderSide(
+                                          color: sel ? const Color(0xFF0D47A1) : Colors.transparent,
+                                          width: 3,
+                                        ),
                                       ),
-                                      label: Text(m.nombre),
-                                    );
-                                  }
-                                  return NavigationRailDestination(
-                                    icon: Icon(m.icono),
-                                    label: Text(m.nombre),
-                                  );
-                                }).toList(),
-                              ),
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        iconWidget,
+                                        const SizedBox(height: 4),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                          child: Text(
+                                            m.nombre,
+                                            textAlign: TextAlign.center,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: sel ? const Color(0xFF0D47A1) : Colors.grey[600],
+                                              fontWeight: sel ? FontWeight.w600 : FontWeight.normal,
+                                              fontSize: sel ? 13 : 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }),
                             ),
                           ),
                         ),
@@ -1404,8 +1481,23 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     final dark = _darkMode;
     final iconColor = dark ? Colors.white70 : Colors.black87;
 
+    final size = MediaQuery.of(context).size;
+    final isPortraitMobile = size.shortestSide < 600 && size.height > size.width;
+
     // Botones extra: cambio de vista de rol (solo propietario)
     final extraActions = <Widget>[
+      // Botón reordenar módulos: solo en móvil portrait, tab Módulos
+      if (isPortraitMobile && _paginaHome == 1)
+        IconButton(
+          tooltip: _modoReordenModulos ? 'Listo' : 'Reordenar módulos',
+          icon: Icon(
+            _modoReordenModulos ? Icons.check_rounded : Icons.drag_indicator_rounded,
+            color: _modoReordenModulos
+                ? const Color(0xFF10B981)
+                : (dark ? Colors.white70 : Colors.black87),
+          ),
+          onPressed: () => setState(() => _modoReordenModulos = !_modoReordenModulos),
+        ),
       if (_sesion?.esPropietario == true)
         PopupMenuButton<String>(
           tooltip: 'Cambiar vista de rol',
@@ -1620,24 +1712,30 @@ class _PantallaDashboardState extends State<PantallaDashboard>
 
     return Container(
       color: bg,
-      child: ReorderableListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-        itemCount: lista.length,
-        onReorder: onReorder,
-        buildDefaultDragHandles: false,
-        proxyDecorator: (child, _, __) => Material(
-          color: Colors.transparent,
-          elevation: 6,
-          shadowColor: Colors.black26,
-          borderRadius: BorderRadius.circular(16),
-          child: child,
-        ),
-        itemBuilder: (_, i) => ReorderableDragStartListener(
-          key: ValueKey(lista[i].id),
-          index: i,
-          child: buildCard(lista[i]),
-        ),
-      ),
+      child: _modoReordenModulos
+          ? ReorderableListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+              itemCount: lista.length,
+              onReorder: onReorder,
+              buildDefaultDragHandles: false,
+              proxyDecorator: (child, _, __) => Material(
+                color: Colors.transparent,
+                elevation: 6,
+                shadowColor: Colors.black26,
+                borderRadius: BorderRadius.circular(16),
+                child: child,
+              ),
+              itemBuilder: (_, i) => ReorderableDragStartListener(
+                key: ValueKey(lista[i].id),
+                index: i,
+                child: buildCard(lista[i]),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+              itemCount: lista.length,
+              itemBuilder: (_, i) => buildCard(lista[i]),
+            ),
     );
   }
 
@@ -2657,7 +2755,10 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     return GestureDetector(
       onTap: () {
         if (index == 0 || index == 1) {
-          setState(() => _paginaHome = index);
+          setState(() {
+            _paginaHome = index;
+            if (index != 1) _modoReordenModulos = false;
+          });
         } else if (index == 4) {
           Navigator.push(context, MaterialPageRoute(
             builder: (_) => FluixModuleShell(
@@ -2718,13 +2819,18 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           Text('Acciones rápidas',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: text)),
           const SizedBox(height: 16),
-          ...[
-            _QuickActionData(Icons.receipt_long_rounded, const Color(0xFF3B82F6), 'Nueva factura', 'facturacion'),
-            _QuickActionData(Icons.people_alt_rounded, const Color(0xFF10B981), 'Nuevo cliente', 'clientes'),
-            _QuickActionData(Icons.inventory_2_rounded, const Color(0xFFF59E0B), 'Nuevo pedido', 'pedidos'),
-            _QuickActionData(Icons.task_alt_rounded, const Color(0xFF8B5CF6), 'Nueva tarea', 'tareas'),
-            _QuickActionData(Icons.badge_rounded, const Color(0xFF6366F1), 'Nuevo empleado', 'empleados'),
-          ].map((qa) => ListTile(
+          ...(_sesion?.esStaff == true ? [
+            _QuickActionData(Icons.emergency_share_rounded, const Color(0xFFDC2626), 'Alertas',      'operaciones'),
+            _QuickActionData(Icons.schedule_rounded,        const Color(0xFF14B8A6), 'Fichar',       'fichaje'),
+            _QuickActionData(Icons.payments_rounded,        const Color(0xFF6366F1), 'Mis Nóminas',  'nominas'),
+            _QuickActionData(Icons.beach_access_rounded,    const Color(0xFF0EA5E9), 'Vacaciones',   'vacaciones'),
+          ] : [
+            _QuickActionData(Icons.receipt_long_rounded, const Color(0xFF3B82F6), 'Nueva factura',    'facturacion'),
+            _QuickActionData(Icons.people_alt_rounded,   const Color(0xFF10B981), 'Nuevo cliente',    'clientes'),
+            _QuickActionData(Icons.inventory_2_rounded,  const Color(0xFFF59E0B), 'Nuevo pedido',     'pedidos'),
+            _QuickActionData(Icons.task_alt_rounded,     const Color(0xFF8B5CF6), 'Nueva tarea',      'tareas'),
+            _QuickActionData(Icons.badge_rounded,        const Color(0xFF6366F1), 'Nuevo empleado',   'empleados'),
+          ]).map((qa) => ListTile(
             leading: Container(width: 36, height: 36,
                 decoration: BoxDecoration(color: qa.color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10)),
@@ -2749,6 +2855,40 @@ class _PantallaDashboardState extends State<PantallaDashboard>
   Widget _buildDesktopLayout(bool dark) {
     final size = MediaQuery.of(context).size;
     final w = size.width;
+
+    // Operaciones CAD: pantalla completa sin sidebar
+    if (_modoFullscreen) {
+      return Stack(children: [
+        _buildDesktopContent(dark),
+        // Botón volver flotante en esquina superior izquierda
+        Positioned(
+          top: 12, left: 12,
+          child: Material(
+            color: Colors.transparent,
+            child: Tooltip(
+              message: 'Volver al dashboard',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => setState(() => _moduloDesktopActivo = null),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0A0F23).withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF00FFC8).withValues(alpha: 0.4)),
+                  ),
+                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.arrow_back_rounded, color: Color(0xFF00FFC8), size: 16),
+                    SizedBox(width: 6),
+                    Text('Dashboard', style: TextStyle(color: Color(0xFF00FFC8), fontSize: 12, fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ]);
+    }
 
     // Sistema de 3 modos progresivos para el sidebar:
     //   full    (≥ 1100px) → 240px con etiquetas completas
@@ -3092,6 +3232,11 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       if (_propEf) return true;
       const _al = <String,String>{'personal':'empleados','web':'contenido_web'};
       final pid = _al[id] ?? id;
+      // Comprobar permisos del rol antes del plan
+      if (_sesEf != null) {
+        final vis = _sesEf!.modulosVisibles;
+        if (!vis.contains(id) && !vis.contains(pid)) return false;
+      }
       return _planModulos.contains(pid) || _planModulos.contains(id);
     }
     final navItems = [
@@ -3104,16 +3249,14 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       if (_enPlan('tareas') && !_esNazari)           _SidebarItem(Icons.task_alt_rounded,        'Tareas',        'tareas'),
       if (_enPlan('personal') && !_esNazari)         _SidebarItem(Icons.badge_rounded,           'Personal',      'personal'),
       if (_enPlan('web'))                            _SidebarItem(Icons.language_rounded,        'Web',           'web'),
+      if (_enPlan('operaciones'))                    _SidebarItem(Icons.emergency_share_rounded, 'Operaciones',   'operaciones'),
       // Nazarí: acceso directo a Plantillas PDF en lugar del menú "Más módulos"
       if (_esNazari)                                 _SidebarItem(Icons.picture_as_pdf_rounded,  'Plantillas PDF','plantillas_pdf'),
       if (!_esNazari)                                _SidebarItem(Icons.apps_rounded,            'Más módulos',   'carpeta'),
+                                                     _SidebarItem(Icons.settings_rounded,        'Configuración', 'perfil'),
     ];
     final bottomItems = [
-      if (_sesion?.esPropietarioPlatforma == true || _sesion?.esPropietario == true || _esMultiSede)
-        _SidebarItem(Icons.swap_horiz_rounded, 'Cambiar empresa', 'cambiar_empresa'),
-      _SidebarItem(Icons.person_rounded, 'Mi perfil', 'perfil'),
       _SidebarItem(Icons.support_agent_rounded, 'Soporte', 'soporte'),
-      _SidebarItem(Icons.settings_rounded, 'Configuración', null),
       if (_sesion?.esPropietarioPlatforma == true)
         _SidebarItem(Icons.account_tree_rounded, 'Grafo App', 'grafo_app'),
     ];
@@ -3178,55 +3321,60 @@ class _PantallaDashboardState extends State<PantallaDashboard>
               horizontal: (collapsed || isCompact) ? 4 : 12,
               vertical: 4,
             ),
-            children: navItems.map((item) {
-              final isSelected = (item.label == 'Inicio' && _moduloDesktopActivo == null) ||
-                  (item.moduloId != null && _moduloDesktopActivo == item.moduloId);
-              return _buildSidebarNavItem(item, isSelected, dark, text, sub,
-                  collapsed: collapsed, compact: isCompact);
-            }).toList(),
-          ),
-        ),
-        // ── Selector de rol (solo full, propietario) ──────────────────────
-        if (_sesion?.esPropietario == true && !collapsed && !isCompact)
-          Container(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-            decoration: BoxDecoration(border: Border(top: BorderSide(color: border))),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Vista activa', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700,
-                  color: sub, letterSpacing: 0.6)),
-              const SizedBox(height: 8),
-              Row(children: [
-                _sidebarRolChip(null,               '👑', 'Prop.',  dark, border),
-                const SizedBox(width: 4),
-                _sidebarRolChip(RolApp.admin,       '🛡️', 'Admin',  dark, border),
-                const SizedBox(width: 4),
-                _sidebarRolChip(RolApp.staff,       '👤', 'Staff',  dark, border),
-                const SizedBox(width: 4),
-                _sidebarRolChip(RolApp.clienteFinal,'📱', 'User',   dark, border),
-              ]),
-              if (_rolVistaActual != null) ...[
-                const SizedBox(height: 8),
+            children: [
+              ...navItems.map((item) {
+                final isSelected = (item.label == 'Inicio' && _moduloDesktopActivo == null) ||
+                    (item.moduloId != null && _moduloDesktopActivo == item.moduloId);
+                return _buildSidebarNavItem(item, isSelected, dark, text, sub,
+                    collapsed: collapsed, compact: isCompact);
+              }),
+              // ── Selector de rol (solo full, propietario) ──────────────
+              if (_sesion?.esPropietario == true && !collapsed && !isCompact) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: dark ? 0.2 : 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'Simulando ${_rolVistaActual == RolApp.admin ? 'Admin' : _rolVistaActual == RolApp.staff ? 'Staff' : 'Usuario'}',
-                    style: const TextStyle(fontSize: 9.5, color: Colors.amber, fontWeight: FontWeight.w600),
-                  ),
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.fromLTRB(2, 12, 2, 10),
+                  decoration: BoxDecoration(border: Border(top: BorderSide(color: border))),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Vista activa', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700,
+                        color: sub, letterSpacing: 0.6)),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      _sidebarRolChip(null,               '👑', 'Prop.',  dark, border),
+                      const SizedBox(width: 4),
+                      _sidebarRolChip(RolApp.admin,       '🛡️', 'Admin',  dark, border),
+                      const SizedBox(width: 4),
+                      _sidebarRolChip(RolApp.staff,       '👤', 'Staff',  dark, border),
+                      const SizedBox(width: 4),
+                      _sidebarRolChip(RolApp.clienteFinal,'📱', 'User',   dark, border),
+                    ]),
+                    if (_rolVistaActual != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: dark ? 0.2 : 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Simulando ${_rolVistaActual == RolApp.admin ? 'Admin' : _rolVistaActual == RolApp.staff ? 'Staff' : 'Usuario'}',
+                          style: const TextStyle(fontSize: 9.5, color: Colors.amber, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ]),
                 ),
               ],
-            ]),
+              // ── Bottom items (Soporte, Configuración, etc.) ───────────
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: EdgeInsets.only(top: (collapsed || isCompact) ? 4 : 8),
+                decoration: BoxDecoration(border: Border(top: BorderSide(color: border))),
+                child: Column(children: bottomItems.map((item) =>
+                    _buildSidebarNavItem(item, false, dark, text, sub,
+                        collapsed: collapsed, compact: isCompact)).toList()),
+              ),
+            ],
           ),
-        // ── Soporte y Configuración ─────────────────────────────────────
-        Container(
-          padding: EdgeInsets.all((collapsed || isCompact) ? 4 : 16),
-          decoration: BoxDecoration(border: Border(top: BorderSide(color: border))),
-          child: Column(children: bottomItems.map((item) =>
-              _buildSidebarNavItem(item, false, dark, text, sub,
-                  collapsed: collapsed, compact: isCompact)).toList()),
         ),
       ]),
     );
@@ -3709,7 +3857,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
           ]),
           itemBuilder: (_) => [
             const PopupMenuItem(value: 'perfil',
-                child: ListTile(leading: Icon(Icons.person), title: Text('Mi Perfil'),
+                child: ListTile(leading: Icon(Icons.settings_rounded), title: Text('Configuración General'),
                     contentPadding: EdgeInsets.zero, dense: true)),
             const PopupMenuDivider(),
             const PopupMenuItem(value: 'cerrar_sesion',
@@ -6494,90 +6642,222 @@ class _PantallaDashboardState extends State<PantallaDashboard>
     final border = dark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200;
     final text   = dark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
     final sub    = dark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
+    final esAdmin = _sesionEfectiva?.esAdmin ?? false;
+    final visibles = _sesionEfectiva?.modulosVisibles ?? [];
     final acciones = [
-      _QuickActionData(Icons.receipt_long_rounded, const Color(0xFF3B82F6), 'Nueva factura', 'facturacion'),
-      _QuickActionData(Icons.people_alt_rounded, const Color(0xFF10B981), 'Nuevo cliente', 'clientes'),
-      _QuickActionData(Icons.inventory_2_rounded, const Color(0xFFF59E0B), 'Nuevo pedido', 'pedidos'),
-      _QuickActionData(Icons.task_alt_rounded, const Color(0xFF8B5CF6), 'Nueva tarea', 'tareas'),
-      _QuickActionData(Icons.badge_rounded, const Color(0xFF6366F1), 'Nuevo empleado', 'empleados'),
+      if (esAdmin || visibles.contains('facturacion'))
+        _QuickActionData(Icons.receipt_long_rounded, const Color(0xFF3B82F6), 'Nueva factura', 'facturacion'),
+      if (esAdmin || visibles.contains('clientes'))
+        _QuickActionData(Icons.people_alt_rounded, const Color(0xFF10B981), 'Nuevo cliente', 'clientes'),
+      if (esAdmin || visibles.contains('pedidos'))
+        _QuickActionData(Icons.inventory_2_rounded, const Color(0xFFF59E0B), 'Nuevo pedido', 'pedidos'),
+      if (esAdmin || visibles.contains('tareas'))
+        _QuickActionData(Icons.task_alt_rounded, const Color(0xFF8B5CF6), 'Nueva tarea', 'tareas'),
+      if (esAdmin)
+        _QuickActionData(Icons.badge_rounded, const Color(0xFF6366F1), 'Nuevo empleado', 'empleados'),
+      if (!esAdmin) ...[
+        _QuickActionData(Icons.schedule_rounded,    const Color(0xFF14B8A6), 'Fichar',      'fichaje'),
+        _QuickActionData(Icons.payments_rounded,    const Color(0xFF6366F1), 'Mis Nóminas', 'nominas'),
+        _QuickActionData(Icons.beach_access_rounded,const Color(0xFF0EA5E9), 'Vacaciones',  'vacaciones'),
+      ],
     ];
     return Container(
       decoration: BoxDecoration(
           color: bg, border: Border(left: BorderSide(color: border))),
       child: Column(children: [
-        // ── KPIs en 2 filas (arriba, fijo) ───────────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
-          child: _buildKpiCarouselDoble(dark, text, sub),
-        ),
-        Divider(height: 1, color: border),
-        // ── Selector de pestaña ───────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 7, 12, 7),
-          child: Row(children: [
-            _rightPanelTabChip('Actividad', 'inicio', dark, border),
-            const SizedBox(width: 6),
-            _rightPanelTabChip('Fiscal', 'fiscal', dark, border),
-          ]),
-        ),
-        Divider(height: 1, color: border),
+        // ── KPIs (solo admins) ────────────────────────────────────────────
+        if (esAdmin) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
+            child: _buildKpiCarouselDoble(dark, text, sub),
+          ),
+          Divider(height: 1, color: border),
+        ],
+        // ── Selector de pestaña (solo admins) ─────────────────────────────
+        if (esAdmin) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 7, 12, 7),
+            child: Row(children: [
+              _rightPanelTabChip('Actividad', 'inicio', dark, border),
+              const SizedBox(width: 6),
+              _rightPanelTabChip('Fiscal', 'fiscal', dark, border),
+            ]),
+          ),
+          Divider(height: 1, color: border),
+        ],
         // ── Contenido según pestaña ───────────────────────────────────────
-        if (_rightPanelTab == 'fiscal')
+        if (esAdmin && _rightPanelTab == 'fiscal')
           Expanded(child: _buildRightPanelFiscal(dark, text, sub, border))
         else ...[
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
-                child: Row(children: [
-                  Container(width: 6, height: 6,
-                      decoration: const BoxDecoration(color: Color(0xFF14B8A6), shape: BoxShape.circle)),
-                  const SizedBox(width: 6),
-                  Text('Actividad reciente',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: text)),
-                ]),
-              ),
-              Expanded(child: _buildActividadRecientePanelDesktop(dark, text, sub, border)),
-            ]),
-          ),
-          // ── Acciones rápidas (fijas abajo) ──────────────────────────────
-          Divider(height: 1, color: border),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(width: 6, height: 6,
-                    decoration: const BoxDecoration(color: Color(0xFF3B82F6), shape: BoxShape.circle)),
-                const SizedBox(width: 6),
-                Text('Acciones rápidas',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: text)),
-              ]),
-              const SizedBox(height: 8),
-              ...acciones.map((qa) => InkWell(
-                onTap: () => _abrirModulo(qa.moduloId),
-                borderRadius: BorderRadius.circular(6),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          if (esAdmin)
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
                   child: Row(children: [
-                    Container(
-                      width: 26, height: 26,
-                      decoration: BoxDecoration(
-                        color: qa.color.withValues(alpha: dark ? 0.14 : 0.08),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Icon(qa.icon, color: qa.color, size: 13),
-                    ),
-                    const SizedBox(width: 8),
-                    Text('+ ${qa.label}',
-                        style: TextStyle(fontSize: 12, color: qa.color, fontWeight: FontWeight.w500)),
+                    Container(width: 6, height: 6,
+                        decoration: const BoxDecoration(color: Color(0xFF14B8A6), shape: BoxShape.circle)),
+                    const SizedBox(width: 6),
+                    Text('Actividad reciente',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: text)),
                   ]),
                 ),
-              )),
-            ]),
-          ),
+                Expanded(child: _buildActividadRecientePanelDesktop(dark, text, sub, border)),
+              ]),
+            )
+          else
+            Expanded(child: _buildStaffAlertasPanel(dark, text, sub, border)),
+          // ── Acciones rápidas (fijas abajo) ──────────────────────────────
+          if (acciones.isNotEmpty) ...[
+            Divider(height: 1, color: border),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(width: 6, height: 6,
+                      decoration: const BoxDecoration(color: Color(0xFF3B82F6), shape: BoxShape.circle)),
+                  const SizedBox(width: 6),
+                  Text('Acciones rápidas',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: text)),
+                ]),
+                const SizedBox(height: 8),
+                ...acciones.map((qa) => InkWell(
+                  onTap: () => _abrirModulo(qa.moduloId),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                    child: Row(children: [
+                      Container(
+                        width: 26, height: 26,
+                        decoration: BoxDecoration(
+                          color: qa.color.withValues(alpha: dark ? 0.14 : 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(qa.icon, color: qa.color, size: 13),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('+ ${qa.label}',
+                          style: TextStyle(fontSize: 12, color: qa.color, fontWeight: FontWeight.w500)),
+                    ]),
+                  ),
+                )),
+              ]),
+            ),
+          ],
         ],
       ]),
     );
+  }
+
+  // ── Panel derecho staff: alertas de despacho pendientes ──────────────────
+  Widget _buildStaffAlertasPanel(bool dark, Color text, Color sub, Color border) {
+    final eid = _empresaId;
+    if (eid == null) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+        child: Row(children: [
+          Container(width: 6, height: 6,
+              decoration: const BoxDecoration(color: Color(0xFFDC2626), shape: BoxShape.circle)),
+          const SizedBox(width: 6),
+          Text('Alertas de despacho',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: text)),
+        ]),
+      ),
+      Expanded(
+        child: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('empresas')
+              .doc(eid)
+              .collection('alertas_despacho')
+              .where('estado', whereIn: ['pendiente', 'aceptada', 'en_camino'])
+              .orderBy('fecha_hora', descending: true)
+              .limit(10)
+              .snapshots(),
+          builder: (ctx, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Center(child: SizedBox(width: 20, height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 1.5)));
+            }
+            final docs = snap.data?.docs ?? [];
+            if (docs.isEmpty) {
+              return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.check_circle_outline_rounded, color: sub, size: 28),
+                const SizedBox(height: 6),
+                Text('Sin alertas activas', style: TextStyle(fontSize: 11, color: sub)),
+              ]));
+            }
+            return ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              itemCount: docs.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 4),
+              itemBuilder: (ctx, i) {
+                final d = docs[i].data() as Map<String, dynamic>;
+                final alerta = AlertaDespacho.fromMap(docs[i].id, d);
+                final colorPrioridad = alerta.prioridad.color;
+                return InkWell(
+                  onTap: () {
+                    final isWide = MediaQuery.sizeOf(context).width >= 700;
+                    if (isWide) {
+                      showDialog(
+                        context: context,
+                        barrierColor: Colors.black54,
+                        barrierDismissible: true,
+                        builder: (_) => Dialog(
+                          backgroundColor: Colors.transparent,
+                          insetPadding: EdgeInsets.zero,
+                          child: PantallaAlertaDespacho(empresaId: eid, alertaId: alerta.id),
+                        ),
+                      );
+                    } else {
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => PantallaAlertaDespacho(empresaId: eid, alertaId: alerta.id),
+                      ));
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: dark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colorPrioridad.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(children: [
+                      Container(
+                        width: 28, height: 28,
+                        decoration: BoxDecoration(
+                          color: colorPrioridad.withValues(alpha: dark ? 0.18 : 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(alerta.prioridad.icon, color: colorPrioridad, size: 14),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(alerta.tipoCodigo,
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: colorPrioridad)),
+                        Text(alerta.localidad,
+                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 10, color: sub)),
+                      ])),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colorPrioridad.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(alerta.estado.toUpperCase(),
+                            style: TextStyle(fontSize: 9, color: colorPrioridad, fontWeight: FontWeight.w700)),
+                      ),
+                    ]),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    ]);
   }
 
   Widget _rightPanelTabChip(String label, String tab, bool dark, Color border) {
@@ -6791,13 +7071,16 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                 }
 
                 if (items.isEmpty) {
-                  return Center(child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.history_rounded, size: 28, color: sub.withValues(alpha: 0.3)),
-                      const SizedBox(height: 8),
-                      Text('Sin actividad hoy', style: TextStyle(fontSize: 12, color: sub)),
-                    ]),
+                  return Center(child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.history_rounded, size: 28, color: sub.withValues(alpha: 0.3)),
+                        const SizedBox(height: 8),
+                        Text('Sin actividad hoy', style: TextStyle(fontSize: 12, color: sub)),
+                      ]),
+                    ),
                   ));
                 }
 
@@ -7122,6 +7405,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
       case 'valoraciones':   screen = ModuloValoraciones(empresaId: eid); break;
       case 'fichaje':        screen = GestionFichajesScreen(empresaId: eid, esAdmin: ses?.esAdmin ?? false); break;
       case 'vacaciones':     screen = VacacionesScreen(empresaId: eid, sesion: ses); break;
+      case 'operaciones':    screen = ModuloOperacionesScreen(empresaId: eid, esAdmin: ses?.esAdmin ?? false); break;
       case 'nominas':
         screen = (ses != null && !ses.esAdmin)
             ? MisNominasScreen(empresaId: eid)
@@ -7186,7 +7470,11 @@ class _PantallaDashboardState extends State<PantallaDashboard>
                                 empresaId: id,
                                 onOpenContabilidad: () => setState(() => _moduloDesktopActivo = 'contabilidad'),
                               );
-      case 'empleados':       return ModuloEmpleadosScreen(empresaId: id, sesion: sesionActiva);
+      case 'empleados':       return ModuloEmpleadosScreen(
+                                empresaId: id,
+                                sesion: sesionActiva,
+                                onNavigarAModulo: (m) => setState(() => _moduloDesktopActivo = m),
+                              );
       case 'clientes':        return ModuloClientesScreen(empresaId: id, sesion: sesionActiva);
       case 'servicios':       return ModuloServiciosScreen(empresaId: id, sesion: sesionActiva);
       case 'nominas':
@@ -7197,6 +7485,7 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         return ModuloNominasScreen(empresaId: id);
       case 'fichaje':         return _construirPantallaFichaje();
       case 'vacaciones':      return VacacionesScreen(empresaId: id, sesion: sesionActiva);
+      case 'operaciones':     return ModuloOperacionesScreen(empresaId: id, esAdmin: sesionActiva?.esAdmin ?? false);
       case 'web':             return _buildVistaWeb();
       case 'app':             return ModuloAppScreen(empresaId: id);
       case 'plantillas_pdf':  return PdfTemplatesListScreen(empresaId: id);

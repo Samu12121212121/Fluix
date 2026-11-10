@@ -61,7 +61,7 @@ class _RevisionNominaEmpleadoScreenState extends State<RevisionNominaEmpleadoScr
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),
             tooltip: 'Ver PDF',
-            onPressed: () => NominaPdfService.verNominaPdf(context, n, widget.empresaId),
+            onPressed: () => NominaPdfService.verNominaPdf(context, n, widget.empresaId, modoEmpleado: true),
           ),
         ],
       ),

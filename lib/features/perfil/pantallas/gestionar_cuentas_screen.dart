@@ -1,10 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:planeag_flutter/core/config/planes_config.dart';
 import 'package:planeag_flutter/services/contenido_web_service.dart';
@@ -31,6 +31,12 @@ class _CuentaCliente {
   final List<String> addonsActivos;
   final int empleadosNomina;
   final double precioTotal;
+  /// Precio mensual pactado manualmente (sobreescribe precioTotal en los cálculos).
+  final double? precioManual;
+
+  /// Precio efectivo para cálculos: usa el manual si está fijado, si no el calculado.
+  double get precioEfectivo => (precioManual != null && precioManual! > 0) ? precioManual! : precioTotal;
+  bool get tienePrecioManual => precioManual != null && precioManual! > 0;
 
   const _CuentaCliente({
     required this.empresaId,
@@ -46,6 +52,7 @@ class _CuentaCliente {
     this.addonsActivos = const [],
     this.empleadosNomina = 0,
     this.precioTotal = 0,
+    this.precioManual,
   });
 
   factory _CuentaCliente.fromMap(Map<String, dynamic> m) {
@@ -65,6 +72,7 @@ class _CuentaCliente {
       addonsActivos: _parseStringList(m['addonsActivos']),
       empleadosNomina: (m['empleadosNomina'] as num?)?.toInt() ?? 0,
       precioTotal: (m['precioTotal'] as num?)?.toDouble() ?? 0,
+      precioManual: (m['precioManual'] as num?)?.toDouble(),
     );
   }
 
@@ -97,114 +105,115 @@ class _GestionarCuentasScreenState extends State<GestionarCuentasScreen> {
   List<_CuentaCliente> _cuentas = [];
   bool _cargando = true;
   String? _error;
+  StreamSubscription<QuerySnapshot>? _sub;
 
   @override
   void initState() {
     super.initState();
-    _cargarCuentas();
+    _iniciarStream();
   }
 
-  // ── Cargar lista ───────────────────────────────────────────────────────────
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
 
-  Future<void> _cargarCuentas() async {
+  // ── Stream en tiempo real ──────────────────────────────────────────────────
+
+  void _iniciarStream() {
     setState(() { _cargando = true; _error = null; });
+    _sub?.cancel();
+    _sub = FirebaseFirestore.instance
+        .collection('empresas')
+        .snapshots()
+        .listen(_onEmpresasSnap, onError: _onStreamError);
+  }
+
+  Future<void> _onEmpresasSnap(QuerySnapshot snap) async {
+    if (!mounted) return;
     try {
-      final cuentas = await _cargarCuentasDesdeFirestore();
-      setState(() {
-        _cuentas = cuentas;
-        _cargando = false;
-      });
+      // Leer todas las suscripciones en paralelo (no secuencial)
+      final futures = snap.docs.map(_cargarDatosEmpresa).toList();
+      final resultados = await Future.wait(futures);
+      final cuentas = resultados.whereType<_CuentaCliente>().toList();
+      if (mounted) setState(() { _cuentas = cuentas; _cargando = false; _error = null; });
     } catch (e) {
-      setState(() {
-        _error = 'Error al cargar cuentas: $e';
-        _cargando = false;
-      });
+      if (mounted) setState(() { _error = 'Error procesando datos: $e'; _cargando = false; });
     }
   }
 
-  // ── Cargar directamente desde Firestore (fallback universal) ──────────────
+  void _onStreamError(dynamic e) {
+    debugPrint('⚠️ Error stream empresas: $e');
+    if (mounted) setState(() { _error = 'Error de conexión: $e'; _cargando = false; });
+  }
 
-  Future<List<_CuentaCliente>> _cargarCuentasDesdeFirestore() async {
+  Future<_CuentaCliente?> _cargarDatosEmpresa(QueryDocumentSnapshot doc) async {
     try {
-      final List<_CuentaCliente> cuentas = [];
+      final empresaData = doc.data() as Map<String, dynamic>;
+      final empresaId = doc.id;
 
-      // Leer todas las empresas
-      final empresasSnap = await FirebaseFirestore.instance
-          .collection('empresas')
-          .get();
+      final suscripcionDoc = await FirebaseFirestore.instance
+          .collection('empresas').doc(empresaId)
+          .collection('suscripcion').doc('actual').get();
 
-      for (final empresaDoc in empresasSnap.docs) {
-        try {
-          final empresaData = empresaDoc.data();
-          final empresaId = empresaDoc.id;
+      DateTime? fechaFin;
+      String planId = 'free';
+      String planNombre = 'Plan Gratuito';
+      String estado = 'activa';
+      bool activa = true;
+      List<String> packsActivos = [];
+      List<String> addonsActivos = [];
+      double precioTotal = 0;
+      double? precioManual;
 
-          // Leer suscripción desde suscripcion/actual
-          final suscripcionDoc = await FirebaseFirestore.instance
-              .collection('empresas')
-              .doc(empresaId)
-              .collection('suscripcion')
-              .doc('actual')
-              .get();
-
-          DateTime? fechaFin;
-          String planId = 'free';
-          String planNombre = 'Plan Gratuito';
-          String estado = 'activa';
-          bool activa = true;
-          List<String> packsActivos = [];
-          List<String> addonsActivos = [];
-          double precioTotal = 0;
-
-          if (suscripcionDoc.exists) {
-            final subData = suscripcionDoc.data()!;
-            planId = subData['plan'] as String? ?? subData['plan_id'] as String? ?? 'free';
-            planNombre = subData['plan_nombre'] as String? ?? 'Plan Gratuito';
-            estado = subData['estado'] as String? ?? 'activa';
-            activa = estado.toUpperCase() == 'ACTIVA';
-            final fechaFinTs = subData['fecha_fin'] as Timestamp?;
-            fechaFin = fechaFinTs?.toDate();
-            packsActivos = (subData['packs_activos'] as List?)?.cast<String>() ?? [];
-            addonsActivos = (subData['addons_activos'] as List?)?.cast<String>() ?? [];
-            precioTotal = (subData['precio_total'] as num?)?.toDouble() ?? 0;
-          }
-
-          // Calcular empleados en nómina (si existe el addon)
-          int empleadosNomina = 0;
-          if (addonsActivos.contains('addon_nominas') || addonsActivos.contains('nominas')) {
-            final empSnap = await FirebaseFirestore.instance
-                .collection('empresas')
-                .doc(empresaId)
-                .collection('empleados')
-                .get();
-            empleadosNomina = empSnap.docs.length;
-          }
-
-          cuentas.add(_CuentaCliente(
-            empresaId: empresaId,
-            nombre: empresaData['nombre'] as String? ?? 'Sin nombre',
-            email: empresaData['email'] as String? ?? '',
-            tipoNegocio: empresaData['tipo_negocio'] as String? ?? '',
-            planId: planId,
-            planNombre: planNombre,
-            estado: estado,
-            fechaFin: fechaFin,
-            activa: activa,
-            packsActivos: packsActivos,
-            addonsActivos: addonsActivos,
-            empleadosNomina: empleadosNomina,
-            precioTotal: precioTotal,
-          ));
-        } catch (e) {
-          debugPrint('⚠️ Error procesando empresa ${empresaDoc.id}: $e');
-        }
+      if (suscripcionDoc.exists) {
+        final subData = suscripcionDoc.data()!;
+        planId = subData['plan'] as String? ?? subData['plan_id'] as String? ?? 'free';
+        planNombre = subData['plan_nombre'] as String? ?? 'Plan Gratuito';
+        estado = subData['estado'] as String? ?? 'activa';
+        activa = estado.toUpperCase() == 'ACTIVA';
+        final fechaFinTs = subData['fecha_fin'] as Timestamp?;
+        fechaFin = fechaFinTs?.toDate();
+        packsActivos = (subData['packs_activos'] as List?)?.cast<String>() ?? [];
+        addonsActivos = (subData['addons_activos'] as List?)?.cast<String>() ?? [];
+        precioTotal = (subData['precio_total'] as num?)?.toDouble() ?? 0;
+        precioManual = (subData['precio_manual'] as num?)?.toDouble();
       }
 
-      return cuentas;
+      int empleadosNomina = 0;
+      if (addonsActivos.contains('addon_nominas') || addonsActivos.contains('nominas')) {
+        final empSnap = await FirebaseFirestore.instance
+            .collection('empresas').doc(empresaId)
+            .collection('empleados').get();
+        empleadosNomina = empSnap.docs.length;
+      }
+
+      return _CuentaCliente(
+        empresaId: empresaId,
+        nombre: empresaData['nombre'] as String? ?? 'Sin nombre',
+        email: empresaData['email'] as String? ?? '',
+        tipoNegocio: empresaData['tipo_negocio'] as String? ?? '',
+        planId: planId,
+        planNombre: planNombre,
+        estado: estado,
+        fechaFin: fechaFin,
+        activa: activa,
+        packsActivos: packsActivos,
+        addonsActivos: addonsActivos,
+        empleadosNomina: empleadosNomina,
+        precioTotal: precioTotal,
+        precioManual: precioManual,
+      );
     } catch (e) {
-      debugPrint('⚠️ Error en _cargarCuentasDesdeFirestore: $e');
-      rethrow;
+      debugPrint('⚠️ Error empresa ${doc.id}: $e');
+      return null;
     }
   }
+
+  // ── Recarga manual ─────────────────────────────────────────────────────────
+
+  Future<void> _cargarCuentas() async => _iniciarStream();
 
   // ── Abrir formulario nueva cuenta ──────────────────────────────────────────
 
@@ -510,6 +519,31 @@ class _TarjetaCuenta extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
+            // Botón precio mensual manual
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _editarPrecio(context),
+                icon: Icon(
+                  cuenta.tienePrecioManual ? Icons.euro_rounded : Icons.euro_outlined,
+                  size: 16,
+                  color: cuenta.tienePrecioManual ? const Color(0xFF2E7D32) : const Color(0xFF455A64),
+                ),
+                label: Text(
+                  cuenta.tienePrecioManual
+                      ? 'Precio: ${cuenta.precioManual!.toStringAsFixed(0)} €/mes'
+                      : 'Fijar precio mensual',
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: cuenta.tienePrecioManual ? const Color(0xFF2E7D32) : const Color(0xFF455A64),
+                  side: BorderSide(color: cuenta.tienePrecioManual ? const Color(0xFF2E7D32) : const Color(0xFF455A64)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
             // Botón selector de módulos
             SizedBox(
               width: double.infinity,
@@ -604,6 +638,64 @@ class _TarjetaCuenta extends StatelessWidget {
       context: context,
       builder: (_) => _DialogGoogleReviews(
           empresaId: cuenta.empresaId, nombreEmpresa: cuenta.nombre),
+    );
+  }
+
+  void _editarPrecio(BuildContext context) {
+    final ctrl = TextEditingController(
+      text: cuenta.tienePrecioManual ? cuenta.precioManual!.toStringAsFixed(2) : '',
+    );
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Precio mensual — ${cuenta.nombre}',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(
+            'Precio calculado por packs: ${cuenta.precioTotal.toStringAsFixed(0)} €/mes\n'
+            'Deja vacío para usar el calculado automáticamente.',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: ctrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Precio real (€/mes)',
+              suffixText: '€',
+              border: OutlineInputBorder(),
+            ),
+            autofocus: true,
+          ),
+        ]),
+        actions: [
+          if (cuenta.tienePrecioManual)
+            TextButton(
+              onPressed: () async {
+                await FirebaseFirestore.instance
+                    .collection('empresas').doc(cuenta.empresaId)
+                    .collection('suscripcion').doc('actual')
+                    .update({'precio_manual': FieldValue.delete()});
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('Quitar manual', style: TextStyle(color: Colors.red)),
+            ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () async {
+              final val = double.tryParse(ctrl.text.replaceAll(',', '.'));
+              if (val != null && val > 0) {
+                await FirebaseFirestore.instance
+                    .collection('empresas').doc(cuenta.empresaId)
+                    .collection('suscripcion').doc('actual')
+                    .update({'precio_manual': val});
+              }
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1998,48 +2090,99 @@ class _PanelEstadisticas extends StatefulWidget {
 }
 
 class _PanelEstadisticasState extends State<_PanelEstadisticas> {
-  int? _totalUsuarios;
-  int? _totalReservas;
-  int? _totalValoraciones;
-  int? _totalPedidos;
-  int? _totalClientes;
-  bool _cargandoExtras = true;
-  String? _errorExtras;
+  double _gastoFirebaseMes = 0;
+  final _gastoCtrl = TextEditingController();
+  bool _guardandoGasto = false;
 
   @override
   void initState() {
     super.initState();
-    _cargarExtras();
+    _cargarGasto();
   }
 
-  Future<void> _cargarExtras() async {
-    setState(() { _cargandoExtras = true; _errorExtras = null; });
+  @override
+  void dispose() {
+    _gastoCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _cargarGasto() async {
     try {
-      final db = FirebaseFirestore.instance;
-      final resultados = await Future.wait([
-        db.collection('usuarios').count().get(),
-        db.collectionGroup('reservas').count().get(),
-        db.collectionGroup('valoraciones').count().get(),
-        db.collectionGroup('pedidos').count().get(),
-        db.collectionGroup('clientes').count().get(),
-      ]);
+      final doc = await FirebaseFirestore.instance
+          .collection('platform').doc('gastos').get();
+      final val = (doc.data()?['firebase_mes'] as num?)?.toDouble() ?? 0;
       if (mounted) {
-        setState(() {
-          _totalUsuarios     = resultados[0].count;
-          _totalReservas     = resultados[1].count;
-          _totalValoraciones = resultados[2].count;
-          _totalPedidos      = resultados[3].count;
-          _totalClientes     = resultados[4].count;
-          _cargandoExtras    = false;
-        });
+        setState(() => _gastoFirebaseMes = val);
+        _gastoCtrl.text = val > 0 ? val.toStringAsFixed(2) : '';
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorExtras = e.toString();
-          _cargandoExtras = false;
-        });
-      }
+    } catch (_) {}
+  }
+
+  void _mostrarListaVencidas(BuildContext context, List<_CuentaCliente> vencidas) {
+    final fmt = DateFormat('dd/MM/yyyy');
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.red),
+          const SizedBox(width: 8),
+          Text(
+            '${vencidas.length} cuenta${vencidas.length > 1 ? 's' : ''} vencida${vencidas.length > 1 ? 's' : ''}',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+        ]),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: vencidas.map((c) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Colors.red[100],
+                  child: Text(
+                    c.nombre.isNotEmpty ? c.nombre[0].toUpperCase() : '?',
+                    style: TextStyle(color: Colors.red[700], fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(c.nombre, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                    if (c.fechaFin != null)
+                      Text('Venció el ${fmt.format(c.fechaFin!)}',
+                          style: TextStyle(fontSize: 11, color: Colors.red[600])),
+                  ],
+                )),
+              ]),
+            )).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _guardarGasto() async {
+    final val = double.tryParse(_gastoCtrl.text.replaceAll(',', '.')) ?? 0;
+    setState(() => _guardandoGasto = true);
+    try {
+      await FirebaseFirestore.instance
+          .collection('platform').doc('gastos')
+          .set({'firebase_mes': val}, SetOptions(merge: true));
+      if (mounted) setState(() { _gastoFirebaseMes = val; _guardandoGasto = false; });
+    } catch (_) {
+      if (mounted) setState(() => _guardandoGasto = false);
     }
   }
 
@@ -2050,142 +2193,55 @@ class _PanelEstadisticasState extends State<_PanelEstadisticas> {
     }
 
     final cuentas = widget.cuentas;
-
-    // ── Calcular métricas desde la lista de cuentas ───────────────────────
-    final total    = cuentas.length;
-    final activas  = cuentas.where((c) => c.activa).length;
-    final vencidas = cuentas.where((c) => c.estado == 'VENCIDA').length;
-    final sinActivar = total - activas - vencidas;
-
-    final mrr         = cuentas.where((c) => c.activa).fold(0.0, (d, c) => d + c.precioTotal);
-    final arr         = mrr * 12;
-    final ticketMedio = activas > 0 ? mrr / activas : 0.0;
-
-    // Distribución por plan
-    final planCount = <String, int>{};
-    for (final c in cuentas) {
-      final key = c.planNombre.isEmpty ? 'Sin plan' : c.planNombre;
-      planCount[key] = (planCount[key] ?? 0) + 1;
-    }
-
-    // Top 5 empresas por precio
-    final top5 = [...cuentas.where((c) => c.activa)]
-      ..sort((a, b) => b.precioTotal.compareTo(a.precioTotal));
-    final topEmpresas = top5.take(5).toList();
-
-    final fmt = NumberFormat('#,##0.00', 'es_ES');
+    final cs = _DashStats.compute(cuentas, _gastoFirebaseMes);
 
     return RefreshIndicator(
-      onRefresh: _cargarExtras,
+      onRefresh: _cargarGasto,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
         children: [
+          // ── 1. ALERTAS CRÍTICAS ──────────────────────────────────────────
+          _AlertasBanner(
+            vencidas: cs.cuentasVencidas,
+            porVencer: cs.cuentasPorVencer,
+            onTapVencidas: () => _mostrarListaVencidas(context, cs.cuentasVencidas),
+          ),
 
-          // ── SECCIÓN: Empresas ─────────────────────────────────────────────
-          _SeccionTitulo(emoji: '🏢', titulo: 'Empresas'),
+          // ── 2. RESUMEN EJECUTIVO ─────────────────────────────────────────
+          _DashSectionHeader(titulo: 'Resumen ejecutivo'),
           const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: _KpiCard(titulo: 'Total', valor: '$total',
-                icono: Icons.business_outlined, color: const Color(0xFF0D47A1))),
-            const SizedBox(width: 10),
-            Expanded(child: _KpiCard(titulo: 'Activas', valor: '$activas',
-                icono: Icons.check_circle_outline, color: const Color(0xFF2E7D32))),
-          ]),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: _KpiCard(titulo: 'Vencidas', valor: '$vencidas',
-                icono: Icons.cancel_outlined, color: Colors.red[700]!)),
-            const SizedBox(width: 10),
-            Expanded(child: _KpiCard(titulo: 'Sin activar', valor: '$sinActivar',
-                icono: Icons.hourglass_empty, color: Colors.orange[700]!)),
-          ]),
+          _EjecutivoGrid(stats: cs),
+          const SizedBox(height: 20),
 
-          const SizedBox(height: 24),
-
-          // ── SECCIÓN: Ingresos ─────────────────────────────────────────────
-          _SeccionTitulo(emoji: '💰', titulo: 'Ingresos recurrentes'),
+          // ── 3. SALUD DEL PORTFOLIO ───────────────────────────────────────
+          _DashSectionHeader(titulo: 'Salud del portfolio'),
           const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: _KpiCard(titulo: 'MRR', valor: '${fmt.format(mrr)} €',
-                icono: Icons.euro_outlined, color: const Color(0xFF1B5E20),
-                subtitulo: 'Mensual')),
-            const SizedBox(width: 10),
-            Expanded(child: _KpiCard(titulo: 'ARR', valor: '${fmt.format(arr)} €',
-                icono: Icons.trending_up, color: const Color(0xFF2E7D32),
-                subtitulo: 'Anual')),
-          ]),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: _KpiCard(titulo: 'Ticket medio', valor: '${fmt.format(ticketMedio)} €',
-                icono: Icons.receipt_long_outlined, color: const Color(0xFF4CAF50))),
-            const SizedBox(width: 10),
-            Expanded(child: _KpiCard(titulo: 'Empresas pagando', valor: '$activas',
-                icono: Icons.payments_outlined, color: const Color(0xFF388E3C))),
-          ]),
+          _SaludPortfolio(stats: cs),
+          const SizedBox(height: 20),
 
-          // ── Gráfico por plan ──────────────────────────────────────────────
-          if (planCount.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            _SeccionTitulo(emoji: '📋', titulo: 'Distribución por plan'),
+          // ── 4. TOP CUENTAS ───────────────────────────────────────────────
+          if (cs.topEmpresas.isNotEmpty) ...[
+            _DashSectionHeader(titulo: 'Top cuentas por facturación'),
             const SizedBox(height: 10),
-            _PlanPieChart(planCount: planCount),
+            _TopCuentasCard(topEmpresas: cs.topEmpresas),
+            const SizedBox(height: 20),
           ],
 
-          const SizedBox(height: 24),
-
-          // ── SECCIÓN: Plataforma (Firestore) ──────────────────────────────
-          _SeccionTitulo(emoji: '🔢', titulo: 'Actividad de la plataforma'),
+          // ── 5. RENTABILIDAD FIREBASE ─────────────────────────────────────
+          _DashSectionHeader(titulo: 'Rentabilidad Firebase'),
           const SizedBox(height: 10),
-          if (_errorExtras != null)
-            _ErrorChip(mensaje: _errorExtras!, onReintentar: _cargarExtras),
-          Row(children: [
-            Expanded(child: _KpiCard(
-                titulo: 'Usuarios', icono: Icons.people_outline,
-                color: const Color(0xFF7B1FA2),
-                valor: _cargandoExtras ? '…' : '${_totalUsuarios ?? '?'}')),
-            const SizedBox(width: 10),
-            Expanded(child: _KpiCard(
-                titulo: 'Clientes', icono: Icons.person_pin_outlined,
-                color: const Color(0xFF00838F),
-                valor: _cargandoExtras ? '…' : '${_totalClientes ?? '?'}')),
-          ]),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: _KpiCard(
-                titulo: 'Reservas', icono: Icons.event_available_outlined,
-                color: const Color(0xFF1565C0),
-                valor: _cargandoExtras ? '…' : '${_totalReservas ?? '?'}')),
-            const SizedBox(width: 10),
-            Expanded(child: _KpiCard(
-                titulo: 'Pedidos', icono: Icons.shopping_bag_outlined,
-                color: const Color(0xFF37474F),
-                valor: _cargandoExtras ? '…' : '${_totalPedidos ?? '?'}')),
-          ]),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: _KpiCard(
-                titulo: 'Valoraciones', icono: Icons.star_outline,
-                color: const Color(0xFFE65100),
-                valor: _cargandoExtras ? '…' : '${_totalValoraciones ?? '?'}')),
-            const SizedBox(width: 10),
-            const Expanded(child: SizedBox()),
-          ]),
+          _RentabilidadFirebase(
+            stats: cs,
+            gastoCtrl: _gastoCtrl,
+            guardandoGasto: _guardandoGasto,
+            onGuardar: _guardarGasto,
+          ),
+          const SizedBox(height: 20),
 
-          // ── Top empresas ──────────────────────────────────────────────────
-          if (topEmpresas.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            _SeccionTitulo(emoji: '🏆', titulo: 'Top 5 empresas por facturación'),
-            const SizedBox(height: 10),
-            ...topEmpresas.asMap().entries.map((e) =>
-              _TopEmpresaRow(rank: e.key + 1, empresa: e.value)),
-          ],
-
-          const SizedBox(height: 24),
-
-          // ── Módulos (calculado desde cuentas) ────────────────────────────
-          _SeccionTitulo(emoji: '📦', titulo: 'Adopción de packs/add-ons'),
+          // ── 6. ADOPCIÓN PACKS/ADD-ONS ────────────────────────────────────
+          _DashSectionHeader(titulo: 'Adopción de packs / add-ons'),
           const SizedBox(height: 10),
-          _ModulosAdopcion(cuentas: cuentas),
+          _AdopcionPacks(cuentas: cuentas),
         ],
       ),
     );
@@ -2193,263 +2249,867 @@ class _PanelEstadisticasState extends State<_PanelEstadisticas> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// WIDGETS DE APOYO
+// MODELO DE CÁLCULOS CENTRALIZADO
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _SeccionTitulo extends StatelessWidget {
-  final String emoji;
+class _DashStats {
+  final int total;
+  final int activas;
+  final int vencidas;
+  final double mrr;
+  final double arr;
+  final double margenPct;
+  final double margenMes;
+  final double gastoReferencia;
+  final double beneficioMes;
+  final double beneficioAnio;
+  final double costoEstimado;
+  final List<_CuentaCliente> cuentasVencidas;
+  final List<_CuentaCliente> cuentasPorVencer;
+  final List<_CuentaCliente> topEmpresas;
+
+  const _DashStats({
+    required this.total,
+    required this.activas,
+    required this.vencidas,
+    required this.mrr,
+    required this.arr,
+    required this.margenPct,
+    required this.margenMes,
+    required this.gastoReferencia,
+    required this.beneficioMes,
+    required this.beneficioAnio,
+    required this.costoEstimado,
+    required this.cuentasVencidas,
+    required this.cuentasPorVencer,
+    required this.topEmpresas,
+  });
+
+  factory _DashStats.compute(List<_CuentaCliente> cuentas, double gastoFirebaseMes) {
+    final total   = cuentas.length;
+    final activas = cuentas.where((c) => c.activa).length;
+    final cuentasVencidas = cuentas.where((c) => c.estado == 'VENCIDA').toList();
+    final now = DateTime.now();
+    final cuentasPorVencer = cuentas.where((c) {
+      if (c.fechaFin == null || !c.activa) return false;
+      final dias = c.fechaFin!.difference(now).inDays;
+      return dias >= 0 && dias <= 30;
+    }).toList();
+
+    final mrr = cuentas.where((c) => c.activa).fold(0.0, (d, c) => d + c.precioEfectivo);
+    final arr = mrr * 12;
+    final costoEstimado = activas * 3.0;
+    final gastoReferencia = gastoFirebaseMes > 0 ? gastoFirebaseMes : costoEstimado;
+    final margenMes = mrr - gastoReferencia;
+    final margenPct = mrr > 0 ? (margenMes / mrr * 100) : 0.0;
+    final beneficioMes = margenMes;
+    final beneficioAnio = arr - gastoReferencia * 12;
+
+    final top5 = [...cuentas.where((c) => c.activa)]
+      ..sort((a, b) => b.precioEfectivo.compareTo(a.precioEfectivo));
+
+    return _DashStats(
+      total: total,
+      activas: activas,
+      vencidas: cuentasVencidas.length,
+      mrr: mrr,
+      arr: arr,
+      margenPct: margenPct,
+      margenMes: margenMes,
+      gastoReferencia: gastoReferencia,
+      beneficioMes: beneficioMes,
+      beneficioAnio: beneficioAnio,
+      costoEstimado: costoEstimado,
+      cuentasVencidas: cuentasVencidas,
+      cuentasPorVencer: cuentasPorVencer,
+      topEmpresas: top5.take(5).toList(),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WIDGETS DE APOYO — NUEVO DISEÑO
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Cabecera de sección con línea decorativa
+class _DashSectionHeader extends StatelessWidget {
   final String titulo;
-  const _SeccionTitulo({required this.emoji, required this.titulo});
+  const _DashSectionHeader({required this.titulo});
+
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Row(children: [
-      Text(emoji, style: const TextStyle(fontSize: 16)),
-      const SizedBox(width: 6),
+      Container(width: 3, height: 16,
+          decoration: BoxDecoration(
+            color: cs.primary,
+            borderRadius: BorderRadius.circular(2),
+          )),
+      const SizedBox(width: 8),
       Text(titulo,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
-              color: Color(0xFF263238))),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: cs.onSurface,
+            letterSpacing: 0.3,
+          )),
     ]);
   }
 }
 
-class _KpiCard extends StatelessWidget {
-  final String titulo;
-  final String valor;
-  final String? subtitulo;
-  final IconData icono;
-  final Color color;
+/// Banners de alerta crítica (solo si hay vencidas o por vencer)
+class _AlertasBanner extends StatelessWidget {
+  final List<_CuentaCliente> vencidas;
+  final List<_CuentaCliente> porVencer;
+  final VoidCallback onTapVencidas;
 
-  const _KpiCard({
-    required this.titulo,
-    required this.valor,
-    required this.icono,
-    required this.color,
-    this.subtitulo,
+  const _AlertasBanner({
+    required this.vencidas,
+    required this.porVencer,
+    required this.onTapVencidas,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Colors.grey[200]!),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icono, color: color, size: 18),
-              ),
-            ]),
-            const SizedBox(height: 10),
-            Text(valor,
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800,
-                    color: Color(0xFF1A1A2E))),
-            const SizedBox(height: 2),
-            Text(titulo,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-            if (subtitulo != null)
-              Text(subtitulo!,
-                  style: TextStyle(fontSize: 10, color: Colors.grey[400])),
-          ],
+    if (vencidas.isEmpty && porVencer.isEmpty) return const SizedBox.shrink();
+
+    return Column(children: [
+      if (vencidas.isNotEmpty)
+        _BannerAlerta(
+          color: Colors.red[700]!,
+          bgColor: Colors.red[50]!,
+          borderColor: Colors.red[300]!,
+          icono: Icons.error_outline_rounded,
+          texto: '${vencidas.length} cuenta${vencidas.length > 1 ? 's' : ''} '
+              'vencida${vencidas.length > 1 ? 's' : ''} — requiere atención inmediata',
+          botonTexto: 'Ver cuentas',
+          onTap: onTapVencidas,
         ),
-      ),
-    );
+      if (porVencer.isNotEmpty)
+        _BannerAlerta(
+          color: const Color(0xFFE65100),
+          bgColor: const Color(0xFFFFF3E0),
+          borderColor: const Color(0xFFFFCC80),
+          icono: Icons.schedule_rounded,
+          texto: '${porVencer.length} cuenta${porVencer.length > 1 ? 's' : ''} '
+              'vence${porVencer.length > 1 ? 'n' : ''} en los próximos 30 días',
+          botonTexto: null,
+          onTap: null,
+        ),
+      if (vencidas.isNotEmpty || porVencer.isNotEmpty)
+        const SizedBox(height: 16),
+    ]);
   }
 }
 
-class _PlanPieChart extends StatelessWidget {
-  final Map<String, int> planCount;
+class _BannerAlerta extends StatelessWidget {
+  final Color color;
+  final Color bgColor;
+  final Color borderColor;
+  final IconData icono;
+  final String texto;
+  final String? botonTexto;
+  final VoidCallback? onTap;
 
-  static const _colores = [
-    Color(0xFF0D47A1), Color(0xFF2E7D32), Color(0xFF7B1FA2),
-    Color(0xFFE65100), Color(0xFF00838F), Color(0xFF37474F),
-    Color(0xFFC62828), Color(0xFF558B2F),
-  ];
-
-  const _PlanPieChart({required this.planCount});
+  const _BannerAlerta({
+    required this.color,
+    required this.bgColor,
+    required this.borderColor,
+    required this.icono,
+    required this.texto,
+    required this.botonTexto,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final entries = planCount.entries.toList();
-    final total = entries.fold(0, (sum, e) => sum + e.value);
-
-    final sections = entries.asMap().entries.map((entry) {
-      final idx = entry.key;
-      final e   = entry.value;
-      final pct = total > 0 ? e.value / total * 100 : 0.0;
-      return PieChartSectionData(
-        value: e.value.toDouble(),
-        color: _colores[idx % _colores.length],
-        title: '${pct.toStringAsFixed(0)}%',
-        titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-            color: Colors.white),
-        radius: 60,
-      );
-    }).toList();
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Colors.grey[200]!),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(children: [
-          SizedBox(
-            height: 160,
-            child: PieChart(PieChartData(
-              sections: sections,
-              centerSpaceRadius: 36,
-              sectionsSpace: 3,
-            )),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 12,
-            runSpacing: 6,
-            alignment: WrapAlignment.center,
-            children: entries.asMap().entries.map((entry) {
-              final idx   = entry.key;
-              final e     = entry.value;
-              final color = _colores[idx % _colores.length];
-              return Row(mainAxisSize: MainAxisSize.min, children: [
-                Container(width: 10, height: 10,
-                    decoration: BoxDecoration(color: color,
-                        borderRadius: BorderRadius.circular(2))),
-                const SizedBox(width: 4),
-                Text('${e.key} (${e.value})',
-                    style: const TextStyle(fontSize: 11)),
-              ]);
-            }).toList(),
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor),
+        ),
+        child: Row(children: [
+          Icon(icono, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(child: Text(texto,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color))),
+          if (botonTexto != null) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(botonTexto!,
+                  style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w700)),
+            ),
+          ],
         ]),
       ),
     );
   }
 }
 
-class _TopEmpresaRow extends StatelessWidget {
-  final int rank;
-  final _CuentaCliente empresa;
-
-  const _TopEmpresaRow({required this.rank, required this.empresa});
+/// Grid 2x2 de KPIs ejecutivos
+class _EjecutivoGrid extends StatelessWidget {
+  final _DashStats stats;
+  const _EjecutivoGrid({required this.stats});
 
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat('#,##0.00', 'es_ES');
-    final medal = rank == 1 ? '🥇' : rank == 2 ? '🥈' : rank == 3 ? '🥉' : '$rank.';
+    final margenColor = stats.margenPct >= 70
+        ? const Color(0xFF1B5E20)
+        : stats.margenPct >= 40
+            ? const Color(0xFFE65100)
+            : Colors.red[700]!;
 
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 6),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey[200]!),
+    return Column(children: [
+      Row(children: [
+        Expanded(child: _KpiEjecutivo(
+          titulo: 'MRR',
+          valor: '${fmt.format(stats.mrr)} €',
+          subtitulo: 'ingresos / mes',
+          icono: Icons.euro_rounded,
+          colorIcono: const Color(0xFF1B5E20),
+          colorFondo: const Color(0xFFE8F5E9),
+        )),
+        const SizedBox(width: 10),
+        Expanded(child: _KpiEjecutivo(
+          titulo: 'ARR',
+          valor: '${fmt.format(stats.arr)} €',
+          subtitulo: 'ingresos / año',
+          icono: Icons.trending_up_rounded,
+          colorIcono: const Color(0xFF2E7D32),
+          colorFondo: const Color(0xFFF1F8E9),
+        )),
+      ]),
+      const SizedBox(height: 10),
+      Row(children: [
+        Expanded(child: _KpiEjecutivo(
+          titulo: 'Cuentas',
+          valor: '${stats.activas} / ${stats.total}',
+          subtitulo: 'activas / total',
+          icono: Icons.business_rounded,
+          colorIcono: const Color(0xFF1565C0),
+          colorFondo: const Color(0xFFE3F2FD),
+        )),
+        const SizedBox(width: 10),
+        Expanded(child: _KpiEjecutivo(
+          titulo: 'Margen',
+          valor: '${stats.margenPct.toStringAsFixed(1)}%',
+          subtitulo: '${fmt.format(stats.margenMes)} € neto',
+          icono: Icons.show_chart_rounded,
+          colorIcono: margenColor,
+          colorFondo: margenColor.withValues(alpha: 0.1),
+        )),
+      ]),
+    ]);
+  }
+}
+
+class _KpiEjecutivo extends StatelessWidget {
+  final String titulo;
+  final String valor;
+  final String subtitulo;
+  final IconData icono;
+  final Color colorIcono;
+  final Color colorFondo;
+
+  const _KpiEjecutivo({
+    required this.titulo,
+    required this.valor,
+    required this.subtitulo,
+    required this.icono,
+    required this.colorIcono,
+    required this.colorFondo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = isDark
+        ? Theme.of(context).colorScheme.surfaceContainerHighest
+        : colorFondo;
+    final borderColor = isDark
+        ? Theme.of(context).colorScheme.outline.withValues(alpha: 0.2)
+        : colorIcono.withValues(alpha: 0.15);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(children: [
-          Text(medal, style: const TextStyle(fontSize: 18)),
-          const SizedBox(width: 10),
-          Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(empresa.nombre,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                  overflow: TextOverflow.ellipsis),
-              Text(empresa.planNombre,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-            ],
-          )),
-          Text('${fmt.format(empresa.precioTotal)} €/mes',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                  color: Color(0xFF1B5E20))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: colorIcono.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icono, color: colorIcono, size: 16),
+          ),
+          const Spacer(),
+          Text(titulo,
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
+              )),
         ]),
+        const SizedBox(height: 10),
+        Text(valor,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: Theme.of(context).colorScheme.onSurface,
+            )),
+        const SizedBox(height: 2),
+        Text(subtitulo,
+            style: TextStyle(
+              fontSize: 11,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+            )),
+      ]),
+    );
+  }
+}
+
+/// Barra de salud del portfolio (activas / vencidas / por_vencer)
+class _SaludPortfolio extends StatelessWidget {
+  final _DashStats stats;
+  const _SaludPortfolio({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = stats.total;
+    if (total == 0) return const SizedBox.shrink();
+
+    final porVencer = stats.cuentasPorVencer.length;
+    final inactivas = total - stats.activas;
+    final sano = stats.vencidas == 0 && porVencer == 0;
+
+    final pctActivas   = stats.activas / total;
+    final pctVencidas  = stats.vencidas / total;
+    final pctPorVencer = porVencer / total;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark
+        ? Theme.of(context).colorScheme.surfaceContainerHighest
+        : Colors.white;
+    final borderColor = isDark
+        ? Theme.of(context).colorScheme.outline.withValues(alpha: 0.2)
+        : Colors.grey[200]!;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text('Estado del portfolio',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(context).colorScheme.onSurface,
+              ))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: sano ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(
+                sano ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+                size: 13,
+                color: sano ? const Color(0xFF2E7D32) : const Color(0xFFE65100),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                sano ? 'Portfolio sano' : 'Atención requerida',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: sano ? const Color(0xFF2E7D32) : const Color(0xFFE65100),
+                ),
+              ),
+            ]),
+          ),
+        ]),
+        const SizedBox(height: 14),
+        // Barra segmentada
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: SizedBox(
+            height: 12,
+            child: Row(children: [
+              if (pctActivas > 0)
+                Expanded(
+                  flex: (pctActivas * 1000).round(),
+                  child: Container(color: const Color(0xFF4CAF50)),
+                ),
+              if (pctPorVencer > 0)
+                Expanded(
+                  flex: (pctPorVencer * 1000).round(),
+                  child: Container(color: const Color(0xFFFFB300)),
+                ),
+              if (pctVencidas > 0)
+                Expanded(
+                  flex: (pctVencidas * 1000).round(),
+                  child: Container(color: const Color(0xFFE53935)),
+                ),
+              if (inactivas - stats.vencidas - porVencer > 0)
+                Expanded(
+                  flex: ((inactivas - stats.vencidas - porVencer) / total * 1000).round(),
+                  child: Container(color: Colors.grey[300]),
+                ),
+            ]),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Leyenda
+        Wrap(spacing: 16, runSpacing: 6, children: [
+          _LegendaDot(color: const Color(0xFF4CAF50),
+              label: 'Activas (${stats.activas})'),
+          if (porVencer > 0)
+            _LegendaDot(color: const Color(0xFFFFB300),
+                label: 'Por vencer ($porVencer)'),
+          if (stats.vencidas > 0)
+            _LegendaDot(color: const Color(0xFFE53935),
+                label: 'Vencidas (${stats.vencidas})'),
+          if (inactivas - stats.vencidas - porVencer > 0)
+            _LegendaDot(color: Colors.grey[400]!,
+                label: 'Otras (${inactivas - stats.vencidas - porVencer})'),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _LegendaDot extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _LegendaDot({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(width: 8, height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 5),
+      Text(label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+          )),
+    ]);
+  }
+}
+
+/// Lista compacta de top 5 cuentas
+class _TopCuentasCard extends StatelessWidget {
+  final List<_CuentaCliente> topEmpresas;
+  const _TopCuentasCard({required this.topEmpresas});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark
+        ? Theme.of(context).colorScheme.surfaceContainerHighest
+        : Colors.white;
+    final borderColor = isDark
+        ? Theme.of(context).colorScheme.outline.withValues(alpha: 0.2)
+        : Colors.grey[200]!;
+    final fmt = NumberFormat('#,##0.00', 'es_ES');
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        children: topEmpresas.asMap().entries.map((entry) {
+          final idx    = entry.key;
+          final cuenta = entry.value;
+          final isLast = idx == topEmpresas.length - 1;
+
+          Color estadoColor;
+          switch (cuenta.estado) {
+            case 'VENCIDA':     estadoColor = Colors.red[700]!; break;
+            case 'POR_VENCER':  estadoColor = const Color(0xFFE65100); break;
+            default:            estadoColor = const Color(0xFF2E7D32);
+          }
+
+          final avatarColors = [
+            const Color(0xFF1565C0), const Color(0xFF7B1FA2),
+            const Color(0xFF00838F), const Color(0xFF558B2F),
+            const Color(0xFFBF360C),
+          ];
+          final avatarColor = avatarColors[idx % avatarColors.length];
+
+          return Column(children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              child: Row(children: [
+                // Rank + Avatar
+                Stack(alignment: Alignment.bottomRight, children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: avatarColor.withValues(alpha: 0.15),
+                    child: Text(
+                      cuenta.nombre.isNotEmpty ? cuenta.nombre[0].toUpperCase() : '?',
+                      style: TextStyle(
+                        color: avatarColor, fontSize: 15, fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  if (idx < 3)
+                    Text(idx == 0 ? '🥇' : idx == 1 ? '🥈' : '🥉',
+                        style: const TextStyle(fontSize: 10)),
+                ]),
+                const SizedBox(width: 10),
+                // Nombre + plan
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(cuenta.nombre,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        overflow: TextOverflow.ellipsis),
+                    Text(cuenta.planNombre,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                        )),
+                  ],
+                )),
+                const SizedBox(width: 8),
+                // Estado badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: estadoColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: estadoColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    cuenta.estado == 'ACTIVA' ? 'Activa'
+                        : cuenta.estado == 'VENCIDA' ? 'Vencida'
+                        : 'Por vencer',
+                    style: TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w700, color: estadoColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // Precio
+                Text('${fmt.format(cuenta.precioEfectivo)} €',
+                    style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF1B5E20),
+                    )),
+              ]),
+            ),
+            if (!isLast)
+              Divider(height: 1, indent: 14, endIndent: 14,
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.15)),
+          ]);
+        }).toList(),
       ),
     );
   }
 }
 
-class _ModulosAdopcion extends StatelessWidget {
+/// Card de rentabilidad Firebase con input inline
+class _RentabilidadFirebase extends StatelessWidget {
+  final _DashStats stats;
+  final TextEditingController gastoCtrl;
+  final bool guardandoGasto;
+  final VoidCallback onGuardar;
+
+  const _RentabilidadFirebase({
+    required this.stats,
+    required this.gastoCtrl,
+    required this.guardandoGasto,
+    required this.onGuardar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark
+        ? Theme.of(context).colorScheme.surfaceContainerHighest
+        : Colors.white;
+    final borderColor = isDark
+        ? Theme.of(context).colorScheme.outline.withValues(alpha: 0.2)
+        : Colors.grey[200]!;
+    final fmt = NumberFormat('#,##0.00', 'es_ES');
+    final beneficioPositivo = stats.beneficioMes >= 0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(children: [
+        // Input gasto
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(Icons.local_fire_department_rounded,
+                  color: const Color(0xFFBF360C), size: 16),
+              const SizedBox(width: 6),
+              Text('Coste Firebase real del mes',
+                  style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  )),
+            ]),
+            const SizedBox(height: 4),
+            Text('Firebase Console → Uso y facturación',
+                style: TextStyle(fontSize: 11,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45))),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: gastoCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Ej: ${stats.costoEstimado.toStringAsFixed(0)}',
+                    suffixText: '€/mes',
+                    filled: true,
+                    fillColor: isDark
+                        ? Theme.of(context).colorScheme.surface
+                        : const Color(0xFFF5F7FA),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: borderColor),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: guardandoGasto ? null : onGuardar,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF1565C0),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: guardandoGasto
+                    ? const SizedBox(width: 16, height: 16,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Guardar',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              ),
+            ]),
+          ]),
+        ),
+        Divider(height: 1,
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.15)),
+        // 3 métricas
+        Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(children: [
+            Expanded(child: _MetricaFirebase(
+              label: 'Ingresos',
+              valor: '${fmt.format(stats.mrr)} €',
+              color: const Color(0xFF2E7D32),
+              icono: Icons.arrow_upward_rounded,
+            )),
+            Container(width: 1, height: 36,
+                color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2)),
+            Expanded(child: _MetricaFirebase(
+              label: 'Coste Firebase',
+              valor: '${fmt.format(stats.gastoReferencia)} €',
+              color: const Color(0xFFBF360C),
+              icono: Icons.arrow_downward_rounded,
+            )),
+            Container(width: 1, height: 36,
+                color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2)),
+            Expanded(child: _MetricaFirebase(
+              label: 'Beneficio neto',
+              valor: '${fmt.format(stats.beneficioMes)} €',
+              color: beneficioPositivo ? const Color(0xFF1B5E20) : Colors.red[700]!,
+              icono: beneficioPositivo ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+              destacado: true,
+            )),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+class _MetricaFirebase extends StatelessWidget {
+  final String label;
+  final String valor;
+  final Color color;
+  final IconData icono;
+  final bool destacado;
+
+  const _MetricaFirebase({
+    required this.label,
+    required this.valor,
+    required this.color,
+    required this.icono,
+    this.destacado = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      Icon(icono, color: color, size: 14),
+      const SizedBox(height: 4),
+      Text(valor,
+          style: TextStyle(
+            fontSize: destacado ? 14 : 13,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+          textAlign: TextAlign.center),
+      const SizedBox(height: 2),
+      Text(label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+          ),
+          textAlign: TextAlign.center),
+    ]);
+  }
+}
+
+/// Barras de adopción de packs/add-ons
+class _AdopcionPacks extends StatelessWidget {
   final List<_CuentaCliente> cuentas;
-  const _ModulosAdopcion({required this.cuentas});
+  const _AdopcionPacks({required this.cuentas});
 
   @override
   Widget build(BuildContext context) {
     final total = cuentas.length;
     if (total == 0) return const SizedBox.shrink();
 
-    // Contar cuántas empresas tienen cada pack/addon
     final adopcion = <String, int>{};
     for (final c in cuentas) {
       for (final p in c.packsActivos)  adopcion[p] = (adopcion[p] ?? 0) + 1;
       for (final a in c.addonsActivos) adopcion[a] = (adopcion[a] ?? 0) + 1;
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark
+        ? Theme.of(context).colorScheme.surfaceContainerHighest
+        : Colors.white;
+    final borderColor = isDark
+        ? Theme.of(context).colorScheme.outline.withValues(alpha: 0.2)
+        : Colors.grey[200]!;
+
     if (adopcion.isEmpty) {
-      return Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cardColor,
           borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: Colors.grey[200]!),
+          border: Border.all(color: borderColor),
         ),
-        child: const Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('Ninguna empresa tiene packs o add-ons activados.',
-              style: TextStyle(color: Colors.grey)),
-        ),
+        child: Text('Ninguna empresa tiene packs o add-ons activados.',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+            )),
       );
     }
 
     final entries = adopcion.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
+    const barColors = [
+      Color(0xFF1565C0), Color(0xFF7B1FA2), Color(0xFF00838F),
+      Color(0xFF558B2F), Color(0xFFBF360C), Color(0xFF37474F),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardColor,
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Colors.grey[200]!),
+        border: Border.all(color: borderColor),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(children: entries.map((e) {
-          final pct = total > 0 ? e.value / total : 0.0;
+      child: Column(
+        children: entries.asMap().entries.map((entry) {
+          final idx  = entry.key;
+          final e    = entry.value;
+          final pct  = e.value / total;
+          final barC = barColors[idx % barColors.length];
+
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Expanded(child: Text(e.key,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                  Text('${e.value}/${total}  (${(pct * 100).toStringAsFixed(0)}%)',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-                ]),
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: pct,
-                    minHeight: 6,
-                    backgroundColor: Colors.grey[200],
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0D47A1)),
-                  ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(width: 8, height: 8,
+                    decoration: BoxDecoration(color: barC, shape: BoxShape.circle)),
+                const SizedBox(width: 7),
+                Expanded(child: Text(e.key,
+                    style: TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ))),
+                Text('${e.value}/$total',
+                    style: TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w700, color: barC,
+                    )),
+                const SizedBox(width: 6),
+                Text('(${(pct * 100).toStringAsFixed(0)}%)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                    )),
+              ]),
+              const SizedBox(height: 5),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: pct,
+                  minHeight: 7,
+                  backgroundColor: isDark ? Colors.white12 : Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(barC),
                 ),
-              ],
-            ),
+              ),
+            ]),
           );
-        }).toList()),
+        }).toList(),
       ),
     );
   }
@@ -2482,6 +3142,7 @@ const _todosModulos = [
   _ModInfo('vacaciones',     'Vacaciones',         'Gestión',       Icons.beach_access_outlined,    Color(0xFF7B1FA2)),
   _ModInfo('tpv',            'TPV / Cobros',       'Gestión',       Icons.point_of_sale_outlined,   Color(0xFF7B1FA2)),
   _ModInfo('fichaje',        'Fichaje',            'Gestión',       Icons.fingerprint,              Color(0xFF7B1FA2)),
+  _ModInfo('operaciones',    'Operaciones',        'Gestión',       Icons.local_shipping_outlined,  Color(0xFF7B1FA2)),
   _ModInfo('fiscal',         'Fiscal AI',          'Fiscal',        Icons.account_balance_outlined, Color(0xFF0288D1)),
   _ModInfo('contabilidad',   'Contabilidad',       'Fiscal',        Icons.calculate_outlined,       Color(0xFF0288D1)),
   _ModInfo('verifactu',      'VeriFactu',          'Fiscal',        Icons.verified_outlined,        Color(0xFF0288D1)),

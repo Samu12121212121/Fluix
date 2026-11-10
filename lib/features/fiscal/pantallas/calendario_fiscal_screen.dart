@@ -13,14 +13,14 @@ class CalendarioFiscalScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
+    final now          = DateTime.now();
     final vencimientos = _generarVencimientos(now.year);
-    
+    final canPop       = ModalRoute.of(context)?.isFirst == false;
+
     return Scaffold(
-      appBar: FluixAppBar(
-        titulo: 'Calendario Fiscal',
-        showLeading: true,
-      ),
+      appBar: canPop
+          ? FluixAppBar(titulo: 'Calendario Fiscal', showLeading: true)
+          : null,
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: vencimientos.length,

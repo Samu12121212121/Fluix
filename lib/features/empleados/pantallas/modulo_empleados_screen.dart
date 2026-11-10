@@ -18,6 +18,8 @@ import '../../../services/convenio_firestore_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../../../services/auth/invitaciones_service.dart';
 import 'configurar_acceso_staff_screen.dart';
+import 'pantalla_gestion_roles.dart';
+import 'pantalla_gestion_departamentos.dart';
 import '../widgets/canal_comunicacion_widget.dart';
 import '../widgets/selector_foto_widget.dart';
 import '../widgets/seccion_embargos_widget.dart';
@@ -51,7 +53,10 @@ const _kBg     = Color(0xFFF8F9FA);
 class ModuloEmpleadosScreen extends StatefulWidget {
   final String empresaId;
   final SesionUsuario? sesion;
-  const ModuloEmpleadosScreen({super.key, required this.empresaId, this.sesion});
+  /// Callback para navegar a otro módulo del dashboard sin salir del sidebar.
+  /// Solo el dashboard lo provee; en mobile es null y se usa Navigator.push.
+  final void Function(String moduloId)? onNavigarAModulo;
+  const ModuloEmpleadosScreen({super.key, required this.empresaId, this.sesion, this.onNavigarAModulo});
 
   @override
   State<ModuloEmpleadosScreen> createState() => _ModuloEmpleadosScreenState();
@@ -89,6 +94,13 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
 
   int     _paginaGrid = 0;
   QueryDocumentSnapshot? _seleccionado;
+  String  _searchQuery = '';
+  bool    _soloEnTurno = false;
+  final   _searchCtrl  = TextEditingController();
+
+  // Sub-pantalla inline (desktop) — mantiene el sidebar y AppBar del dashboard visibles
+  Widget? _subWidget;
+  String? _subTitle;
 
   // Verdadero si el usuario actual es admin o propietario (puede gestionar empleados)
   bool get _esPropietario {
@@ -127,6 +139,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
   @override
   void dispose() {
     _autoRefreshTimer?.cancel();
+    _searchCtrl.dispose();
     AppSettings.darkMode.removeListener(_onDarkChange);
     WidgetsBinding.instance.removeObserver(this);
     _seedConveniosSeguros().ignore();
@@ -283,8 +296,24 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
   }
 
   List<QueryDocumentSnapshot> _filtrar(List<QueryDocumentSnapshot> lista) {
-    final r = List<QueryDocumentSnapshot>.from(lista);
+    var r = List<QueryDocumentSnapshot>.from(lista);
+    final q = _searchQuery.toLowerCase().trim();
+    if (q.isNotEmpty) {
+      r = r.where((doc) {
+        final d      = doc.data() as Map;
+        final nombre = ((d['nombre'] as String?) ?? '').toLowerCase();
+        final puesto = ((d['puesto'] as String?) ?? '').toLowerCase();
+        return nombre.contains(q) || puesto.contains(q);
+      }).toList();
+    }
+    if (_soloEnTurno) {
+      r = r.where((doc) => _fichajesHoy.containsKey(doc.id)).toList();
+    }
     r.sort((a, b) {
+      // Primero los que están en turno ahora
+      final aEnTurno = _fichajesHoy[a.id]?['ultimo'] == 'En jornada' ? 0 : 1;
+      final bEnTurno = _fichajesHoy[b.id]?['ultimo'] == 'En jornada' ? 0 : 1;
+      if (aEnTurno != bEnTurno) return aEnTurno.compareTo(bEnTurno);
       final na = ((a.data() as Map)['nombre'] as String?) ?? '';
       final nb = ((b.data() as Map)['nombre'] as String?) ?? '';
       return _normOrd(na).compareTo(_normOrd(nb));
@@ -340,14 +369,27 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
     }
 
     final canPop    = ModalRoute.of(context)?.isFirst == false;
-    final filtrados = _filtrar(_empleados);
     final screenW   = MediaQuery.of(context).size.width;
     final wide      = screenW > 860;
+
+    // Desktop inline: muestra la sub-pantalla sin salir del dashboard (sidebar intacto)
+    if (_subWidget != null && !canPop && wide) {
+      return Scaffold(
+        backgroundColor: _bg,
+        body: Column(children: [
+          _buildSubNavHeader(),
+          Expanded(child: _subWidget!),
+        ]),
+      );
+    }
+
+    final filtrados = _filtrar(_empleados);
 
     // En mobile (canPop), el header inline se oculta porque FluixAppBar lo reemplaza
     Widget columna = Column(children: [
       if (!canPop) _buildHeader(context),
       _buildKpis(),
+      _buildSearchBar(),
       Expanded(child: _empleados.isEmpty ? _buildVacio() : _buildGrid(filtrados, context)),
     ]);
 
@@ -360,7 +402,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
         appBar: canPop
             ? FluixAppBar(
                 titulo:             'Empleados',
-                titleNavigatesBack: true,
+                showLeading: true,
                 extraActions: [
                   PopupMenuButton<String>(
                     icon: Icon(Icons.more_vert, size: 19, color: _kSub),
@@ -391,6 +433,43 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
               ])
             : columna,
       ),
+    );
+  }
+
+  // ── Sub-navegación inline (desktop) ──────────────────────────────────────
+
+  void _mostrarSubPantalla(Widget widget, String titulo) =>
+      setState(() { _subWidget = widget; _subTitle = titulo; });
+
+  void _cerrarSubPantalla() =>
+      setState(() { _subWidget = null; _subTitle = null; });
+
+  Widget _buildSubNavHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(color: _surf, border: Border(bottom: BorderSide(color: _border))),
+      child: Row(children: [
+        GestureDetector(
+          onTap: _cerrarSubPantalla,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: _isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _border),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.arrow_back_ios_rounded, size: 13, color: _text),
+              const SizedBox(width: 4),
+              Text('Empleados', style: TextStyle(fontSize: 12, color: _text, fontWeight: FontWeight.w500)),
+            ]),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Icon(Icons.chevron_right_rounded, size: 16, color: _sub2),
+        const SizedBox(width: 6),
+        Text(_subTitle ?? '', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _text)),
+      ]),
     );
   }
 
@@ -471,9 +550,23 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
                     empresaId: widget.empresaId),
               ));
             }
+            if (v == 'roles') {
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => PantallaGestionRoles(
+                    empresaId: widget.empresaId),
+              ));
+            }
+            if (v == 'departamentos') {
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => PantallaGestionDepartamentos(
+                    empresaId: widget.empresaId),
+              ));
+            }
           },
           itemBuilder: (_) => const [
             PopupMenuItem(value: 'acceso_staff', child: ListTile(leading: Icon(Icons.shield_outlined, color: Color(0xFF3B82F6)), title: Text('Acceso del equipo (Staff)'), dense: true, contentPadding: EdgeInsets.zero)),
+            PopupMenuItem(value: 'roles', child: ListTile(leading: Icon(Icons.badge_outlined, color: Color(0xFF8B5CF6)), title: Text('Gestionar roles'), dense: true, contentPadding: EdgeInsets.zero)),
+            PopupMenuItem(value: 'departamentos', child: ListTile(leading: Icon(Icons.account_tree_outlined, color: Color(0xFF10B981)), title: Text('Gestionar departamentos'), dense: true, contentPadding: EdgeInsets.zero)),
             PopupMenuItem(value: 'csv_dl',    child: ListTile(leading: Icon(Icons.download_outlined), title: Text('Descargar CSV'), dense: true, contentPadding: EdgeInsets.zero)),
             PopupMenuItem(value: 'csv_share', child: ListTile(leading: Icon(Icons.share_outlined),   title: Text('Compartir CSV'), dense: true, contentPadding: EdgeInsets.zero)),
           ],
@@ -501,6 +594,68 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
             ),
           ),
         ],
+      ]),
+    );
+  }
+
+  // ── Barra de búsqueda + filtro turno ────────────────────────────────────────
+
+  Widget _buildSearchBar() {
+    final fichadosHoy = _fichajesHoy.length;
+    return Container(
+      color: _surf,
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+      child: Row(children: [
+        Expanded(
+          child: SizedBox(
+            height: 36,
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: (v) => setState(() { _searchQuery = v; _paginaGrid = 0; }),
+              style: TextStyle(fontSize: 13, color: _text),
+              decoration: InputDecoration(
+                hintText: 'Buscar por nombre o puesto…',
+                hintStyle: TextStyle(fontSize: 12, color: _sub2),
+                prefixIcon: const Icon(Icons.search_rounded, size: 17, color: Color(0xFF94A3B8)),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? GestureDetector(
+                        onTap: () => setState(() { _searchQuery = ''; _searchCtrl.clear(); _paginaGrid = 0; }),
+                        child: const Icon(Icons.close_rounded, size: 15, color: Color(0xFF94A3B8)),
+                      )
+                    : null,
+                filled: true,
+                fillColor: _isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                isDense: true,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: () => setState(() { _soloEnTurno = !_soloEnTurno; _paginaGrid = 0; }),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: _soloEnTurno ? _kGreen : (_isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _soloEnTurno ? _kGreen : _kBorder),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.circle, size: 8, color: _soloEnTurno ? Colors.white : _kGreen),
+              const SizedBox(width: 5),
+              Text(
+                'En turno${fichadosHoy > 0 ? ' ($fichadosHoy)' : ''}',
+                style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w600,
+                  color: _soloEnTurno ? Colors.white : _kSub,
+                ),
+              ),
+            ]),
+          ),
+        ),
       ]),
     );
   }
@@ -540,75 +695,38 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
 
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-      child: LayoutBuilder(builder: (_, constraints) {
-        final totalW = kpiW * kpis.length + 10.0 * (kpis.length - 1);
-        if (totalW <= constraints.maxWidth) {
-          // Wide: Expanded igualados
-          return Row(children: [
-            for (int i = 0; i < kpis.length; i++) ...[
-              if (i > 0) const SizedBox(width: 10),
-              Expanded(child: kpis[i]),
-            ],
-          ]);
-        }
-        // Narrow: scroll horizontal con ancho fijo por tarjeta
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(children: [
-            for (int i = 0; i < kpis.length; i++) ...[
-              if (i > 0) const SizedBox(width: 10),
-              SizedBox(width: kpiW, child: kpis[i]),
-            ],
-          ]),
-        );
-      }),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+      child: Row(children: [
+        for (int i = 0; i < kpis.length; i++) ...[
+          if (i > 0) const SizedBox(width: 6),
+          Expanded(child: kpis[i]),
+        ],
+      ]),
     );
   }
 
-  // Layout vertical — funciona a cualquier ancho sin overflow
+  // Chip horizontal compacto (sub se ignora, solo se mantiene para compatibilidad de llamadas)
   Widget _kpiW(IconData icon, Color bgIcon, Color iconColor,
       String label, String valor, String sub, {bool tappable = false}) =>
       Container(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-              color: tappable ? iconColor.withValues(alpha: 0.3) : _kBorder),
-          boxShadow: [BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 6, offset: const Offset(0, 2))],
+          color: bgIcon.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: iconColor.withValues(alpha: tappable ? 0.35 : 0.15)),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Icono pequeño en la esquina superior
-            Container(
-              width: 30, height: 30,
-              decoration: BoxDecoration(color: bgIcon, shape: BoxShape.circle),
-              child: Icon(icon, color: iconColor, size: 15),
-            ),
-            const SizedBox(height: 8),
-            // Número grande
-            Text(valor,
-                style: const TextStyle(fontSize: 22,
-                    fontWeight: FontWeight.bold, color: _kText),
-                overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 2),
-            // Etiqueta
-            Text(label,
-                style: const TextStyle(fontSize: 10, color: _kSub),
-                overflow: TextOverflow.ellipsis, maxLines: 1),
-            const SizedBox(height: 1),
-            // Sub texto
-            Text(sub,
-                style: TextStyle(fontSize: 9,
-                    color: tappable ? iconColor : _kSub),
-                overflow: TextOverflow.ellipsis, maxLines: 1),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, color: iconColor, size: 14),
+          const SizedBox(width: 6),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text(valor, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: iconColor, height: 1.1)),
+            Text(label, style: const TextStyle(fontSize: 9, color: _kSub, height: 1.1)),
+          ]),
+          if (tappable) ...[
+            const SizedBox(width: 4),
+            Icon(Icons.arrow_forward_ios_rounded, size: 9, color: iconColor),
           ],
-        ),
+        ]),
       );
 
   // ── Grid de tarjetas: 6 por página (2 filas × 3), sin scroll ───────────
@@ -649,14 +767,15 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
         );
       }
 
-      // ── 2-3 columnas: GridView con ratio calculado ─────────────────────────
-      final availH = constraints.maxHeight - padV * 2
-          - (totalPaginas > 1 ? paginH : 0);
+      // ── 2-3 columnas: llenar el alto disponible (2 filas) ─────────────────────
       final cardW  = (availW - gap * (cols - 1)) / cols;
-      final cardH  = ((availH - gap) / 2).clamp(_esPropietario ? 250.0 : 200.0, 320.0);
+      final availH = constraints.maxHeight - padV * 2 - (totalPaginas > 1 ? paginH : 0);
+      final minH   = _esPropietario ? 130.0 : 100.0;
+      final cardH  = ((availH - gap) / 2).clamp(minH, 400.0);
       final ratio  = (cardW / cardH).clamp(0.5, 3.0);
 
-      return Column(children: [
+      return SingleChildScrollView(
+        child: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(padH, padV, padH, 0),
           child: GridView.count(
@@ -706,7 +825,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
               ),
             ]),
           ),
-      ]);
+      ]));
     });
   }
 
@@ -723,20 +842,20 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
     final ini     = _iniciales(nombre);
     final selec   = _seleccionado?.id == doc.id;
 
-    // Vacaciones desde saldo real (vacaciones/{empresa}/saldos)
-    final saldo         = _saldosVac[doc.id];
-    final vacDevengados = saldo?['devengados'] ?? 0.0;
-    final vacArrastre   = saldo?['arrastre']   ?? 0.0;
-    final vacTotalesD   = vacDevengados + vacArrastre;
-    final vacDisfD      = saldo?['disfrutados'] ?? 0.0;
-    final vacDisfrutadas = vacDisfD.round();
-    final vacTotales     = vacTotalesD.round();
-    final vacPct         = vacTotalesD > 0
-        ? (vacDisfD / vacTotalesD).clamp(0.0, 1.0) : 0.0;
+    final fi        = _fichajesHoy[doc.id];
+    final entrada   = fi?['entrada'] ?? '—';
+    final ultimo    = fi?['ultimo']  ?? '—';
+    final horas     = fi?['horas']   ?? '—';
+    final enJornada = ultimo == 'En jornada';
+    final fichadoHoy = fi != null;
 
     final estaEnVacaciones = estado == 'vacaciones';
-    final badgeLabel = estaEnVacaciones ? 'En vacaciones' : activo ? 'En plantilla' : 'De baja';
-    final badgeColor = estaEnVacaciones ? _kOrange : activo ? _kGreen : _kRed;
+    final badgeLabel = estaEnVacaciones ? 'Vacaciones'
+        : enJornada ? 'En turno'
+        : activo ? 'En plantilla' : 'De baja';
+    final badgeColor = estaEnVacaciones ? _kOrange
+        : enJornada ? _kGreen
+        : activo ? _kSub : _kRed;
     final rolColor = rol == 'propietario' ? const Color(0xFF7B1FA2)
         : rol == 'admin' ? _kBlue : const Color(0xFF059669);
 
@@ -754,7 +873,10 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: selec ? _kBlue : _kBorder, width: selec ? 2 : 1),
+          border: Border.all(
+            color: selec ? _kBlue : enJornada ? _kGreen.withValues(alpha: 0.5) : _kBorder,
+            width: selec ? 2 : enJornada ? 1.5 : 1,
+          ),
           boxShadow: [BoxShadow(
             color: selec ? _kBlue.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.04),
             blurRadius: selec ? 12 : 6, offset: const Offset(0, 2),
@@ -762,29 +884,33 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(11),
-          child: Column(children: [
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
 
             // ── Cabecera: avatar izq + info dcha ──────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
               child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: badgeColor, width: 2.5),
-                    boxShadow: [BoxShadow(color: badgeColor.withValues(alpha: 0.2),
-                        blurRadius: 6, offset: const Offset(0, 2))],
-                  ),
-                  child: CircleAvatar(
-                    radius: 24,
+                Stack(children: [
+                  CircleAvatar(
+                    radius: 20,
                     backgroundColor: rolColor.withValues(alpha: 0.12),
                     backgroundImage: fotoUrl != null ? NetworkImage(fotoUrl) : null,
                     child: fotoUrl == null
-                        ? Text(ini, style: TextStyle(fontSize: 14,
+                        ? Text(ini, style: TextStyle(fontSize: 12,
                             fontWeight: FontWeight.bold, color: rolColor))
                         : null,
                   ),
-                ),
+                  if (enJornada)
+                    Positioned(right: 0, bottom: 0,
+                      child: Container(
+                        width: 10, height: 10,
+                        decoration: BoxDecoration(
+                          color: _kGreen, shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                      ),
+                    ),
+                ]),
                 const SizedBox(width: 10),
                 Expanded(child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -797,135 +923,75 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
                     Text(puesto.isNotEmpty ? puesto : _rolLabel(rol),
                         style: const TextStyle(fontSize: 10, color: _kSub),
                         maxLines: 1, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 4),
-                    Wrap(spacing: 4, runSpacing: 2, children: [
+                    const SizedBox(height: 3),
+                    Row(children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                         decoration: BoxDecoration(
                           color: badgeColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: badgeColor.withValues(alpha: 0.25)),
                         ),
-                        child: Text('• $badgeLabel', style: TextStyle(fontSize: 8.5,
+                        child: Text('• $badgeLabel', style: TextStyle(fontSize: 8,
                             fontWeight: FontWeight.w700, color: badgeColor)),
                       ),
-                      if (dept.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      if (dept.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        Flexible(child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: Text(dept, style: const TextStyle(fontSize: 8.5, color: _kSub),
-                              overflow: TextOverflow.ellipsis),
-                        ),
+                          child: Text(dept, style: const TextStyle(fontSize: 8, color: _kSub),
+                              overflow: TextOverflow.ellipsis, maxLines: 1),
+                        )),
+                      ],
                     ]),
                   ],
                 )),
               ]),
             ),
 
-            // ── Barra de vacaciones ────────────────────────────────────────
+            // ── Fila de fichaje compacta ───────────────────────────────────
             Container(
-              decoration: const BoxDecoration(
-                  border: Border(top: BorderSide(color: _kBorder))),
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Icon(Icons.beach_access_outlined, size: 11, color: _kOrange),
-                  const SizedBox(width: 5),
-                  Text('Vacaciones', style: const TextStyle(fontSize: 10, color: _kSub)),
-                  const Spacer(),
-                  Text(
-                    vacTotales > 0
-                        ? '$vacDisfrutadas/$vacTotales días'
-                        : vacDisfrutadas > 0
-                            ? '$vacDisfrutadas días (sin límite)'
-                            : '0 días disfrutados',
-                    style: TextStyle(
-                        fontSize: 10, fontWeight: FontWeight.w700,
-                        color: vacTotales > 0 ? _kText : _kSub),
-                  ),
-                ]),
-                const SizedBox(height: 5),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: vacTotales > 0 ? vacPct.clamp(0.0, 1.0) : 0,
-                    minHeight: 6,
-                    backgroundColor: _kGreen.withValues(alpha: 0.12),
-                    valueColor: AlwaysStoppedAnimation<Color>(_kGreen),
-                  ),
+              decoration: const BoxDecoration(border: Border(top: BorderSide(color: _kBorder))),
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+              child: Row(children: [
+                Icon(
+                  fichadoHoy ? (enJornada ? Icons.circle : Icons.check_circle_outline_rounded) : Icons.radio_button_unchecked_rounded,
+                  size: 10,
+                  color: fichadoHoy ? (enJornada ? _kGreen : _kBlue) : _kBorder,
                 ),
+                const SizedBox(width: 6),
+                Expanded(child: Text(
+                  fichadoHoy
+                      ? (enJornada ? 'Entrada $entrada · trabajando' : 'Entrada $entrada → $ultimo ($horas)')
+                      : 'Sin fichar hoy',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: fichadoHoy ? (enJornada ? _kGreen : _kText) : _kSub,
+                    fontWeight: enJornada ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                )),
               ]),
             ),
 
-            // ── Fichajes: datos del batch ya cargado ───────────────────────
-            Builder(builder: (_) {
-              final fi      = _fichajesHoy[doc.id];
-              final entrada = fi?['entrada'] ?? '—';
-              final ultimo  = fi?['ultimo']  ?? '—';
-              final horas   = fi?['horas']   ?? '—';
-              final enJornada = ultimo == 'En jornada';
-              return Container(
-                decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: _kBorder))),
-                child: Row(children: [
-                  Expanded(child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 12),
-                    child: Row(children: [
-                      Icon(Icons.login_outlined, size: 11, color: _kGreen),
-                      const SizedBox(width: 5),
-                      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(entrada, style: const TextStyle(fontSize: 11,
-                            fontWeight: FontWeight.w700, color: _kText)),
-                        const Text('Entrada hoy',
-                            style: TextStyle(fontSize: 8.5, color: _kSub)),
-                      ]),
-                    ]),
-                  )),
-                  Container(width: 1, height: 32, color: _kBorder),
-                  Expanded(child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 12),
-                    child: Row(children: [
-                      Icon(
-                        enJornada ? Icons.circle : Icons.logout_outlined,
-                        size: 11,
-                        color: enJornada ? _kGreen : _kBlue,
-                      ),
-                      const SizedBox(width: 5),
-                      Expanded(child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(enJornada ? 'Trabajando' : ultimo,
-                            style: TextStyle(fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: enJornada ? _kGreen : _kText),
-                            overflow: TextOverflow.ellipsis),
-                        Text(enJornada ? 'En jornada' : horas,
-                            style: const TextStyle(fontSize: 8.5, color: _kSub)),
-                      ])),
-                    ]),
-                  )),
-                ]),
-              );
-            }),
-
-            // ── 4 botones de acción (solo propietario) ─────────────────────
+            // ── Botones de acción (solo propietario) ───────────────────────
             if (_esPropietario)
               Container(
-                decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: _kBorder))),
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: const BoxDecoration(border: Border(top: BorderSide(color: _kBorder))),
+                padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                  _empBtn(Icons.edit_outlined,          'Editar',   _kBlue,
+                  _empBtn(Icons.edit_outlined,         'Editar',   _kBlue,
                       () => _abrirFormulario(id: doc.id, data: d)),
-                  _empBtn(Icons.photo_camera_outlined,  'Foto',     _kSub,
+                  _empBtn(Icons.photo_camera_outlined, 'Foto',     _kSub,
                       () => _abrirFoto(doc.id, nombre)),
-                  _empBtn(Icons.receipt_long_outlined,  'Nóminas',  _kGreen,
+                  _empBtn(Icons.receipt_long_outlined, 'Nóminas',  _kGreen,
                       () => _abrirNominas(doc.id, nombre)),
-                  _empBtn(Icons.gavel_outlined,         'Embargos', _kOrange,
+                  _empBtn(Icons.gavel_outlined,        'Embargos', _kOrange,
                       () => _abrirEmbargos(doc.id, nombre)),
-                  _empBtn(Icons.tune_rounded,           'Módulos',  const Color(0xFF7C3AED),
+                  _empBtn(Icons.tune_rounded,          'Módulos',  const Color(0xFF7C3AED),
                       () => _abrirModulos(doc.id, nombre)),
                 ]),
               ),
@@ -1376,7 +1442,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
                 const Divider(height: 1, color: _kBorder),
 
                 // ── Navegación a módulos ─────────────────────────────────
-                ..._navItems(context, id, d),
+                ..._navItems(context, id, d, onBeforeNavigate: () => Navigator.pop(context)),
 
                 // ── Eliminar ─────────────────────────────────────────────
                 if (_esPropietario) Padding(
@@ -1435,38 +1501,81 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
     ]),
   );
 
-  List<Widget> _navItems(BuildContext context, String id, Map<String, dynamic> d) {
+  List<Widget> _navItems(
+    BuildContext context,
+    String id,
+    Map<String, dynamic> d, {
+    VoidCallback? onBeforeNavigate,
+  }) {
     final svc = SuscripcionService();
     final tieneNominas    = svc.tieneModulo('nominas') || svc.tieneModulo('gestion');
     final tieneFichaje    = svc.tieneModulo('fichaje');
     final tieneVacaciones = svc.tieneModulo('vacaciones') || tieneFichaje;
+    final nombre = d['nombre'] as String? ?? '';
+    final wide   = MediaQuery.sizeOf(context).width > 860;
 
     final items = <(IconData, String, Color, VoidCallback)>[
       if (tieneNominas)
         (Icons.receipt_long_outlined, 'Nóminas del empleado', _kGreen,
-            () => _abrirNominas(id, d['nombre'] as String? ?? '')),
+            () { onBeforeNavigate?.call(); _abrirNominas(id, nombre); }),
       if (tieneNominas)
         (Icons.tune_rounded, 'Datos salariales', const Color(0xFF059669),
-            () => _abrirFormularioNomina(id, d)),
+            () { onBeforeNavigate?.call(); _abrirFormularioNomina(id, d); }),
       if (tieneVacaciones)
         (Icons.beach_access_outlined, 'Vacaciones y ausencias', _kOrange,
-            () => Navigator.push(context, MaterialPageRoute(
-                builder: (_) => VacacionesScreen(
-                    empresaId: widget.empresaId, sesion: widget.sesion, embedded: false)))),
+            () {
+              onBeforeNavigate?.call();
+              if (wide) {
+                _mostrarSubPantalla(
+                  VacacionesScreen(
+                    empresaId: widget.empresaId,
+                    sesion: widget.sesion,
+                    embedded: true,
+                    empleadoIdInicial: id,
+                    empleadoNombreInicial: nombre,
+                  ),
+                  'Vacaciones y ausencias',
+                );
+              } else {
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => VacacionesScreen(
+                    empresaId: widget.empresaId,
+                    sesion: widget.sesion,
+                    embedded: false,
+                    empleadoIdInicial: id,
+                    empleadoNombreInicial: nombre,
+                  ),
+                ));
+              }
+            }),
       (Icons.folder_outlined, 'Documentos', _kBlue,
-          () => _abrirDocumentos(id, d['nombre'] as String? ?? '')),
+          () { onBeforeNavigate?.call(); _abrirDocumentos(id, nombre); }),
       (Icons.gavel_outlined, 'Embargos', _kRed,
-          () => _abrirEmbargos(id, d['nombre'] as String? ?? '')),
+          () { onBeforeNavigate?.call(); _abrirEmbargos(id, nombre); }),
       if (tieneFichaje)
         (Icons.fingerprint_rounded, 'Fichajes y jornadas', _kSub,
-            () => _mostrarResumenFichajes(id, d['nombre'] as String? ?? '')),
+            () { onBeforeNavigate?.call(); _mostrarResumenFichajes(id, nombre); }),
       if (_esPropietario)
         (Icons.tune_rounded, 'Configurar módulos', const Color(0xFF7C3AED),
-            () => _abrirModulos(id, d['nombre'] as String? ?? '')),
-      // Portal: solo admin puede ver el portal de otros empleados
+            () { onBeforeNavigate?.call(); _abrirModulos(id, nombre); }),
       if (_esPropietario)
         (Icons.person_pin_outlined, 'Portal del empleado (admin)', _kBlue,
-            () => _abrirPortalEmpleado(context, id, d['nombre'] as String? ?? '')),
+            () {
+              onBeforeNavigate?.call();
+              if (wide) {
+                _mostrarSubPantalla(
+                  PortalEmpleadoScreen(
+                    empresaId: widget.empresaId,
+                    empleadoUid: id,
+                    modoAdmin: true,
+                    isDark: _isDark,
+                  ),
+                  'Portal · $nombre',
+                );
+              } else {
+                _abrirPortalEmpleado(context, id, nombre);
+              }
+            }),
     ];
 
     return items.map((item) => InkWell(
@@ -2184,7 +2293,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
         backgroundColor: _bg,
         appBar: FluixAppBar(
           titulo: 'Portal · $nombre',
-          titleNavigatesBack: true,
+          showLeading: true,
         ),
         body: ColoredBox(
           color: _bg,
@@ -2305,6 +2414,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
     final tipo   = (doc.data()?['tipo_negocio'] as String? ?? '').toLowerCase();
     final esConstruccion = sector.contains('construcci') || tipo.contains('construcci') || tipo.contains('obra');
     final esCuenca       = sector.contains('cuenca');
+    final esAmbulancia   = sector.contains('ambulanci') || sector.contains('transporte_sanitario') || sector.contains('emergencias_sanitarias') || sector == 'tes';
     final seeds = [
       _convenioService.seedConvenioHosteleriaGuadalajara,
       _convenioService.seedConvenioComercioGuadalajara,
@@ -2315,6 +2425,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
       if (esCuenca || sector == 'hosteleria_cuenca') _convenioService.seedConvenioHosteleriaCuenca,
       if (esCuenca || sector == 'comercio_cuenca') _convenioService.seedConvenioComercioCuenca,
       if (esConstruccion && esCuenca) _convenioService.seedConvenioConstruccionCuenca,
+      if (esAmbulancia) _convenioService.seedConvenioAmbulanciasCastillaLaMancha,
     ];
     for (final seed in seeds) {
       try { await seed(); } catch (e) { debugPrint('⚠️ seed: $e'); }

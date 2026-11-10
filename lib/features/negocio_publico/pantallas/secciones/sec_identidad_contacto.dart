@@ -58,7 +58,7 @@ extension _SecIdentidadContacto on _ModuloAppScreenState {
         _InputIcon(ctrl: _descCtrl, icon: Icons.description_outlined,
             label: 'Descripción completa', hint: 'Cuéntale todo al cliente…'),
         const SizedBox(height: 10),
-        TextField(
+        TextFormField(
           initialValue: _videoUrl,
           style: TextStyle(color: _kTexto, fontSize: 13),
           decoration: _dec('URL vídeo de presentación (YouTube…)').copyWith(
@@ -123,7 +123,7 @@ extension _SecIdentidadContacto on _ModuloAppScreenState {
     children: [
       Text('Categoría principal', style: TextStyle(color: _kMuted, fontSize: 12, fontWeight: FontWeight.w600)),
       const SizedBox(height: 8),
-      Wrap(spacing: 8, runSpacing: 8, children: _categorias.map((c) {
+      Wrap(spacing: 8, runSpacing: 8, children: _ModuloAppScreenState._categorias.map((c) {
         final sel = _categoria == c.$1;
         return GestureDetector(
           onTap: () => setState(() => _categoria = c.$1),

@@ -28,17 +28,18 @@ class TwilioSmsService {
 
   // ── Credenciales ──────────────────────────────────────────────────────────
 
-  Future<_TwilioCreds?> _credenciales() async {
-    final sid   = await _ia.obtenerApiKey('twilio_sid');
-    final token = await _ia.obtenerApiKey('twilio_token');
-    final from  = await _ia.obtenerApiKey('twilio_from');
+  Future<_TwilioCreds?> _credenciales({String? ownerUid}) async {
+    final sid   = await _ia.obtenerApiKey('twilio_sid',   uid: ownerUid);
+    final token = await _ia.obtenerApiKey('twilio_token', uid: ownerUid);
+    final from  = await _ia.obtenerApiKey('twilio_from',  uid: ownerUid);
     if (sid == null || sid.isEmpty) return null;
     if (token == null || token.isEmpty) return null;
     if (from == null || from.isEmpty) return null;
     return _TwilioCreds(sid: sid, token: token, from: from);
   }
 
-  Future<bool> estaConfigurado() async => (await _credenciales()) != null;
+  Future<bool> estaConfigurado({String? ownerUid}) async =>
+      (await _credenciales(ownerUid: ownerUid)) != null;
 
   Future<void> guardarCredenciales({
     required String sid,
@@ -56,8 +57,9 @@ class TwilioSmsService {
 
   /// Envía un SMS. Devuelve true si se envió correctamente.
   /// El teléfono se normaliza automáticamente a E.164 (+34xxx).
-  Future<bool> enviarSMS(String telefono, String mensaje) async {
-    final creds = await _credenciales();
+  /// [ownerUid] permite usar las credenciales Twilio de otro usuario (ej: propietario de empresa).
+  Future<bool> enviarSMS(String telefono, String mensaje, {String? ownerUid}) async {
+    final creds = await _credenciales(ownerUid: ownerUid);
     if (creds == null) {
       debugPrint('📵 Twilio no configurado — SMS no enviado');
       return false;

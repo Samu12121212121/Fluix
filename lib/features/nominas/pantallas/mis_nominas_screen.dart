@@ -1,22 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
+import '../../../domain/modelos/nomina.dart';
+import '../../../services/nomina_pdf_service.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // MIS NÓMINAS — Vista del empleado (rol staff)
-// Solo puede ver sus propias nóminas, sin posibilidad de subir ni eliminar.
+// Lee de empresas/{id}/nominas filtrando por empleado_id == uid.
+// PDF se genera on-demand — no hay URL almacenada.
 // ═════════════════════════════════════════════════════════════════════════════
 
 const _kBlue   = Color(0xFF3B82F6);
-const _kGreen  = Color(0xFF22C55E);
-const _kRed    = Color(0xFFEF4444);
-const _kBorder = Color(0xFFE5E7EB);
-const _kBg     = Color(0xFFF8F9FA);
-const _kText   = Color(0xFF111827);
-const _kSub    = Color(0xFF6B7280);
+const _kGreen  = Color(0xFF16A34A);
+const _kAmber  = Color(0xFFF59E0B);
+const _kBorder = Color(0xFFE2E8F0);
+const _kBg     = Color(0xFFF5F7FA);
+const _kText   = Color(0xFF0F172A);
+const _kSub    = Color(0xFF64748B);
 
 const _meses = [
   '', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -26,8 +27,9 @@ const _meses = [
 
 class MisNominasScreen extends StatefulWidget {
   final String empresaId;
+  final String? empleadoUid; // si null, usa el usuario autenticado actual
 
-  const MisNominasScreen({super.key, required this.empresaId});
+  const MisNominasScreen({super.key, required this.empresaId, this.empleadoUid});
 
   @override
   State<MisNominasScreen> createState() => _MisNominasScreenState();
@@ -35,31 +37,31 @@ class MisNominasScreen extends StatefulWidget {
 
 class _MisNominasScreenState extends State<MisNominasScreen> {
   final _db  = FirebaseFirestore.instance;
-  final _uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+  String get _uid => widget.empleadoUid ?? FirebaseAuth.instance.currentUser?.uid ?? '';
 
   int _anioFiltro = DateTime.now().year;
 
-  CollectionReference<Map<String, dynamic>> get _col =>
-      _db.collection('empresas').doc(widget.empresaId)
-          .collection('nominas_empleados');
-
-  Future<void> _abrir(String url) async {
-    try {
-      final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    } catch (_) {
-      if (mounted) FluxToast.error(context, 'No se pudo abrir el archivo');
-    }
-  }
+  Stream<List<Nomina>> get _stream => _db
+      .collection('empresas').doc(widget.empresaId)
+      .collection('nominas')
+      .where('empleado_id', isEqualTo: _uid)
+      .where('anio', isEqualTo: _anioFiltro)
+      .orderBy('mes', descending: true)
+      .snapshots()
+      .map((s) => s.docs
+          .map((d) => Nomina.fromMap({...d.data(), 'id': d.id}))
+          .toList());
 
   @override
   Widget build(BuildContext context) {
+    final canPop = ModalRoute.of(context)?.isFirst == false;
+
     return Scaffold(
       backgroundColor: _kBg,
-      appBar: FluixAppBar(
+      appBar: canPop ? FluixAppBar(
         titulo: 'Mis Nóminas',
+        showLeading: true,
         extraActions: [
           DropdownButtonHideUnderline(
             child: DropdownButton<int>(
@@ -74,72 +76,46 @@ class _MisNominasScreenState extends State<MisNominasScreen> {
           ),
           const SizedBox(width: 8),
         ],
+      ) : null,
+      body: StreamBuilder<List<Nomina>>(
+        stream: _stream,
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: _kBlue));
+          }
+          final nominas = snap.data ?? [];
+
+          if (nominas.isEmpty) {
+            return Center(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.receipt_long_outlined, size: 64,
+                    color: const Color(0xFFCBD5E1)),
+                const SizedBox(height: 16),
+                Text('No hay nóminas en $_anioFiltro',
+                    style: const TextStyle(fontSize: 15, color: _kSub,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                const Text('Aparecerán aquí cuando tu empresa las genere',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+              ]),
+            );
+          }
+
+          final totalNeto = nominas.fold<double>(0, (s, n) => s + n.salarioNeto);
+
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildResumen(nominas.length, totalNeto),
+              const SizedBox(height: 12),
+              ...nominas.map((n) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _buildItem(n),
+              )),
+            ],
+          );
+        },
       ),
-      body: Column(children: [
-        // Lista
-        Expanded(
-          child: StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
-            stream: _col
-                .where('empleado_id', isEqualTo: _uid)
-                .snapshots()
-                .map((s) {
-                  final docs = s.docs
-                      .where((d) => d.data()['anio'] == _anioFiltro)
-                      .toList();
-                  docs.sort((a, b) {
-                    final ma = a.data()['mes'] as int? ?? 0;
-                    final mb = b.data()['mes'] as int? ?? 0;
-                    return mb.compareTo(ma);
-                  });
-                  return docs;
-                }),
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
-                return const Center(
-                    child: CircularProgressIndicator(color: _kGreen));
-              }
-              final docs = snap.data ?? [];
-              if (docs.isEmpty) {
-                return Center(
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.receipt_long_outlined,
-                        size: 64, color: Colors.grey[300]),
-                    const SizedBox(height: 16),
-                    Text('No hay nóminas en $_anioFiltro',
-                        style: TextStyle(
-                            fontSize: 15, color: Colors.grey[500])),
-                    const SizedBox(height: 6),
-                    Text('Cuando tu empresa suba tus nóminas aparecerán aquí',
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.grey[400])),
-                  ]),
-                );
-              }
-
-              // Resumen anual
-              final totalNeto = docs.fold<double>(0, (sum, doc) {
-                final importe = doc.data()['importe_neto'] as double?;
-                return sum + (importe ?? 0);
-              });
-
-              return ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  // KPI resumen
-                  if (totalNeto > 0) ...[
-                    _buildResumen(docs.length, totalNeto),
-                    const SizedBox(height: 12),
-                  ],
-                  ...docs.map((doc) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: _buildItem(doc),
-                      )),
-                ],
-              );
-            },
-          ),
-        ),
-      ]),
     );
   }
 
@@ -148,51 +124,42 @@ class _MisNominasScreenState extends State<MisNominasScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _kGreen.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _kGreen.withValues(alpha: 0.2)),
       ),
       child: Row(children: [
         Expanded(child: _kpi('Nóminas en $_anioFiltro', '$count')),
-        Container(width: 1, height: 40, color: _kGreen.withValues(alpha: 0.2)),
-        Expanded(
-            child: _kpi('Total neto recibido',
-                '${totalNeto.toStringAsFixed(2)} €')),
+        Container(width: 1, height: 40,
+            color: _kGreen.withValues(alpha: 0.2)),
+        Expanded(child: _kpi('Neto acumulado',
+            '${totalNeto.toStringAsFixed(0)} €')),
       ]),
     );
   }
 
   Widget _kpi(String label, String valor) => Column(children: [
-        Text(valor,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
-                color: _kText)),
-        const SizedBox(height: 2),
-        Text(label,
-            style: const TextStyle(fontSize: 10, color: _kSub),
-            textAlign: TextAlign.center),
-      ]);
+    Text(valor, style: const TextStyle(fontSize: 18,
+        fontWeight: FontWeight.bold, color: _kText)),
+    const SizedBox(height: 2),
+    Text(label, style: const TextStyle(fontSize: 10, color: _kSub),
+        textAlign: TextAlign.center),
+  ]);
 
-  Widget _buildItem(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
-    final d          = doc.data();
-    final mes        = (d['mes'] as int? ?? 1).clamp(1, 14);
-    final anio       = d['anio'] as int? ?? 0;
-    final url        = d['url'] as String? ?? '';
-    final nombre     = d['nombre_archivo'] as String? ?? '';
-    final importeNeto = d['importe_neto'] as double?;
-    final ext        = d['extension'] as String? ?? 'pdf';
-    final subidoEn   = (d['subido_en'] as Timestamp?)?.toDate();
-    final fechaStr   = subidoEn != null
-        ? '${subidoEn.day.toString().padLeft(2,'0')}/'
-          '${subidoEn.month.toString().padLeft(2,'0')}/${subidoEn.year}'
-        : '';
-    final isPdf = ext == 'pdf';
+  Widget _buildItem(Nomina n) {
+    final mes = n.mes.clamp(1, 14);
+    final colorEstado = switch (n.estado) {
+      EstadoNomina.pagada   => _kGreen,
+      EstadoNomina.aprobada => _kBlue,
+      EstadoNomina.borrador => _kAmber,
+    };
 
     return GestureDetector(
-      onTap: url.isNotEmpty ? () => _abrir(url) : null,
+      onTap: () => NominaPdfService.verNominaPdf(context, n, widget.empresaId, modoEmpleado: true),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: _kBorder),
           boxShadow: [BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -203,15 +170,11 @@ class _MisNominasScreenState extends State<MisNominasScreen> {
           Container(
             width: 48, height: 48,
             decoration: BoxDecoration(
-              color: isPdf
-                  ? _kRed.withValues(alpha: 0.08)
-                  : _kBlue.withValues(alpha: 0.08),
+              color: const Color(0xFFEF4444).withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              isPdf ? Icons.picture_as_pdf_rounded : Icons.image_rounded,
-              color: isPdf ? _kRed : _kBlue, size: 24,
-            ),
+            child: const Icon(Icons.picture_as_pdf_rounded,
+                color: Color(0xFFEF4444), size: 24),
           ),
           const SizedBox(width: 14),
           Expanded(child: Column(
@@ -222,38 +185,33 @@ class _MisNominasScreenState extends State<MisNominasScreen> {
                       fontWeight: FontWeight.w700, color: _kText)),
               const SizedBox(height: 3),
               Row(children: [
-                Text('$anio',
+                Text('${n.anio}',
                     style: const TextStyle(fontSize: 12, color: _kSub)),
-                if (importeNeto != null) ...[
-                  const Text(' · ', style: TextStyle(fontSize: 12, color: _kSub)),
-                  Text('${importeNeto.toStringAsFixed(2)} € neto',
-                      style: const TextStyle(fontSize: 12,
-                          fontWeight: FontWeight.w700, color: _kGreen)),
-                ],
+                const Text(' · ',
+                    style: TextStyle(fontSize: 12, color: _kSub)),
+                Text('${n.salarioNeto.toStringAsFixed(2)} € neto',
+                    style: TextStyle(fontSize: 12,
+                        fontWeight: FontWeight.w700, color: colorEstado)),
               ]),
-              if (fechaStr.isNotEmpty)
-                Text('Disponible desde el $fechaStr',
-                    style: const TextStyle(fontSize: 11, color: _kSub)),
-              if (nombre.isNotEmpty)
-                Text(nombre,
-                    style: const TextStyle(fontSize: 10, color: _kSub),
-                    overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 2),
+              Text('Coste empresa: ${n.costeTotalEmpresa.toStringAsFixed(2)} €',
+                  style: const TextStyle(fontSize: 11,
+                      color: Color(0xFF94A3B8))),
             ],
           )),
-          // Botón abrir
           Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: _kBlue.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
+              color: colorEstado.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
             ),
-            child: IconButton(
-              onPressed: url.isNotEmpty ? () => _abrir(url) : null,
-              icon: const Icon(Icons.download_rounded,
-                  size: 20, color: _kBlue),
-              tooltip: 'Descargar / Ver',
-              splashRadius: 20,
-            ),
+            child: Text(n.estado.etiqueta,
+                style: TextStyle(fontSize: 10,
+                    fontWeight: FontWeight.w700, color: colorEstado)),
           ),
+          const SizedBox(width: 6),
+          Icon(Icons.chevron_right_rounded,
+              color: const Color(0xFFCBD5E1), size: 20),
         ]),
       ),
     );

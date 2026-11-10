@@ -34,6 +34,10 @@ class _PantallaConfiguracionFiscalEmpresaState
   final _serieFacCtrl  = TextEditingController(text: 'F');
   final _serieRectCtrl = TextEditingController(text: 'R');
   final _serieProCtrl  = TextEditingController(text: 'P');
+  // Seguridad Social
+  final _cccCtrl  = TextEditingController();
+  final _cnaeSSCtrl = TextEditingController();
+  final _tipoAtCtrl = TextEditingController();
   String _regimenIva = 'general';
   bool _estaEnSii = false;
   CriterioIVA _criterioIva = CriterioIVA.devengo;
@@ -51,6 +55,9 @@ class _PantallaConfiguracionFiscalEmpresaState
     _serieFacCtrl.dispose();
     _serieRectCtrl.dispose();
     _serieProCtrl.dispose();
+    _cccCtrl.dispose();
+    _cnaeSSCtrl.dispose();
+    _tipoAtCtrl.dispose();
     super.dispose();
   }
 
@@ -66,6 +73,9 @@ class _PantallaConfiguracionFiscalEmpresaState
     _serieFacCtrl.text  = config.serieFactura;
     _serieRectCtrl.text = config.serieRectificativa;
     _serieProCtrl.text  = config.serieProforma;
+    _cccCtrl.text   = config.cccSeguridadSocial;
+    _cnaeSSCtrl.text = config.cnaeSegSocial;
+    _tipoAtCtrl.text = config.tipoAtSeguridadSocial?.toStringAsFixed(2) ?? '';
     _regimenIva = config.regimenIVA;
     _estaEnSii = config.estaEnSII;
     _criterioIva = config.criterioIva;
@@ -261,6 +271,9 @@ class _PantallaConfiguracionFiscalEmpresaState
                   const SizedBox(height: 16),
                   // ── Sección series de facturación ──────────────────────────────────────
                   _buildCardSeries(),
+                  const SizedBox(height: 16),
+                  // ── Sección Seguridad Social ───────────────────────────────────────────
+                  _buildCardSS(),
                 ],
               ),
             ),
@@ -287,6 +300,9 @@ class _PantallaConfiguracionFiscalEmpresaState
           ? _serieRectCtrl.text.trim().toUpperCase() : 'R',
       serieProforma: _serieProCtrl.text.trim().toUpperCase().isNotEmpty
           ? _serieProCtrl.text.trim().toUpperCase() : 'P',
+      cccSeguridadSocial: _cccCtrl.text.trim(),
+      cnaeSegSocial: _cnaeSSCtrl.text.trim(),
+      tipoAtSeguridadSocial: double.tryParse(_tipoAtCtrl.text.trim()),
     );
     try {
       await provider.guardar(nuevo);
@@ -377,6 +393,59 @@ class _PantallaConfiguracionFiscalEmpresaState
     if (v == null || v.trim().isEmpty) return 'Obligatorio';
     if (v.trim().length > 5) return 'Máx. 5 car.';
     if (!RegExp(r'^[A-Za-z0-9\-]+$').hasMatch(v.trim())) return 'Solo letras/números';
+    return null;
+  }
+
+  // ── Sección Seguridad Social ───────────────────────────────────────────────
+  Widget _buildCardSS() => _buildCard([
+    const Text(
+      '🏥 Seguridad Social (nóminas)',
+      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+    ),
+    const SizedBox(height: 4),
+    const Text(
+      'Estos datos se usan para las nóminas y el PDF del recibo de salario.',
+      style: TextStyle(fontSize: 12, color: Colors.grey),
+    ),
+    const SizedBox(height: 12),
+    _campo(_cccCtrl, 'CCC — Código Cuenta Cotización',
+        hint: 'Ej: 282345678901', validator: _validarCCC),
+    const SizedBox(height: 8),
+    Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.blue.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Text(
+        'El CCC aparece en el encabezado del recibo de nómina. Tiene 12 dígitos: 2 provincia + 8 empresa + 2 dígitos de control.',
+        style: TextStyle(fontSize: 11, color: Colors.blue),
+      ),
+    ),
+    const SizedBox(height: 12),
+    Row(children: [
+      Expanded(child: _campo(_cnaeSSCtrl, 'CNAE en TGSS', hint: 'Ej: 869')),
+      const SizedBox(width: 10),
+      Expanded(child: _campo(_tipoAtCtrl, 'Tipo AT/EP (%)', hint: 'Ej: 1.75')),
+    ]),
+    const SizedBox(height: 8),
+    Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Text(
+        'El tipo AT/EP se aplica a todas las nóminas de la empresa salvo que el empleado tenga un tipo personalizado. Consúltalo en la tarifa de primas AT/EP (RDL 3/2026 DF1.3).',
+        style: TextStyle(fontSize: 11, color: Colors.orange),
+      ),
+    ),
+  ]);
+
+  String? _validarCCC(String? v) {
+    if (v == null || v.trim().isEmpty) return null; // Opcional
+    final clean = v.trim().replaceAll(RegExp(r'[\s\-/]'), '');
+    if (!RegExp(r'^\d{12}$').hasMatch(clean)) return 'El CCC debe tener 12 dígitos numéricos';
     return null;
   }
 }

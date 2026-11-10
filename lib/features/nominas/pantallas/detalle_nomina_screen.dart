@@ -3,6 +3,7 @@ import '../../../domain/modelos/nomina.dart';
 import '../../../services/nominas_service.dart';
 import '../../../services/nomina_pdf_service.dart';
 import '../../../core/widgets/fluix_app_bar.dart';
+import '../../../core/widgets/flux_toast.dart';
 
 /// Pantalla de detalle de una nómina individual.
 /// Muestra desglose completo y permite aprobar/pagar/exportar PDF.
@@ -70,6 +71,11 @@ class _DetalleNominaScreenState extends State<DetalleNominaScreen> {
             onPressed: () => NominaPdfService.enviarNominaPorCorreo(context, _nomina, widget.empresaId),
           ),
           if (widget.esPropietario) ...[
+            IconButton(
+              icon: const Icon(Icons.person_pin_circle_outlined),
+              tooltip: 'Enviar al portal del empleado',
+              onPressed: _procesando ? null : _enviarAlPortal,
+            ),
             if (_nomina.estado == EstadoNomina.borrador)
               IconButton(
                 icon: const Icon(Icons.check_circle_outline),
@@ -82,12 +88,11 @@ class _DetalleNominaScreenState extends State<DetalleNominaScreen> {
                 tooltip: 'Marcar pagada',
                 onPressed: _procesando ? null : _pagar,
               ),
-            if (_nomina.estado == EstadoNomina.borrador)
-              IconButton(
-                icon: const Icon(Icons.delete_outline),
-                tooltip: 'Eliminar',
-                onPressed: _procesando ? null : _eliminar,
-              ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Eliminar nómina',
+              onPressed: _procesando ? null : _eliminar,
+            ),
           ],
         ],
       ),
@@ -764,12 +769,32 @@ class _DetalleNominaScreenState extends State<DetalleNominaScreen> {
 
     if (confirmar != true) return;
 
-    await _svc.eliminarNomina(widget.empresaId, _nomina.id);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('🗑️ Nómina eliminada')),
-      );
-      Navigator.pop(context);
+    setState(() => _procesando = true);
+    try {
+      await _svc.eliminarNomina(widget.empresaId, _nomina.id);
+      if (mounted) {
+        FluxToast.info(context, 'Nómina eliminada');
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) FluxToast.error(context, 'Error: $e');
+    } finally {
+      if (mounted) setState(() => _procesando = false);
+    }
+  }
+
+  Future<void> _enviarAlPortal() async {
+    setState(() => _procesando = true);
+    try {
+      await _svc.notificarNominaAlPortal(widget.empresaId, _nomina.id);
+      if (mounted) {
+        FluxToast.exito(context,
+          'Notificación enviada al portal de ${_nomina.empleadoNombre.split(' ').first}');
+      }
+    } catch (e) {
+      if (mounted) FluxToast.error(context, 'Error: $e');
+    } finally {
+      if (mounted) setState(() => _procesando = false);
     }
   }
 

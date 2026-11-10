@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:planeag_flutter/core/widgets/flux_toast.dart';
+import '../../../domain/modelos/rol_empresa.dart';
+import '../../../domain/modelos/departamento_empresa.dart';
+import '../../../services/roles_departamentos_service.dart';
 
 // Colores del sistema de diseño actual
 const _kBlue   = Color(0xFF3B82F6);
@@ -45,6 +48,13 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
   bool      _expandirExtra   = false;
   DateTime? _fechaAlta;
 
+  // Rol personalizado y departamento estructurado
+  List<RolEmpresa>           _roles        = [];
+  List<DepartamentoEmpresa>  _departamentos = [];
+  String? _rolEmpresaId;
+  String? _departamentoId;
+  final _rdSvc = RolesDepartamentosService();
+
   bool get _esEdicion => widget.id != null;
 
   @override
@@ -62,6 +72,9 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
     _direccionCtrl    = TextEditingController(text: widget.data?['direccion']    ?? '');
     final _rolRaw = widget.data?['rol'] as String? ?? 'staff';
     _rolSeleccionado  = (_rolRaw == 'admin' || _rolRaw == 'staff') ? _rolRaw : 'admin';
+    _rolEmpresaId     = widget.data?['rol_empresa_id']  as String?;
+    _departamentoId   = widget.data?['departamento_id'] as String?;
+    _cargarRolesDepts();
     // Fecha de alta
     final rawFecha = widget.data?['fecha_alta'];
     if (rawFecha is Timestamp) _fechaAlta = rawFecha.toDate();
@@ -83,6 +96,17 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
     super.dispose();
   }
 
+  Future<void> _cargarRolesDepts() async {
+    final results = await Future.wait([
+      _rdSvc.getRoles(widget.empresaId),
+      _rdSvc.getDepartamentos(widget.empresaId),
+    ]);
+    if (mounted) setState(() {
+      _roles         = results[0] as List<RolEmpresa>;
+      _departamentos = results[1] as List<DepartamentoEmpresa>;
+    });
+  }
+
   String _generarPassword() {
     const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
     final rng = Random.secure();
@@ -101,6 +125,11 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
         if (_ibanCtrl.text.trim().isNotEmpty)         'iban':         _ibanCtrl.text.trim(),
         if (_puestoCtrl.text.trim().isNotEmpty)       'puesto':       _puestoCtrl.text.trim(),
         if (_departamentoCtrl.text.trim().isNotEmpty) 'departamento': _departamentoCtrl.text.trim(),
+        if (_rolEmpresaId != null)   'rol_empresa_id':   _rolEmpresaId,
+        if (_departamentoId != null) 'departamento_id':  _departamentoId,
+        if (_rolEmpresaId != null)   'nivel_jerarquico': _roles
+            .where((r) => r.id == _rolEmpresaId)
+            .map((r) => r.nivel).firstOrNull,
         if (_direccionCtrl.text.trim().isNotEmpty)    'direccion':    _direccionCtrl.text.trim(),
         if (_fechaAlta != null)                       'fecha_alta':   Timestamp.fromDate(_fechaAlta!),
       };
@@ -328,7 +357,103 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
                 _campo(_telefonoCtrl, 'Teléfono', Icons.phone_outlined,
                     tipo: TextInputType.phone),
                 _campo(_puestoCtrl, 'Puesto / Cargo', Icons.work_outline),
-                _campo(_departamentoCtrl, 'Departamento', Icons.business_outlined),
+                _campo(_departamentoCtrl, 'Departamento (texto libre)', Icons.business_outlined),
+                // ── Departamento estructurado ──────────────────────────────
+                if (_departamentos.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'Departamento (estructura)',
+                        labelStyle: const TextStyle(fontSize: 13, color: _kSub),
+                        prefixIcon: const Icon(Icons.account_tree_outlined,
+                            size: 18, color: _kSub),
+                        filled: true, fillColor: _kBg,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: _kBorder)),
+                        enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: _kBorder)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 4),
+                        isDense: true,
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          value: _departamentoId,
+                          isExpanded: true,
+                          style: const TextStyle(fontSize: 13.5, color: _kText),
+                          items: [
+                            const DropdownMenuItem(
+                                value: null, child: Text('— Sin departamento —')),
+                            ..._departamentos.map((d) => DropdownMenuItem(
+                                value: d.id, child: Text(d.nombre))),
+                          ],
+                          onChanged: (v) => setState(() {
+                            _departamentoId = v;
+                            if (v != null) {
+                              final nombre = _departamentos
+                                  .where((d) => d.id == v)
+                                  .map((d) => d.nombre)
+                                  .firstOrNull;
+                              if (nombre != null) _departamentoCtrl.text = nombre;
+                            }
+                          }),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                // ── Rol personalizado ──────────────────────────────────────
+                if (_roles.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'Rol jerárquico',
+                        labelStyle: const TextStyle(fontSize: 13, color: _kSub),
+                        prefixIcon: const Icon(Icons.badge_outlined,
+                            size: 18, color: _kSub),
+                        filled: true, fillColor: _kBg,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: _kBorder)),
+                        enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: _kBorder)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 4),
+                        isDense: true,
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          value: _rolEmpresaId,
+                          isExpanded: true,
+                          style: const TextStyle(fontSize: 13.5, color: _kText),
+                          items: [
+                            const DropdownMenuItem(
+                                value: null, child: Text('— Sin rol asignado —')),
+                            ..._roles.map((r) => DropdownMenuItem(
+                                value: r.id,
+                                child: Row(children: [
+                                  Container(
+                                    width: 10, height: 10,
+                                    decoration: BoxDecoration(
+                                      color: _hexColor(r.color),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text('${r.nombre} (Niv. ${r.nivel})'),
+                                ]))),
+                          ],
+                          onChanged: (v) => setState(() => _rolEmpresaId = v),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
 
                 // ── Datos de identidad y contrato ──────────────────────────
                 GestureDetector(
@@ -519,6 +644,11 @@ class _FormularioEmpleadoState extends State<FormularioEmpleado> {
 
   Widget _labelCampo(String text) => Text(text,
       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kSub));
+
+  Color _hexColor(String hex) {
+    try { return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16)); }
+    catch (_) { return _kBlue; }
+  }
 
   Widget _campo(
     TextEditingController ctrl,

@@ -18,11 +18,14 @@ import {
   onNuevoContactoSoporte,
 } from "./tareasFunciones";
 import { scheduledAlertaCertificado } from "./alertaCertificado";
+export { onNuevaAlertaDespacho, enviarAlertaPruebaDespacho } from "./despachoEmergencias";
 import { verificarAuth, verificarAuthYEmpresa, verificarPropietarioPlataforma } from "./utils/authGuard";
 import { verificarLoginIntento } from "./auth/fuerzaBruta";
 import { expirarFlashSlots, onNuevoFlashSlot } from "./flashSlots";
 import fetch from "node-fetch";
 export { cerrarCaja } from "./cerrarCaja";
+export { onDocumentoFirmado } from "./tsaFirma";
+export { enviarOtpSms, verificarOtpSms } from "./smsOtp";
 export { processInvoice } from "./fiscal/processInvoice";
 export { calculateFiscalModel } from "./fiscal/models/calculateModel";
 export {
@@ -2761,6 +2764,7 @@ export { enviarRecordatoriosCitas };
 export { firmarXMLVerifactu } from "./firmarXMLVerifactu";
 export { remitirVerifactu } from "./remitirVerifactu";
 export { procesarColaVerifactu } from "./procesarColaVerifactu";
+export { actualizarClaimsEmpleado } from "./actualizarClaimsEmpleado";
 
 // ── BLOG: Publicar posts programados (cada 15 min) ────────────────────────────
 export { publicarPostsProgramados, desactivarPreventaPasada } from "./schedulerBlog";

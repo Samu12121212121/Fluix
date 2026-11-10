@@ -282,22 +282,21 @@ extension GrupoCotizacionExt on GrupoCotizacion {
   }
 
   /// Base mínima mensual de cotización por grupo (2026, €/mes)
-  /// RDL 3/2026 + Orden PJC/178/2025
+  /// Orden PJC/297/2026, de 30/03 (BOE del 31/03)
   double get baseMinMensual {
     switch (this) {
-      case GrupoCotizacion.grupo1: return 1929.00;   // Ingenieros y Licenciados
-      case GrupoCotizacion.grupo2: return 1599.60;   // Ingenieros Técnicos
-      case GrupoCotizacion.grupo3: return 1391.70;   // Jefes Administrativos
-      // ⚠️ Grupos 4-11: bases provisionales (se aplican las de 2025 transitoriamente
-      //    hasta la publicación del SMI 2026 en el BOE)
-      case GrupoCotizacion.grupo4: return 1381.20;   // Provisional — pendiente SMI 2026
-      case GrupoCotizacion.grupo5: return 1381.20;   // Provisional — pendiente SMI 2026
-      case GrupoCotizacion.grupo6: return 1381.20;   // Provisional — pendiente SMI 2026
-      case GrupoCotizacion.grupo7: return 1381.20;   // Provisional — pendiente SMI 2026
-      case GrupoCotizacion.grupo8: return 1381.20;   // Base diaria 46,04€ × 30 — Provisional
-      case GrupoCotizacion.grupo9: return 1381.20;   // Base diaria 46,04€ × 30 — Provisional
-      case GrupoCotizacion.grupo10: return 1381.20;  // Base diaria 46,04€ × 30 — Provisional
-      case GrupoCotizacion.grupo11: return 1381.20;  // Base diaria 46,04€ × 30 — Provisional
+      case GrupoCotizacion.grupo1: return 1989.30;   // Ingenieros y Licenciados
+      case GrupoCotizacion.grupo2: return 1649.70;   // Ingenieros Técnicos
+      case GrupoCotizacion.grupo3: return 1435.20;   // Jefes Administrativos
+      // Grupos 4-11: base mínima general = tope mínimo cotización 2026
+      case GrupoCotizacion.grupo4: return 1424.40;   // Orden PJC/297/2026
+      case GrupoCotizacion.grupo5: return 1424.40;   // Orden PJC/297/2026
+      case GrupoCotizacion.grupo6: return 1424.40;   // Orden PJC/297/2026
+      case GrupoCotizacion.grupo7: return 1424.40;   // Orden PJC/297/2026
+      case GrupoCotizacion.grupo8: return 1424.40;   // Base diaria 47,48€ × 30
+      case GrupoCotizacion.grupo9: return 1424.40;   // Base diaria 47,48€ × 30
+      case GrupoCotizacion.grupo10: return 1424.40;  // Base diaria 47,48€ × 30
+      case GrupoCotizacion.grupo11: return 1424.40;  // Base diaria 47,48€ × 30
     }
   }
 
@@ -395,6 +394,11 @@ class DatosNominaEmpleado {
   final double antiguedadManualImporte;
   /// Nivel para industrias cárnicas (tabla trienios por nivel).
   final int nivelCategoriaCarnicas;
+  /// Fecha de alta real del trabajador en la empresa (puede ser anterior al
+  /// contrato actual si hubo contratos previos en la misma empresa).
+  /// Si está informada, se usa ESTA fecha para calcular el plus de antigüedad
+  /// en lugar de [fechaInicioContrato].
+  final DateTime? fechaAltaRealEmpresa;
 
   // ── IRPF ────────────────────────────────────────────────────────────────────
   final double? irpfPersonalizado; // Si != null, se usa este % en vez del calculado
@@ -473,6 +477,7 @@ class DatosNominaEmpleado {
     this.antiguedadManual = false,
     this.antiguedadManualImporte = 0,
     this.nivelCategoriaCarnicas = 5,
+    this.fechaAltaRealEmpresa,
     this.irpfPersonalizado,
     this.comunidadAutonoma = ComunidadAutonoma.estatal,
     this.baseAcumuladaYtd   = 0,
@@ -541,6 +546,8 @@ class DatosNominaEmpleado {
       antiguedadManual: m['antiguedad_manual'] as bool? ?? false,
       antiguedadManualImporte: (m['antiguedad_manual_importe'] as num?)?.toDouble() ?? 0,
       nivelCategoriaCarnicas: (m['nivel_categoria_carnicas'] as num?)?.toInt() ?? 5,
+      fechaAltaRealEmpresa: m['fecha_alta_real_empresa'] != null
+          ? _parseDate(m['fecha_alta_real_empresa']) : null,
       irpfPersonalizado: (m['irpf_personalizado'] as num?)?.toDouble(),
       comunidadAutonoma: ComunidadAutonoma.values.firstWhere(
         (e) => e.name == (m['comunidad_autonoma'] as String?),
@@ -600,6 +607,8 @@ class DatosNominaEmpleado {
     'antiguedad_manual': antiguedadManual,
     'antiguedad_manual_importe': antiguedadManualImporte,
     'nivel_categoria_carnicas': nivelCategoriaCarnicas,
+    if (fechaAltaRealEmpresa != null)
+      'fecha_alta_real_empresa': Timestamp.fromDate(fechaAltaRealEmpresa!),
     if (irpfPersonalizado != null) 'irpf_personalizado': irpfPersonalizado,
     'comunidad_autonoma': comunidadAutonoma.name,
     'base_acumulada_ytd': baseAcumuladaYtd,
@@ -646,6 +655,7 @@ class DatosNominaEmpleado {
     bool?   antiguedadManual,
     double? antiguedadManualImporte,
     int?    nivelCategoriaCarnicas,
+    DateTime? fechaAltaRealEmpresa,
     ComunidadAutonoma? comunidadAutonoma,
     double? porcentajeATPersonalizado,
     bool?   movilidadGeografica,
@@ -679,6 +689,7 @@ class DatosNominaEmpleado {
     antiguedadManual: antiguedadManual ?? this.antiguedadManual,
     antiguedadManualImporte: antiguedadManualImporte ?? this.antiguedadManualImporte,
     nivelCategoriaCarnicas: nivelCategoriaCarnicas ?? this.nivelCategoriaCarnicas,
+    fechaAltaRealEmpresa: fechaAltaRealEmpresa ?? this.fechaAltaRealEmpresa,
     irpfPersonalizado: irpfPersonalizado ?? this.irpfPersonalizado,
     comunidadAutonoma: comunidadAutonoma ?? this.comunidadAutonoma,
     baseAcumuladaYtd: baseAcumuladaYtd ?? this.baseAcumuladaYtd,

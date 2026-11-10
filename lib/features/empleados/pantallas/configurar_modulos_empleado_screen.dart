@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/utils/permisos_service.dart';
+import '../../../core/config/planes_config.dart';
 import '../../../services/suscripcion_service.dart';
-import '../../../services/widget_manager_service.dart';
 import '../../../core/widgets/fluix_app_bar.dart';
 
 /// Pantalla para que el admin/propietario configure qué módulos
@@ -32,32 +31,44 @@ class _ConfigurarModulosEmpleadoScreenState
   bool _guardando = false;
   String _rol = 'staff';
   List<String> _modulosSeleccionados = [];
-  bool _usarPersonalizados = false;
 
   /// Módulos activos de la empresa (cargados de Firestore)
   List<String> _modulosEmpresa = [];
 
   // Mapa completo de módulos con icono y nombre legible
   static const _modulosInfo = <String, ({IconData icono, String nombre})>{
-    'dashboard':    (icono: Icons.dashboard,            nombre: 'Dashboard'),
-    'reservas':     (icono: Icons.calendar_today,       nombre: 'Reservas'),
-    'citas':        (icono: Icons.event,                nombre: 'Citas'),
-    'clientes':     (icono: Icons.people,               nombre: 'Clientes'),
-    'valoraciones': (icono: Icons.star,                 nombre: 'Valoraciones'),
-    'estadisticas': (icono: Icons.bar_chart,            nombre: 'Estadísticas'),
-    'servicios':    (icono: Icons.spa,                  nombre: 'Servicios'),
-    'pedidos':      (icono: Icons.shopping_cart,        nombre: 'Pedidos'),
-    'whatsapp':     (icono: Icons.chat,                 nombre: 'WhatsApp Bot'),
-    'tareas':       (icono: Icons.task_alt,             nombre: 'Tareas'),
-    'empleados':    (icono: Icons.badge,                nombre: 'Empleados'),
-    'facturacion':  (icono: Icons.receipt_long,         nombre: 'Facturación'),
-    'nominas':      (icono: Icons.payments,             nombre: 'Nóminas'),
-    'web':          (icono: Icons.web,                  nombre: 'Contenido Web'),
-    'app':          (icono: Icons.phone_android,        nombre: 'Mi App'),
-    'tpv':          (icono: Icons.point_of_sale,        nombre: 'TPV / Cobros'),
-    'fichaje':      (icono: Icons.access_time,          nombre: 'Fichaje'),
-    'vacaciones':   (icono: Icons.beach_access,         nombre: 'Vacaciones'),
-    'fiscal':       (icono: Icons.account_balance,      nombre: 'Fiscal AI'),
+    // ── Gestión interna ───────────────────────────────────────────────────────
+    'dashboard':      (icono: Icons.dashboard_rounded,         nombre: 'Dashboard'),
+    'empleados':      (icono: Icons.badge_rounded,             nombre: 'Empleados'),
+    'tareas':         (icono: Icons.task_alt_rounded,          nombre: 'Tareas'),
+    'estadisticas':   (icono: Icons.bar_chart_rounded,         nombre: 'Estadísticas'),
+    // ── Atención al cliente ───────────────────────────────────────────────────
+    'reservas':       (icono: Icons.calendar_today_rounded,    nombre: 'Reservas'),
+    'citas':          (icono: Icons.event_rounded,             nombre: 'Citas'),
+    'clientes':       (icono: Icons.people_rounded,            nombre: 'Clientes'),
+    'valoraciones':   (icono: Icons.star_rounded,              nombre: 'Valoraciones'),
+    'servicios':      (icono: Icons.spa_rounded,               nombre: 'Servicios'),
+    // ── Ventas y operaciones ──────────────────────────────────────────────────
+    'pedidos':        (icono: Icons.shopping_cart_rounded,     nombre: 'Pedidos'),
+    'operaciones':    (icono: Icons.local_shipping_rounded,    nombre: 'Operaciones'),
+    'almacen':        (icono: Icons.inventory_2_rounded,       nombre: 'Almacén'),
+    'tpv':            (icono: Icons.point_of_sale_rounded,     nombre: 'TPV / Cobros'),
+    'whatsapp':       (icono: Icons.chat_rounded,              nombre: 'WhatsApp Bot'),
+    // ── Finanzas ──────────────────────────────────────────────────────────────
+    'facturacion':    (icono: Icons.receipt_long_rounded,      nombre: 'Facturación'),
+    'contabilidad':   (icono: Icons.calculate_rounded,         nombre: 'Contabilidad'),
+    'nominas':        (icono: Icons.payments_rounded,          nombre: 'Nóminas'),
+    'fiscal':         (icono: Icons.account_balance_rounded,   nombre: 'Fiscal AI'),
+    // ── RRHH ─────────────────────────────────────────────────────────────────
+    'fichaje':        (icono: Icons.access_time_rounded,       nombre: 'Fichaje'),
+    'vacaciones':     (icono: Icons.beach_access_rounded,      nombre: 'Vacaciones'),
+    // ── Presencia digital ─────────────────────────────────────────────────────
+    'web':            (icono: Icons.web_rounded,               nombre: 'Contenido Web'),
+    'app':            (icono: Icons.phone_android_rounded,     nombre: 'Mi App'),
+    // ── Otros ────────────────────────────────────────────────────────────────
+    'agenda':         (icono: Icons.calendar_month_rounded,    nombre: 'Agenda'),
+    'informes':       (icono: Icons.summarize_rounded,         nombre: 'Informes'),
+    'documentos':     (icono: Icons.folder_rounded,            nombre: 'Documentos'),
   };
 
   /// Módulos que se activan automáticamente junto con facturación
@@ -73,26 +84,23 @@ class _ConfigurarModulosEmpleadoScreenState
 
   Future<void> _cargar() async {
     try {
-      // Cargar módulos activos de la empresa (fuente de verdad)
-      final modulosEmpresaSnap = await WidgetManagerService()
-          .obtenerModulosActivos(widget.empresaId)
-          .first;
+      // Lee suscripcion/actual para esta empresa — mismo doc que usa gestionar_cuentas_screen.
+      // Si tiene modulos_override (configurado por el propietario), lo usa directamente.
+      // Si no, calcula desde packs_activos + addons_activos.
+      final suscripcionDoc = await _db
+          .collection('empresas').doc(widget.empresaId)
+          .collection('suscripcion').doc('actual')
+          .get();
 
-      // Módulos en el plan de suscripción actual (cap máximo del admin)
-      final modulosEnPlan = SuscripcionService().getModulosActivos();
-      final activosPorDefecto = const {
-        'dashboard', 'reservas', 'citas', 'clientes', 'valoraciones',
-        'fichaje', 'empleados',
-      };
-
-      final activos = modulosEmpresaSnap
-          .where((m) => m.activo)
-          .map((m) => m.id)
-          .where((id) => !const {'propietario', 'explorar', 'citas_del_dia'}.contains(id))
-          // Solo módulos que el plan de suscripción incluye (o son gratuitos por defecto)
-          .where((id) => activosPorDefecto.contains(id) || modulosEnPlan.contains(id)
-              || (id == 'web' && modulosEnPlan.contains('contenido_web')))
-          .toList();
+      List<String> activos;
+      if (suscripcionDoc.exists) {
+        final datos = DatosSuscripcion.fromMap(suscripcionDoc.data()!);
+        activos = datos.modulosActivos
+            .where((id) => !const {'propietario', 'explorar', 'citas_del_dia'}.contains(id))
+            .toList();
+      } else {
+        activos = List.from(PlanesConfig.planBase.modulosIncluidos);
+      }
 
       // Cargar configuración del empleado
       final doc = await _db.collection('usuarios').doc(widget.empleadoUid).get();
@@ -101,19 +109,13 @@ class _ConfigurarModulosEmpleadoScreenState
         _rol = data['rol'] as String? ?? 'staff';
         final modulosGuardados = (data['modulos_permitidos'] as List<dynamic>?)
             ?.map((e) => e.toString())
-            .where((id) => activos.contains(id)) // Solo módulos que la empresa tiene
+            .where((id) => activos.contains(id))
             .toList();
 
-        if (modulosGuardados != null && modulosGuardados.isNotEmpty) {
-          _usarPersonalizados = true;
-          _modulosSeleccionados = modulosGuardados;
-        } else {
-          _usarPersonalizados = false;
-          // Defaults del rol filtrados por lo que tiene la empresa
-          _modulosSeleccionados = _modulosPorDefectoRol(_rol)
-              .where((id) => activos.contains(id))
-              .toList();
-        }
+        // Si hay módulos guardados, usarlos; si no, usar defaults del rol
+        _modulosSeleccionados = (modulosGuardados != null && modulosGuardados.isNotEmpty)
+            ? modulosGuardados
+            : _modulosPorDefectoRol(_rol).where((id) => activos.contains(id)).toList();
       }
 
       setState(() => _modulosEmpresa = activos);
@@ -137,7 +139,7 @@ class _ConfigurarModulosEmpleadoScreenState
           'estadisticas', 'servicios', 'pedidos', 'whatsapp', 'tareas', 'nominas',
         ];
       case 'staff':
-        return ['reservas', 'citas', 'clientes', 'valoraciones'];
+        return ['reservas', 'citas', 'clientes', 'valoraciones', 'fichaje', 'vacaciones'];
       default:
         return ['reservas', 'citas'];
     }
@@ -146,23 +148,16 @@ class _ConfigurarModulosEmpleadoScreenState
   Future<void> _guardar() async {
     setState(() => _guardando = true);
     try {
-      if (_usarPersonalizados) {
-        // Auto-incluir módulos ligados a facturación si está activa
-        final modulos = List<String>.from(_modulosSeleccionados);
-        if (modulos.contains('facturacion')) {
-          for (final auto in _modulosAutoConFacturacion) {
-            if (!modulos.contains(auto)) modulos.add(auto);
-          }
+      // Auto-incluir módulos ligados a facturación si está activa
+      final modulos = List<String>.from(_modulosSeleccionados);
+      if (modulos.contains('facturacion')) {
+        for (final auto in _modulosAutoConFacturacion) {
+          if (!modulos.contains(auto)) modulos.add(auto);
         }
-        await _db.collection('usuarios').doc(widget.empleadoUid).update({
-          'modulos_permitidos': modulos,
-        });
-      } else {
-        // Eliminar personalización → usar defaults del rol
-        await _db.collection('usuarios').doc(widget.empleadoUid).update({
-          'modulos_permitidos': FieldValue.delete(),
-        });
       }
+      await _db.collection('usuarios').doc(widget.empleadoUid).update({
+        'modulos_permitidos': modulos,
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -229,124 +224,66 @@ class _ConfigurarModulosEmpleadoScreenState
                 ),
                 const SizedBox(height: 16),
 
-                // ── Toggle personalizado ──────────────────
-                SwitchListTile(
-                  title: const Text('Módulos personalizados',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text(
-                    _usarPersonalizados
-                        ? 'Módulos configurados manualmente'
-                        : 'Usando módulos por defecto del rol ($_rol)',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                  value: _usarPersonalizados,
-                  activeTrackColor: const Color(0xFF0D47A1).withValues(alpha: 0.5),
-                  thumbColor: WidgetStatePropertyAll(
-                    _usarPersonalizados ? const Color(0xFF0D47A1) : Colors.grey,
-                  ),
-                  onChanged: (v) {
-                    setState(() {
-                      _usarPersonalizados = v;
-                      if (!v) {
-                        _modulosSeleccionados = _modulosPorDefectoRol(_rol);
-                      }
-                    });
-                  },
-                ),
-                const SizedBox(height: 8),
-
-                if (!_usarPersonalizados)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue[200]!),
+                // ── Botones rápidos ─────────────────────
+                Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => setState(() {
+                        _modulosSeleccionados = List.from(_modulosEmpresa);
+                      }),
+                      icon: const Icon(Icons.select_all, size: 16),
+                      label: const Text('Todos', style: TextStyle(fontSize: 12)),
                     ),
-                    child: Row(
+                    TextButton.icon(
+                      onPressed: () => setState(() {
+                        _modulosSeleccionados = [];
+                      }),
+                      icon: const Icon(Icons.deselect, size: 16),
+                      label: const Text('Ninguno', style: TextStyle(fontSize: 12)),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => setState(() {
+                        _modulosSeleccionados = _modulosPorDefectoRol(_rol)
+                            .where((id) => _modulosEmpresa.contains(id))
+                            .toList();
+                      }),
+                      icon: const Icon(Icons.restart_alt, size: 16),
+                      label: const Text('Reset', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+
+                // ── Lista completa de módulos activos de la empresa ──
+                ..._modulosEmpresa.map((modId) {
+                  final info = _modulosInfo[modId];
+                  final activo = _modulosSeleccionados.contains(modId);
+                  return CheckboxListTile(
+                    value: activo,
+                    activeColor: const Color(0xFF0D47A1),
+                    title: Row(
                       children: [
-                        const Icon(Icons.info_outline,
-                            size: 16, color: Colors.blueGrey),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'El empleado verá los módulos por defecto de su rol ($_rol). '
-                            'Activa "Módulos personalizados" para elegir manualmente.',
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.blueGrey),
-                          ),
-                        ),
+                        Icon(info?.icono ?? Icons.extension,
+                            size: 20,
+                            color: activo ? const Color(0xFF0D47A1) : Colors.grey),
+                        const SizedBox(width: 10),
+                        Text(info?.nombre ?? modId,
+                            style: TextStyle(
+                              fontWeight: activo ? FontWeight.w600 : FontWeight.normal,
+                            )),
                       ],
                     ),
-                  ),
-
-                if (_usarPersonalizados) ...[
-                  // ── Botones rápidos ─────────────────────
-                  Row(
-                    children: [
-                      TextButton.icon(
-                        onPressed: () => setState(() {
-                          _modulosSeleccionados = List.from(_modulosEmpresa);
-                        }),
-                        icon: const Icon(Icons.select_all, size: 16),
-                        label: const Text('Todos',
-                            style: TextStyle(fontSize: 12)),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => setState(() {
-                          _modulosSeleccionados = [];
-                        }),
-                        icon: const Icon(Icons.deselect, size: 16),
-                        label: const Text('Ninguno',
-                            style: TextStyle(fontSize: 12)),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => setState(() {
-                          _modulosSeleccionados = _modulosPorDefectoRol(_rol);
-                        }),
-                        icon: const Icon(Icons.restart_alt, size: 16),
-                        label: const Text('Reset a rol',
-                            style: TextStyle(fontSize: 12)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-
-                  // ── Lista de módulos (solo los activos de la empresa) ──
-                  ..._modulosEmpresa.map((modId) {
-                    final info = _modulosInfo[modId];
-                    final activo = _modulosSeleccionados.contains(modId);
-                    return CheckboxListTile(
-                      value: activo,
-                      activeColor: const Color(0xFF0D47A1),
-                      title: Row(
-                        children: [
-                          Icon(info?.icono ?? Icons.extension,
-                              size: 20,
-                              color: activo
-                                  ? const Color(0xFF0D47A1)
-                                  : Colors.grey),
-                          const SizedBox(width: 10),
-                          Text(info?.nombre ?? modId,
-                              style: TextStyle(
-                                fontWeight: activo
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                              )),
-                        ],
-                      ),
-                      onChanged: (v) {
-                        setState(() {
-                          if (v == true) {
-                            _modulosSeleccionados.add(modId);
-                          } else {
-                            _modulosSeleccionados.remove(modId);
-                          }
-                        });
-                      },
-                    );
-                  }),
-                ],
+                    onChanged: (v) {
+                      setState(() {
+                        if (v == true) {
+                          _modulosSeleccionados.add(modId);
+                        } else {
+                          _modulosSeleccionados.remove(modId);
+                        }
+                      });
+                    },
+                  );
+                }),
 
                 const SizedBox(height: 24),
 

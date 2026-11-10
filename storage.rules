@@ -225,13 +225,20 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
-    // Fotos de empleados — ruta usada por StorageService
+    // Empleados — fotos, documentos de RRHH y firmas digitales
     // Path: empleados/{empresaId}/{empleadoId}/foto.jpg
+    //       empleados/{empresaId}/{empleadoId}/docs/{filename}       ← documentos subidos
+    //       empleados/{empresaId}/{empleadoId}/firmas_docs/{docId}.png ← firmas eIDAS
     match /empleados/{empresaId}/{empleadoId}/{allPaths=**} {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow write: if request.auth != null
-        && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && request.resource.size < 25 * 1024 * 1024  // max 25MB (contratos, PDFs)
+        && (request.resource.contentType.matches('image/.*')
+            || request.resource.contentType == 'application/pdf'
+            || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            || request.resource.contentType == 'text/plain'
+            || request.resource.contentType == 'application/octet-stream');
     }
 
     // Avatares de usuarios — ruta corta usada por pantalla_perfil_cliente

@@ -5,13 +5,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../../../core/widgets/flux_toast.dart';
 import '../../fichajes/pantallas/gestion_fichajes_screen.dart';
+import '../../fichajes/pantallas/pantalla_alerta_despacho.dart';
 import '../../fichajes/servicios/fichaje_service.dart';
 import '../../vacaciones/pantallas/nueva_solicitud_form.dart';
 import '../../vacaciones/pantallas/vacaciones_screen.dart';
 import '../widgets/baja_laboral_widget.dart';
 import '../widgets/canal_comunicacion_widget.dart';
 import '../widgets/documentos_empleado_widget.dart';
+import '../../../services/documento_firma_service.dart';
 import '../widgets/nominas_empleado_widget.dart' show NominasEmpleadoWidget;
+import '../../nominas/pantallas/mis_nominas_screen.dart';
 import '../../../core/utils/permisos_service.dart';
 import '../../../core/widgets/fluix_app_bar.dart';
 import '../../perfil/pantallas/pantalla_perfil.dart';
@@ -102,6 +105,7 @@ class _PortalEmpleadoScreenState extends State<PortalEmpleadoScreen> {
         index: _tab,
         children: [
           _buildPortalContent(context),
+          _buildAlertasTab(context),
           _buildMensajesTab(context),
           PantallaPerfil(sesion: PermisosService().sesion, embedded: true, dark: isDark),
         ],
@@ -118,9 +122,10 @@ class _PortalEmpleadoScreenState extends State<PortalEmpleadoScreen> {
         child: SafeArea(top: false, child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-            _navItem(Icons.home_rounded,              'Portal',    0),
-            _navItem(Icons.chat_bubble_outline_rounded, 'Mensajes', 1),
-            _navItem(Icons.person_outline_rounded,    'Perfil',    2),
+            _navItem(Icons.home_rounded,                'Portal',   0),
+            _navItemAlertas(1),
+            _navItem(Icons.chat_bubble_outline_rounded, 'Mensajes', 2),
+            _navItem(Icons.person_outline_rounded,      'Perfil',   3),
           ]),
         )),
       ),
@@ -141,6 +146,178 @@ class _PortalEmpleadoScreenState extends State<PortalEmpleadoScreen> {
           fontWeight: active ? FontWeight.w600 : FontWeight.normal,
         ), maxLines: 1),
       ])),
+    );
+  }
+
+  // ── Nav item con badge de alertas pendientes ─────────────────────────────
+  Widget _navItemAlertas(int i) {
+    final active = _tab == i;
+    final sel   = _blue;
+    final unsel = isDark ? const Color(0xFF6B7280) : Colors.grey.shade500;
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('empresas').doc(empresaId)
+          .collection('alertas_despacho')
+          .where('estado', whereIn: ['pendiente', 'aceptada'])
+          .snapshots(),
+      builder: (ctx, snap) {
+        final count = snap.data?.docs.length ?? 0;
+        return GestureDetector(
+          onTap: () => setState(() => _tab = i),
+          child: SizedBox(width: 80, child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Badge(
+              isLabelVisible: count > 0,
+              label: Text('$count', style: const TextStyle(fontSize: 9)),
+              child: Icon(Icons.emergency_share_rounded, size: 22,
+                  color: active ? const Color(0xFFDC2626) : unsel),
+            ),
+            const SizedBox(height: 3),
+            Text('Alertas', style: TextStyle(
+              fontSize: 9.5,
+              color: active ? const Color(0xFFDC2626) : unsel,
+              fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+            ), maxLines: 1),
+          ])),
+        );
+      },
+    );
+  }
+
+  // ── Tab: Alertas de despacho ──────────────────────────────────────────────
+  Widget _buildAlertasTab(BuildContext context) {
+    return ColoredBox(
+      color: _bg,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Alertas de despacho',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: _text)),
+            Text('Servicios activos e historial del día',
+                style: TextStyle(fontSize: 13, color: _sub)),
+          ]),
+        ),
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('empresas').doc(empresaId)
+                .collection('alertas_despacho')
+                .orderBy('fecha_hora', descending: true)
+                .limit(30)
+                .snapshots(),
+            builder: (ctx, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator(color: Color(0xFFDC2626)));
+              }
+              final docs = snap.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(Icons.check_circle_outline_rounded, size: 52,
+                      color: isDark ? Colors.white24 : Colors.grey.shade300),
+                  const SizedBox(height: 12),
+                  Text('Sin alertas activas', style: TextStyle(color: _sub, fontSize: 15)),
+                  const SizedBox(height: 4),
+                  Text('Las alertas de la centralita aparecerán aquí',
+                      style: TextStyle(color: _sub, fontSize: 12)),
+                ]));
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                itemCount: docs.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (ctx, i) {
+                  final d = docs[i].data() as Map<String, dynamic>;
+                  final alerta = AlertaDespacho.fromMap(docs[i].id, d);
+                  final col = alerta.prioridad.color;
+                  final estadoActivo = alerta.estado == 'pendiente' || alerta.estado == 'aceptada' || alerta.estado == 'en_camino';
+                  return GestureDetector(
+                    onTap: () {
+                      final isWide = MediaQuery.sizeOf(context).width >= 700;
+                      if (isWide) {
+                        showDialog(
+                          context: context,
+                          barrierColor: Colors.black54,
+                          barrierDismissible: true,
+                          builder: (_) => Dialog(
+                            backgroundColor: Colors.transparent,
+                            insetPadding: EdgeInsets.zero,
+                            child: PantallaAlertaDespacho(
+                              empresaId: empresaId,
+                              alertaId: alerta.id,
+                            ),
+                          ),
+                        );
+                      } else {
+                        Navigator.push(context, MaterialPageRoute(
+                          fullscreenDialog: true,
+                          builder: (_) => PantallaAlertaDespacho(
+                            empresaId: empresaId,
+                            alertaId: alerta.id,
+                          ),
+                        ));
+                      }
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: _surf,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: estadoActivo ? col.withValues(alpha: 0.5) : _border,
+                          width: estadoActivo ? 1.5 : 1,
+                        ),
+                        boxShadow: [BoxShadow(
+                          color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                          blurRadius: 6, offset: const Offset(0, 2),
+                        )],
+                      ),
+                      padding: const EdgeInsets.all(14),
+                      child: Row(children: [
+                        Container(
+                          width: 44, height: 44,
+                          decoration: BoxDecoration(
+                            color: col.withValues(alpha: isDark ? 0.18 : 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(alerta.prioridad.icon, color: col, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Row(children: [
+                            Text(alerta.tipoCodigo,
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: col)),
+                            const SizedBox(width: 6),
+                            Text('· ${alerta.ambulanciaAsignada}',
+                                style: TextStyle(fontSize: 12, color: _sub, fontWeight: FontWeight.w500)),
+                          ]),
+                          const SizedBox(height: 2),
+                          Text(alerta.direccion, maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: _text)),
+                          Text(alerta.localidad,
+                              style: TextStyle(fontSize: 11, color: _sub)),
+                        ])),
+                        const SizedBox(width: 8),
+                        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: col.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(alerta.estado.toUpperCase(),
+                                style: TextStyle(fontSize: 9, color: col, fontWeight: FontWeight.w700)),
+                          ),
+                          const SizedBox(height: 4),
+                          Icon(Icons.chevron_right_rounded, size: 16, color: _sub),
+                        ]),
+                      ]),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ]),
     );
   }
 
@@ -234,6 +411,16 @@ class _PortalEmpleadoScreenState extends State<PortalEmpleadoScreen> {
                   // ── Solicitudes de ausencia ───────────────────────────────
                   _buildSolicitudesPendientes(context),
                   const SizedBox(height: 14),
+
+                  // ── Firmas pendientes ─────────────────────────────────────
+                  _buildFirmasPendientes(),
+                  const SizedBox(height: 14),
+
+                  // ── Mis Nóminas ───────────────────────────────────────────
+                  if (!modoAdmin) ...[
+                    _buildMisNominas(),
+                    const SizedBox(height: 14),
+                  ],
 
                   // ── Documentos del empleado ───────────────────────────────
                   _buildDocumentos(nombre),
@@ -438,8 +625,118 @@ class _PortalEmpleadoScreenState extends State<PortalEmpleadoScreen> {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
+  // FIRMAS PENDIENTES
+  // ══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildFirmasPendientes() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: DocumentoFirmaService().streamPendientesFirma(_uid),
+      builder: (ctx, snap) {
+        final n = snap.data?.docs.length ?? 0;
+        if (n == 0) return const SizedBox.shrink();
+
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFBEB),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFFBBF24).withValues(alpha: 0.6)),
+          ),
+          child: Row(children: [
+            Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.draw_rounded, size: 18, color: Color(0xFFD97706)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                '$n documento${n == 1 ? '' : 's'} pendiente${n == 1 ? '' : 's'} de firma',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                    color: Color(0xFF92400E)),
+              ),
+              const Text('Desplázate a "Mis documentos" para firmar',
+                  style: TextStyle(fontSize: 11, color: Color(0xFFB45309))),
+            ])),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text('$n', style: const TextStyle(fontSize: 12,
+                  fontWeight: FontWeight.w800, color: Colors.white)),
+            ),
+          ]),
+        );
+      },
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
   // DOCUMENTOS DEL EMPLEADO
   // ══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildMisNominas() {
+    return _card(Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          const Icon(Icons.payments_rounded, size: 16, color: _purple),
+          const SizedBox(width: 8),
+          Expanded(child: Text('Mis nóminas',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _text))),
+          GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => MisNominasScreen(empresaId: empresaId, empleadoUid: _uid),
+            )),
+            child: Text('Ver todas', style: TextStyle(fontSize: 12, color: _blue)),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('empresas').doc(empresaId)
+              .collection('nominas')
+              .where('empleado_id', isEqualTo: _uid)
+              .orderBy('anio', descending: true)
+              .orderBy('mes', descending: true)
+              .limit(3)
+              .snapshots(),
+          builder: (ctx, snap) {
+            final docs = snap.data?.docs ?? [];
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Center(child: SizedBox(height: 32,
+                  child: CircularProgressIndicator(strokeWidth: 1.5)));
+            }
+            if (docs.isEmpty) {
+              return Text('No hay nóminas disponibles',
+                  style: TextStyle(fontSize: 12, color: _sub));
+            }
+            return Column(children: docs.map((doc) {
+              final d = doc.data() as Map<String, dynamic>;
+              final periodo = d['periodo'] as String? ?? '';
+              final neto    = (d['salario_neto'] as num?)?.toDouble() ?? 0;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(children: [
+                  Icon(Icons.picture_as_pdf_rounded, size: 14, color: _sub),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(periodo,
+                      style: TextStyle(fontSize: 13, color: _text))),
+                  Text('${neto.toStringAsFixed(0)} €',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _green)),
+                ]),
+              );
+            }).toList());
+          },
+        ),
+      ],
+    ));
+  }
 
   Widget _buildDocumentos(String nombre) {
     return _card(Column(
@@ -1398,10 +1695,11 @@ class _HorarioEditorSheetState extends State<_HorarioEditorSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
     return Container(
+      constraints: BoxConstraints(maxHeight: mq.size.height * 0.92),
       decoration: BoxDecoration(color: _bg,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + 16),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const SizedBox(height: 12),
         Center(child: Container(width: 36, height: 4,
@@ -1417,15 +1715,14 @@ class _HorarioEditorSheetState extends State<_HorarioEditorSheet> {
         ])),
         Padding(padding: const EdgeInsets.only(left: 20, bottom: 12),
             child: Text('Define el turno de cada día', style: TextStyle(fontSize: 12, color: _sub))),
-        SizedBox(
-          height: MediaQuery.of(context).size.height * 0.46,
+        Flexible(
           child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.fromLTRB(16, 0, 16, mq.viewInsets.bottom + 8),
             itemCount: _keys.length,
             itemBuilder: (_, i) => _diaRow(_keys[i], _lbls[i]),
           ),
         ),
-        Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           child: FilledButton.icon(
             onPressed: _guardando ? null : _guardar,
             icon: _guardando

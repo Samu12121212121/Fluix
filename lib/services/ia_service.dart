@@ -27,12 +27,12 @@ class IaService {
 
   // ── Obtener API key guardada ──────────────────────────────────────────────
 
-  Future<String?> obtenerApiKey(String apiId) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return null;
+  Future<String?> obtenerApiKey(String apiId, {String? uid}) async {
+    final resolvedUid = uid ?? FirebaseAuth.instance.currentUser?.uid;
+    if (resolvedUid == null) return null;
     try {
       final doc = await _db
-          .collection('usuarios').doc(uid)
+          .collection('usuarios').doc(resolvedUid)
           .collection('configuracion').doc('api_keys')
           .get();
       return doc.data()?[apiId] as String?;

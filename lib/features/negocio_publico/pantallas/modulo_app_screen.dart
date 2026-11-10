@@ -16,10 +16,11 @@ import 'resenas_fluix_screen.dart';
 import '../../../core/utils/app_settings.dart';
 
 import '../negocio_theme.dart';
-import '../secciones/sec_identidad_contacto.dart';
-import '../secciones/sec_ubicacion_horarios.dart';
-import '../secciones/sec_servicios.dart';
-import '../secciones/sec_config_avanzada.dart';
+
+part 'secciones/sec_identidad_contacto.dart';
+part 'secciones/sec_ubicacion_horarios.dart';
+part 'secciones/sec_servicios.dart';
+part 'secciones/sec_config_avanzada.dart';
 
 // Accent fijos — iguales en claro y oscuro
 const _kAccent = Color(0xFF00BFA5);
@@ -729,125 +730,6 @@ class _ModuloAppScreenState extends State<ModuloAppScreen> {
       default:              return _buildIdentidad();
     }
   }
-
-  // ── Wrappers para secciones nuevas ────────────────────────────────────────
-  Widget _buildIdentidad() => buildSeccionIdentidad(context,
-    dark: _isDark, nombreCtrl: _nombreCtrl, nombreLegalCtrl: _nombreLegalCtrl,
-    descCortaCtrl: _descCortaCtrl, descCtrl: _descCtrl,
-    categoria: _categoria, subcategorias: _subcategorias, etiquetas: _etiquetas,
-    idiomas: _idiomas, publicoObjetivo: _publicoObjetivo, fotos: _fotos,
-    subiendo: _subiendo, anioApertura: _anioApertura, nivelPrecio: _nivelPrecio,
-    onCatChanged: (v) => setState(() => _categoria = v),
-    onSubcatChanged: (v) => setState(() => _subcategorias = v),
-    onEtiquetasChanged: (v) => setState(() => _etiquetas = v),
-    onIdiomasChanged: (v) => setState(() => _idiomas = v),
-    onPublicoChanged: (v) => setState(() => _publicoObjetivo = v),
-    onNivelPrecioChanged: (v) => setState(() => _nivelPrecio = v),
-    onAnioChanged: (v) => setState(() => _anioApertura = v),
-    onSubirFoto: _subirFoto,
-    onFotosChanged: (v) => setState(() => _fotos = v),
-  );
-
-  Widget _buildContactoCompleto() => buildSeccionContacto(context,
-    dark: _isDark, telefonoCtrl: _telefonoCtrl, waCtrl: _waCtrl,
-    emailPublicoCtrl: _emailPublicoCtrl, emailNotiCtrl: _emailCtrl,
-    igCtrl: _igCtrl, fbCtrl: _fbCtrl, tiktokCtrl: _tiktokCtrl, youtubeCtrl: _youtubeCtrl, webCtrl: _webCtrl,
-    vis: _seccionesVisibles,
-    onVisChanged: (v) => setState(() => _seccionesVisibles = v),
-  );
-
-  Widget _buildUbicacion() => buildSeccionUbicacion(context,
-    dark: _isDark, calleCtrl: _calleCtrl, numeroCtrl: _numCtrl, cpCtrl: _cpCtrl,
-    localidadCtrl: _localidadCtrl, provinciaCtrl: _provinciaCtrl,
-    indicacionesCtrl: _indicacionesCtrl, zonaServicioCtrl: _zonaServicioCtrl,
-    latitud: double.tryParse(_latCtrl.text), longitud: double.tryParse(_lngCtrl.text),
-    radioAtencionKm: 10.0, mostrarDireccion: _mostrarDireccion,
-    onLatChanged: (v) { _latCtrl.text = v?.toString() ?? ''; },
-    onLngChanged: (v) { _lngCtrl.text = v?.toString() ?? ''; },
-    onRadioChanged: (v) => setState(() {}),
-    onMostrarDireccionChanged: (v) => setState(() => _mostrarDireccion = v),
-  );
-
-  Widget _buildHorariosCompleto() => buildSeccionHorarios(context,
-    dark: _isDark, horarios: _horarios, turnosPartidos: _turnosPartidos,
-    atencionConCita: _atencionConCita, atencionSinCita: _atencionSinCita,
-    zonaHorariaCtrl: _zonaHorariaCtrl,
-    onHorariosChanged: (v) => setState(() => _horarios = v),
-    onTurnosPartidosChanged: (v) => setState(() => _turnosPartidos = v),
-    onAtencionConCitaChanged: (v) => setState(() => _atencionConCita = v),
-    onAtencionSinCitaChanged: (v) => setState(() => _atencionSinCita = v),
-    snack: _snack,
-  );
-
-  Widget _buildProductos() => buildSeccionProductos(context,
-    dark: _isDark, negocioId: _negocioId, empresaId: widget.empresaId, snack: _snack);
-
-  Widget _buildReservasConfig() => buildSeccionReservasConfig(context,
-    dark: _isDark, reservasOnlineActivas: _reservasOnlineActivas, mostrarAgenda: _mostrarAgenda,
-    reservarSinRegistro: _reservarSinRegistro, listaEspera: _listaEspera,
-    pagosAnticipados: _pagosAnticipados, antelacionMinHoras: _antelacionMin, antelacionMaxDias: _antelacionMax,
-    textoBotonCtrl: _textoBotonCtrl, instrReservaCtrl: _instrReservaCtrl,
-    onReservasActChanged: (v) => setState(() => _reservasOnlineActivas = v),
-    onAgendaChanged: (v) => setState(() => _mostrarAgenda = v),
-    onSinRegistroChanged: (v) => setState(() => _reservarSinRegistro = v),
-    onListaEsperaChanged: (v) => setState(() => _listaEspera = v),
-    onPagosAnticipChanged: (v) => setState(() => _pagosAnticipados = v),
-    onAntelMinChanged: (v) => setState(() => _antelacionMin = v),
-    onAntelMaxChanged: (v) => setState(() => _antelacionMax = v),
-  );
-
-  Widget _buildProfesionales() => buildSeccionProfesionales(context,
-    dark: _isDark, empresaId: widget.empresaId,
-    mostrarEquipo: _mostrarEquipo, permitirElegir: _permitirElegirProfesional,
-    onMostrarEquipoChanged: (v) => setState(() => _mostrarEquipo = v),
-    onPermitirElegirChanged: (v) => setState(() => _permitirElegirProfesional = v),
-  );
-
-  Widget _buildResenasConfig() => buildSeccionResenas(context,
-    dark: _isDark, negocioId: _negocioId, empresaId: widget.empresaId,
-    mostrarResenasGoogle: _mostrarResenasGoogle, mostrarResenasFluix: _mostrarResenasFluix, permitirResenas: _permitirResenas,
-    onGoogleChanged: (v) => setState(() => _mostrarResenasGoogle = v),
-    onFluixChanged: (v) => setState(() => _mostrarResenasFluix = v),
-    onPermitirChanged: (v) => setState(() => _permitirResenas = v),
-    snack: _snack,
-  );
-
-  Widget _buildPoliticas() => buildSeccionPoliticas(context,
-    dark: _isDark, negocioId: _negocioId, negocioNombre: _nombreNegocio, snack: _snack);
-
-  Widget _buildPagos() => buildSeccionPagos(context,
-    dark: _isDark, razonSocialCtrl: _razonSocialCtrl, nifCifCtrl: _nifCifCtrl,
-    metodosPago: _metodosPago, pagosOnline: _pagosOnline,
-    preciosConImpuestos: _preciosConImpuestos, facturaDisponible: _facturaDisponible,
-    onMetodosChanged: (v) => setState(() => _metodosPago = v),
-    onPagosOnlineChanged: (v) => setState(() => _pagosOnline = v),
-    onImpuestosChanged: (v) => setState(() => _preciosConImpuestos = v),
-    onFacturaChanged: (v) => setState(() => _facturaDisponible = v),
-  );
-
-  Widget _buildDiseno() => buildSeccionDiseno(context,
-    dark: _isDark, textoBienvenidaCtrl: _textoBienvenidaCtrl, msgPromoCtrl: _msgPromoCtrl);
-
-  Widget _buildSeo() => buildSeccionSeo(context,
-    dark: _isDark, urlPublicaCtrl: _urlPublicaCtrl, tituloSeoCtrl: _tituloSeoCtrl,
-    descSeoCtrl: _descSeoCtrl, palabrasClave: _palabrasClave,
-    indexarExternamente: _indexarExternamente, aparecerEnResultados: _aparecerEnResultados,
-    onPalabrasChanged: (v) => setState(() => _palabrasClave = v),
-    onIndexarChanged: (v) => setState(() => _indexarExternamente = v),
-    onAparecerChanged: (v) => setState(() => _aparecerEnResultados = v),
-  );
-
-  Widget _buildVisibilidad() => Column(children: [
-    buildSeccionTabs(context,
-      dark: _isDark, vis: _seccionesVisibles,
-      onVisChanged: (v) => setState(() => _seccionesVisibles = v)),
-    buildSeccionVisibilidad(context,
-      dark: _isDark, vis: _seccionesVisibles,
-      onVisChanged: (v) => setState(() => _seccionesVisibles = v)),
-  ]);
-
-  Widget _buildEstadisticas() => buildSeccionEstadisticas(context,
-    dark: _isDark, negocioId: _negocioId);
 
   // _buildTabResenas usado en sec_config_avanzada.dart → _buildResenasConfig()
 

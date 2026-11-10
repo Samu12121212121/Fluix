@@ -24,15 +24,18 @@ class _DialogAltaEmpleadoState extends State<DialogAltaEmpleado> {
   String? _nombreSeleccionado;
   final _nombreCtrl = TextEditingController();
   final _pinCtrl = TextEditingController();
+  final _horasCtrl = TextEditingController(text: '8');
   final _formKey = GlobalKey<FormState>();
-  int _jornadaDiaria = 480;
   bool _guardando = false;
   bool _verPin = false;
+
+  int get _jornadaDiaria => (int.tryParse(_horasCtrl.text.trim()) ?? 8) * 60;
 
   @override
   void dispose() {
     _nombreCtrl.dispose();
     _pinCtrl.dispose();
+    _horasCtrl.dispose();
     super.dispose();
   }
 
@@ -173,23 +176,22 @@ class _DialogAltaEmpleadoState extends State<DialogAltaEmpleado> {
                 },
               ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<int>(
-                value: _jornadaDiaria,
+              TextFormField(
+                controller: _horasCtrl,
+                keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'Jornada diaria',
+                  labelText: 'Jornada diaria (horas)',
                   prefixIcon: Icon(Icons.schedule_outlined),
+                  suffixText: 'h',
                   border: OutlineInputBorder(),
                   contentPadding:
                       EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 240, child: Text('4 horas')),
-                  DropdownMenuItem(value: 300, child: Text('5 horas')),
-                  DropdownMenuItem(value: 360, child: Text('6 horas')),
-                  DropdownMenuItem(value: 420, child: Text('7 horas')),
-                  DropdownMenuItem(value: 480, child: Text('8 horas')),
-                ],
-                onChanged: (v) => setState(() => _jornadaDiaria = v!),
+                validator: (v) {
+                  final h = int.tryParse(v?.trim() ?? '');
+                  if (h == null || h < 1 || h > 24) return 'Introduce un número entre 1 y 24';
+                  return null;
+                },
               ),
               const SizedBox(height: 12),
               Container(

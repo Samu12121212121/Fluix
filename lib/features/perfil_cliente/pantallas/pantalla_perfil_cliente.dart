@@ -5,7 +5,6 @@ import '../../../models/user_model.dart';
 import '../../autenticacion/pantallas/pantalla_login.dart';
 import '../../dashboard/pantallas/pantalla_dashboard.dart';
 import 'pantalla_trofeos.dart';
-// import 'pantalla_monedero.dart'; // oculto temporalmente
 import '../../../services/trofeos_service.dart';
 import '../../tienda_monedas/widgets/avatar_con_marco.dart';
 import '../widgets/avatar_picker_sheet.dart';

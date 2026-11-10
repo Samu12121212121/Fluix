@@ -21,6 +21,9 @@ class SedeAeatUrls {
   /// Modelo 115 — Retenciones arrendamientos (admite fichero TXT DR115e15v13)
   static const mod115 = 'https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GH02.shtml';
 
+  /// Modelo 200 — Declaración anual Impuesto sobre Sociedades
+  static const mod200 = 'https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GE01.shtml';
+
   /// Modelo 202 — Pago fraccionado IS sociedades
   static const mod202 = 'https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GE00.shtml';
 

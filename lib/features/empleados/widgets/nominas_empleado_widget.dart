@@ -12,6 +12,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:planeag_flutter/core/widgets/flux_toast.dart';
+import '../../../services/nomina_pdf_service.dart';
+import '../../../domain/modelos/nomina.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // NÓMINAS DEL EMPLEADO
@@ -87,6 +89,11 @@ class _NominasSheetState extends State<_NominasSheet> {
   bool _subiendo = false;
   int  _anioFiltro = DateTime.now().year;
 
+  // Colección de nóminas GENERADAS por el sistema (NominasService)
+  CollectionReference<Map<String, dynamic>> get _colNominas =>
+      _db.collection('empresas').doc(widget.empresaId).collection('nominas');
+
+  // Colección de PDFs subidos manualmente (legacy / complemento)
   CollectionReference<Map<String, dynamic>> get _col =>
       _db.collection('empresas').doc(widget.empresaId)
           .collection('nominas_empleados');
@@ -329,9 +336,9 @@ class _NominasSheetState extends State<_NominasSheet> {
     }
   }
 
-  // ── Stream filtrado client-side — sin orderBy para evitar índice compuesto
+  // ── Stream nóminas GENERADAS (NominasService → colección nominas/)
   Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> get _streamNominas =>
-      _col
+      _colNominas
           .where('empleado_id', isEqualTo: widget.empleadoId)
           .snapshots()
           .map((s) {
@@ -341,7 +348,7 @@ class _NominasSheetState extends State<_NominasSheet> {
             filtradas.sort((a, b) {
               final ma = a.data()['mes'] as int? ?? 0;
               final mb = b.data()['mes'] as int? ?? 0;
-              return mb.compareTo(ma); // descendente
+              return mb.compareTo(ma);
             });
             return filtradas;
           });
@@ -391,25 +398,7 @@ class _NominasSheetState extends State<_NominasSheet> {
                     style: const TextStyle(fontSize: 11, color: _kSub)),
               ])),
               _buildAnioSelector(),
-              if (!widget.soloLectura) ...[
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: _subiendo ? null : _subirNomina,
-                  icon: _subiendo
-                      ? const SizedBox(width: 14, height: 14,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.upload_rounded, size: 15),
-                  label: const Text('Subir', style: TextStyle(fontSize: 12)),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _kGreen,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ],
+              // Nóminas generadas — no requiere subida manual
               const SizedBox(width: 4),
               IconButton(
                 onPressed: () => Navigator.pop(ctx),
@@ -470,135 +459,101 @@ class _NominasSheetState extends State<_NominasSheet> {
   }
 
   Widget _buildCard(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
-    final d           = doc.data();
-    final mes         = (d['mes'] as int? ?? 1).clamp(1, 14);
-    final anio        = d['anio'] as int? ?? 0;
-    final url         = d['url'] as String? ?? '';
-    final nombre      = d['nombre_archivo'] as String? ?? '';
-    final importeNeto = d['importe_neto'] as double?;
-    final ext         = (d['extension'] as String? ?? 'pdf').toLowerCase();
-    final bytes       = d['tamano_bytes'] as int? ?? 0;
-    final subidoEn    = (d['subido_en'] as Timestamp?)?.toDate();
-    final fechaStr    = subidoEn != null
-        ? '${subidoEn.day.toString().padLeft(2,'0')}/'
-          '${subidoEn.month.toString().padLeft(2,'0')}/${subidoEn.year}'
-        : '';
-    final isPdf       = ext == 'pdf';
-    final sizeStr     = bytes > 0 ? _formatBytes(bytes) : '';
+    final d      = doc.data();
+    final mes    = (d['mes'] as int? ?? 1).clamp(1, 12);
+    final anio   = d['anio'] as int? ?? 0;
+    final neto   = (d['liquido_final'] as num?)?.toDouble()
+                ?? (d['salario_neto'] as num?)?.toDouble();
+    final bruto  = (d['salario_bruto_mensual'] as num?)?.toDouble() ?? 0;
+    final pagaEx = (d['paga_extra'] as num?)?.toDouble() ?? 0;
+    final estado = d['estado'] as String? ?? 'borrador';
+    final periodo = d['periodo'] as String? ?? '${_meses[mes]} $anio';
 
-    return GestureDetector(
-      onTap: url.isNotEmpty
-          ? () => _abrirVisor(context, url: url, ext: ext,
-              titulo: '${_meses[mes]} $anio', nombre: nombre)
-          : null,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _kBorder),
-          boxShadow: [BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8, offset: const Offset(0, 2),
-          )],
-        ),
-        child: Column(children: [
-          // Preview superior
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
-            child: _buildPreview(url, ext, isPdf),
-          ),
+    final (estadoLabel, estadoColor) = switch (estado) {
+      'pagada'   => ('Pagada',   _kGreen),
+      'aprobada' => ('Aprobada', _kBlue),
+      _          => ('Borrador', _kOrange),
+    };
 
-          // Info inferior
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-              Row(children: [
-                Expanded(child: Text('${_meses[mes]} $anio',
-                    style: const TextStyle(fontSize: 14,
-                        fontWeight: FontWeight.w700, color: _kText))),
-                if (importeNeto != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: _kGreen.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${importeNeto.toStringAsFixed(2)} €',
-                      style: const TextStyle(fontSize: 11,
-                          fontWeight: FontWeight.w700, color: _kGreen),
-                    ),
-                  ),
-              ]),
-              const SizedBox(height: 4),
-              Row(children: [
-                Icon(isPdf ? Icons.picture_as_pdf_rounded
-                    : Icons.image_rounded,
-                    size: 12, color: isPdf ? _kRed : _kBlue),
-                const SizedBox(width: 4),
-                Text(isPdf ? 'PDF' : ext.toUpperCase(),
-                    style: TextStyle(fontSize: 10,
-                        color: isPdf ? _kRed : _kBlue,
-                        fontWeight: FontWeight.w600)),
-                if (sizeStr.isNotEmpty) ...[
-                  const Text(' · ', style: TextStyle(fontSize: 10, color: _kSub)),
-                  Text(sizeStr, style: const TextStyle(
-                      fontSize: 10, color: _kSub)),
-                ],
-                if (fechaStr.isNotEmpty) ...[
-                  const Text(' · ', style: TextStyle(fontSize: 10, color: _kSub)),
-                  Text('Subida el $fechaStr',
-                      style: const TextStyle(fontSize: 10, color: _kSub)),
-                ],
-              ]),
-              if (nombre.isNotEmpty) ...[
-                const SizedBox(height: 3),
-                Text(nombre, style: const TextStyle(fontSize: 10, color: _kSub),
-                    overflow: TextOverflow.ellipsis),
-              ],
-              const SizedBox(height: 10),
-              // Botones acción
-              Row(children: [
-                Expanded(child: OutlinedButton.icon(
-                  onPressed: url.isNotEmpty
-                      ? () => _abrirVisor(context, url: url, ext: ext,
-                          titulo: '${_meses[mes]} $anio', nombre: nombre)
-                      : null,
-                  icon: const Icon(Icons.visibility_rounded, size: 14),
-                  label: const Text('Ver', style: TextStyle(fontSize: 12)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _kBlue,
-                    side: BorderSide(color: _kBlue.withValues(alpha: 0.4)),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  ),
-                )),
-                if (!widget.soloLectura) ...[
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: () => _eliminar(doc),
-                    icon: const Icon(Icons.delete_outline_rounded, size: 14),
-                    label: const Text('Eliminar',
-                        style: TextStyle(fontSize: 12)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _kRed,
-                      side: BorderSide(color: _kRed.withValues(alpha: 0.3)),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 8, horizontal: 10),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ],
-              ]),
-            ]),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _kBorder),
+        boxShadow: [BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 6, offset: const Offset(0, 2),
+        )],
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Cabecera: período + estado
+        Row(children: [
+          Expanded(child: Text(periodo,
+              style: const TextStyle(fontSize: 14,
+                  fontWeight: FontWeight.w700, color: _kText))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: estadoColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(estadoLabel, style: TextStyle(fontSize: 10,
+                fontWeight: FontWeight.w700, color: estadoColor)),
           ),
         ]),
-      ),
+        const SizedBox(height: 10),
+        // Importes clave
+        Row(children: [
+          _importeTile('Neto', neto != null ? '${neto.toStringAsFixed(2)} €' : '—', _kGreen),
+          const SizedBox(width: 10),
+          _importeTile('Bruto', '${(bruto + pagaEx).toStringAsFixed(2)} €', _kSub),
+        ]),
+        const SizedBox(height: 10),
+        // Botón ver PDF
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => _verPdf(doc),
+            icon: const Icon(Icons.picture_as_pdf_rounded, size: 14),
+            label: const Text('Ver nómina en PDF', style: TextStyle(fontSize: 12)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _kRed,
+              side: BorderSide(color: _kRed.withValues(alpha: 0.4)),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ),
+      ]),
     );
+  }
+
+  Widget _importeTile(String label, String valor, Color color) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: TextStyle(fontSize: 10, color: color)),
+        const SizedBox(height: 2),
+        Text(valor, style: TextStyle(fontSize: 13,
+            fontWeight: FontWeight.w700, color: color)),
+      ]),
+    ),
+  );
+
+  Future<void> _verPdf(QueryDocumentSnapshot<Map<String, dynamic>> doc) async {
+    try {
+      // Importamos NominaPdfService dinámicamente para evitar dependencia circular
+      final nominaMap = {...doc.data(), 'id': doc.id};
+      // Usamos NominaPdfService.abrirNominaPdf que carga los datos de empresa
+      await _abrirNominaPdfDesdeId(context, doc.id, widget.empresaId);
+    } catch (e) {
+      if (mounted) FluxToast.error(context, 'Error al generar PDF: $e');
+    }
   }
 
   // Miniatura de previsualización en la tarjeta
@@ -640,12 +595,12 @@ class _NominasSheetState extends State<_NominasSheet> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.receipt_long_outlined, size: 56, color: Colors.grey[300]),
           const SizedBox(height: 12),
-          Text('No hay nóminas en $_anioFiltro',
+          Text('No hay nóminas generadas en $_anioFiltro',
               style: TextStyle(fontSize: 14, color: Colors.grey[500])),
           const SizedBox(height: 4),
-          if (!widget.soloLectura)
-            Text('Pulsa "Subir" para añadir la primera',
-                style: TextStyle(fontSize: 12, color: Colors.grey[400])),
+          Text('Genera las nóminas del mes desde el Módulo Nóminas',
+              style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+              textAlign: TextAlign.center),
         ]),
       );
 
@@ -882,6 +837,19 @@ class _VisorPDFState extends State<_VisorPDF> {
           if (mounted) setState(() => _error = e.toString());
         },
       );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Abre el PDF de una nómina generada (lee el doc de Firestore y genera el PDF)
+// ─────────────────────────────────────────────────────────────────────────────
+Future<void> _abrirNominaPdfDesdeId(
+    BuildContext context, String nominaId, String empresaId) async {
+  final db  = FirebaseFirestore.instance;
+  final doc = await db.collection('empresas').doc(empresaId)
+      .collection('nominas').doc(nominaId).get();
+  if (!doc.exists || !context.mounted) return;
+  final nomina = Nomina.fromMap({...doc.data()!, 'id': doc.id});
+  await NominaPdfService.verNominaPdf(context, nomina, empresaId);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

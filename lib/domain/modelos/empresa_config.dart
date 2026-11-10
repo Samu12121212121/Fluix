@@ -116,6 +116,16 @@ class EmpresaConfig {
   final String serieRectificativa; // default 'R'
   final String serieProforma;      // default 'P'
 
+  // ── Seguridad Social ──────────────────────────────────────────────────────
+  /// Código Cuenta de Cotización (CCC) de la empresa en TGSS.
+  /// Formato: 12 dígitos — Provincia(2)+Empresa(8)+DC(2).
+  final String cccSeguridadSocial;
+  /// CNAE con el que la empresa cotiza en TGSS (puede diferir del CNAE fiscal).
+  final String cnaeSegSocial;
+  /// Tipo de AT/EP aplicable a la empresa según su CNAE en la tarifa de primas.
+  /// Nulo = se calcula por grupo de cotización del empleado.
+  final double? tipoAtSeguridadSocial;
+
   const EmpresaConfig({
     this.nif = '',
     this.razonSocial = '',
@@ -133,6 +143,9 @@ class EmpresaConfig {
     this.serieFactura = 'F',
     this.serieRectificativa = 'R',
     this.serieProforma = 'P',
+    this.cccSeguridadSocial = '',
+    this.cnaeSegSocial = '',
+    this.tipoAtSeguridadSocial,
   });
 
   factory EmpresaConfig.fromSources({
@@ -164,6 +177,9 @@ class EmpresaConfig {
       serieFactura: _serieValida(empresa['serie_factura'] ?? 'F', 'F'),
       serieRectificativa: _serieValida(empresa['serie_rectificativa'] ?? 'R', 'R'),
       serieProforma: _serieValida(empresa['serie_proforma'] ?? 'P', 'P'),
+      cccSeguridadSocial: (empresa['ccc_ss'] ?? empresa['perfil']?['ccc_ss'] ?? '').toString(),
+      cnaeSegSocial: (empresa['cnae_ss'] ?? empresa['cnae'] ?? '').toString(),
+      tipoAtSeguridadSocial: (empresa['tipo_at_ss'] as num?)?.toDouble(),
     );
   }
 
@@ -181,6 +197,10 @@ class EmpresaConfig {
         'serie_factura': serieFactura.trim().toUpperCase(),
         'serie_rectificativa': serieRectificativa.trim().toUpperCase(),
         'serie_proforma': serieProforma.trim().toUpperCase(),
+        // Seguridad Social — almacenados en la raíz del doc de empresa
+        if (cccSeguridadSocial.trim().isNotEmpty) 'ccc_ss': cccSeguridadSocial.trim(),
+        if (cnaeSegSocial.trim().isNotEmpty) 'cnae_ss': cnaeSegSocial.trim(),
+        if (tipoAtSeguridadSocial != null) 'tipo_at_ss': tipoAtSeguridadSocial,
       };
 
   Map<String, dynamic> toFiscalDoc() => {
@@ -211,6 +231,9 @@ class EmpresaConfig {
     String? serieFactura,
     String? serieRectificativa,
     String? serieProforma,
+    String? cccSeguridadSocial,
+    String? cnaeSegSocial,
+    double? tipoAtSeguridadSocial,
   }) {
     return EmpresaConfig(
       nif: nif ?? this.nif,
@@ -229,6 +252,9 @@ class EmpresaConfig {
       serieFactura: serieFactura ?? this.serieFactura,
       serieRectificativa: serieRectificativa ?? this.serieRectificativa,
       serieProforma: serieProforma ?? this.serieProforma,
+      cccSeguridadSocial: cccSeguridadSocial ?? this.cccSeguridadSocial,
+      cnaeSegSocial: cnaeSegSocial ?? this.cnaeSegSocial,
+      tipoAtSeguridadSocial: tipoAtSeguridadSocial ?? this.tipoAtSeguridadSocial,
     );
   }
 
@@ -268,7 +294,6 @@ class EmpresaConfig {
     return errores;
   }
 }
-
 
 // EmpresaConfig — fin del archivo
 

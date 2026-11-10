@@ -29,6 +29,10 @@ class EmpresaConfigService {
 
     await empresaRef.set(config.toEmpresaDoc(), SetOptions(merge: true));
     await fiscalRef.set(config.toFiscalDoc(), SetOptions(merge: true));
+    // Sincronizar ccc_ss dentro del mapa perfil (para compatibilidad con nomina_pdf_service)
+    if (config.cccSeguridadSocial.trim().isNotEmpty) {
+      await empresaRef.update({'perfil.ccc_ss': config.cccSeguridadSocial.trim()});
+    }
   }
 }
 

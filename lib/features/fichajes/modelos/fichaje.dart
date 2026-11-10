@@ -90,6 +90,15 @@ class Fichaje {
   final String? corregidoPorUid;
   final Timestamp? corregidoAt;
 
+  /// URLs de fotos subidas al fichar entrada (ej: inspección visual de ambulancia)
+  final List<String> fotosEntrada;
+
+  /// Hash SHA-256 generado al fichar entrada (RDL 8/2019 nivel básico)
+  final String? firmaIntegridad;
+
+  /// Hash SHA-256 generado al fichar salida
+  final String? firmaSalida;
+
   const Fichaje({
     required this.id,
     required this.empleadoId,
@@ -106,6 +115,9 @@ class Fichaje {
     this.motivoCorreccion,
     this.corregidoPorUid,
     this.corregidoAt,
+    this.fotosEntrada = const [],
+    this.firmaIntegridad,
+    this.firmaSalida,
   });
 
   // ── Estado calculado ───────────────────────────────────────────────────────
@@ -169,6 +181,11 @@ class Fichaje {
       motivoCorreccion: data['motivo_correccion'] as String?,
       corregidoPorUid: data['corregido_por_uid'] as String?,
       corregidoAt: data['corregido_at'] as Timestamp?,
+      fotosEntrada: (data['fotos_entrada'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ?? [],
+      firmaIntegridad: data['firma_integridad'] as String?,
+      firmaSalida: data['firma_salida'] as String?,
     );
   }
 
@@ -187,6 +204,9 @@ class Fichaje {
     'motivo_correccion': motivoCorreccion,
     'corregido_por_uid': corregidoPorUid,
     'corregido_at': corregidoAt,
+    'fotos_entrada': fotosEntrada,
+    if (firmaIntegridad != null) 'firma_integridad': firmaIntegridad,
+    if (firmaSalida != null) 'firma_salida': firmaSalida,
   };
 }
 

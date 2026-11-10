@@ -88,8 +88,11 @@ class _SplashRouterState extends State<SplashRouter> {
       final suscData = suscDoc.data();
 
       // 2b. Verificar onboarding completado
+      if (!empresaDoc.exists) {
+        return PantallaOnboarding(empresaId: empresaIdEfectivo);
+      }
       final onboardingCompletado =
-          empresaDoc.data()?['onboarding_completado'] as bool? ?? true;
+          empresaDoc.data()?['onboarding_completado'] as bool? ?? false;
       if (!onboardingCompletado) {
         return PantallaOnboarding(empresaId: empresaIdEfectivo);
       }

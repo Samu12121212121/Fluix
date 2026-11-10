@@ -1,7 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:photo_view/photo_view.dart';
+import 'package:photo_view/photo_view_gallery.dart';
 import '../modelos/fichaje.dart';
 import '../servicios/fichaje_service.dart';
 import 'package:planeag_flutter/core/widgets/flux_toast.dart';
@@ -73,12 +76,39 @@ class DialogFichajesEmpleado extends StatelessWidget {
                 final nTxt = neto != null
                     ? '${neto.inHours}h ${(neto.inMinutes % 60).toString().padLeft(2, '0')}m'
                     : '—';
+                final tieneFotos = f.fotosEntrada.isNotEmpty;
                 return ListTile(
                   dense: true,
                   title: Text(fmtD.format(fecha),
                       style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                  subtitle: Text('$entH → $salH  ·  $nTxt',
-                      style: const TextStyle(fontSize: 12)),
+                  subtitle: Row(children: [
+                    Expanded(
+                      child: Text('$entH → $salH  ·  $nTxt',
+                          style: const TextStyle(fontSize: 12)),
+                    ),
+                    if (tieneFotos)
+                      GestureDetector(
+                        onTap: () => _abrirGaleriaFotos(c, f),
+                        child: Container(
+                          margin: const EdgeInsets.only(left: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.photo_camera_rounded,
+                                size: 11, color: Color(0xFF3B82F6)),
+                            const SizedBox(width: 3),
+                            Text('${f.fotosEntrada.length}',
+                                style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Color(0xFF3B82F6),
+                                    fontWeight: FontWeight.w600)),
+                          ]),
+                        ),
+                      ),
+                  ]),
                   leading: f.esCorreccion
                       ? const Icon(Icons.edit_note, color: Colors.orange, size: 18)
                       : const Icon(Icons.check_circle_outline, color: Colors.green, size: 18),
@@ -111,6 +141,54 @@ class DialogFichajesEmpleado extends StatelessWidget {
       ],
     );
   }
+}
+
+void _abrirGaleriaFotos(BuildContext context, Fichaje f) {
+  if (f.fotosEntrada.isEmpty) return;
+  final urls = f.fotosEntrada;
+  showDialog(
+    context: context,
+    builder: (_) => Dialog(
+      backgroundColor: Colors.black,
+      insetPadding: const EdgeInsets.all(12),
+      child: SizedBox(
+        height: 420,
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 4, 0),
+            child: Row(children: [
+              const Icon(Icons.photo_library_rounded, color: Colors.white70, size: 16),
+              const SizedBox(width: 8),
+              Text('Fotos de revisión — ${f.empleadoNombre}',
+                  style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ]),
+          ),
+          Expanded(
+            child: PhotoViewGallery.builder(
+              itemCount: urls.length,
+              builder: (ctx, i) => PhotoViewGalleryPageOptions(
+                imageProvider: CachedNetworkImageProvider(urls[i]),
+                minScale: PhotoViewComputedScale.contained,
+                maxScale: PhotoViewComputedScale.covered * 2,
+              ),
+              backgroundDecoration: const BoxDecoration(color: Colors.black),
+              pageController: PageController(),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text('Desliza para ver todas (${urls.length} fotos)',
+                style: const TextStyle(color: Colors.white38, fontSize: 11)),
+          ),
+        ]),
+      ),
+    ),
+  );
 }
 
 class DialogEditarFichaje extends StatefulWidget {
@@ -166,9 +244,58 @@ class _DialogEditarFichajeState extends State<DialogEditarFichaje> {
     return AlertDialog(
       title: Text('Corregir fichaje — ${fmtD.format(fecha)}',
           style: const TextStyle(fontSize: 15)),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
+      content: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
         Text(widget.fichaje.empleadoNombre,
             style: const TextStyle(fontWeight: FontWeight.w600)),
+        // ── Fotos de entrada ────────────────────────────────────────────
+        if (widget.fichaje.fotosEntrada.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Row(children: [
+            const Icon(Icons.photo_camera_rounded, size: 14, color: Color(0xFF3B82F6)),
+            const SizedBox(width: 6),
+            const Text('Fotos de revisión de entrada',
+                style: TextStyle(fontSize: 12, color: Color(0xFF3B82F6), fontWeight: FontWeight.w600)),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => _abrirGaleriaFotos(context, widget.fichaje),
+              child: const Text('Ver todas',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF3B82F6), decoration: TextDecoration.underline)),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 72,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: widget.fichaje.fotosEntrada.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 6),
+              itemBuilder: (ctx, i) => GestureDetector(
+                onTap: () => _abrirGaleriaFotos(ctx, widget.fichaje),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: CachedNetworkImage(
+                    imageUrl: widget.fichaje.fotosEntrada[i],
+                    width: 96,
+                    height: 72,
+                    fit: BoxFit.cover,
+                    placeholder: (_, _) => Container(
+                      width: 96, height: 72,
+                      color: const Color(0xFFF1F5F9),
+                      child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    ),
+                    errorWidget: (_, _, _) => Container(
+                      width: 96, height: 72,
+                      color: const Color(0xFFF1F5F9),
+                      child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
         const SizedBox(height: 16),
         Row(children: [
           Expanded(child: _TimeButton(label: 'Entrada', time: _entrada,
@@ -188,6 +315,7 @@ class _DialogEditarFichajeState extends State<DialogEditarFichaje> {
           maxLines: 2,
         ),
       ]),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),

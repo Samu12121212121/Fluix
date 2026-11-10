@@ -79,6 +79,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
   final _slugCtrl     = TextEditingController();
   final _etiquetaCtrl = TextEditingController();
   final _videoUrlCtrl = TextEditingController();
+  final _audioUrlCtrl = TextEditingController();
   late final QuillController _quillCtrl;
 
   // ── Estado ───────────────────────────────────────────────────────────────
@@ -87,6 +88,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
   int          _carouselPage      = 0;
   final        _portadaPageCtrl   = PageController();
   bool         _subiendoImgExtra  = false;
+  bool         _subiendoAudio     = false;
   List<String> _etiquetas        = [];
   EstadoBlog   _estado           = EstadoBlog.borrador;
   String       _categoriaId      = '';
@@ -129,6 +131,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
       _imagenUrl         = e.imagenUrl;
       _imagenes          = List.from(e.imagenes);
       _videoUrlCtrl.text = e.videoUrl ?? '';
+      _audioUrlCtrl.text = e.audioUrl ?? '';
       _estado            = e.estado;
       _categoriaId      = e.categoriaId;
       _autorId           = e.autorId;
@@ -225,6 +228,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
     _slugCtrl.dispose();
     _etiquetaCtrl.dispose();
     _videoUrlCtrl.dispose();
+    _audioUrlCtrl.dispose();
     _quillCtrl.dispose();
     _portadaPageCtrl.dispose();
     _slugTimer?.cancel();
@@ -313,6 +317,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
         tipo:             _tipo,
         destacado:        widget.entrada?.destacado ?? false,
         videoUrl:         _videoUrlCtrl.text.trim().isEmpty ? null : _videoUrlCtrl.text.trim(),
+        audioUrl:         _audioUrlCtrl.text.trim().isEmpty ? null : _audioUrlCtrl.text.trim(),
         visitas:          widget.entrada?.visitas ?? 0,
         autorId:          _autorId,
         libroId:          _libroId,
@@ -364,6 +369,7 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
         destacado:        widget.entrada?.destacado ?? false,
         visitas:          widget.entrada?.visitas ?? 0,
         videoUrl:         videoUrl,
+        audioUrl:         _audioUrlCtrl.text.trim().isEmpty ? null : _audioUrlCtrl.text.trim(),
         autorId:          _autorId,
         libroId:          _libroId,
       );
@@ -1447,6 +1453,69 @@ class _PantallaEditorWordState extends State<PantallaEditorWord> {
                         style: const TextStyle(fontSize: 10.5, color: Color(0xFF16A34A)),
                       ),
                     ],
+                    const SizedBox(height: 16),
+                    // Audio
+                    _cfgLabel('Audio'),
+                    if (_audioUrlCtrl.text.trim().isNotEmpty) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF86EFAC)),
+                        ),
+                        child: Row(children: [
+                          const Icon(Icons.audiotrack_rounded, size: 14, color: Color(0xFF16A34A)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _audioUrlCtrl.text.trim().split('/').last.split('?').first,
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF15803D)),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => setState(() => _audioUrlCtrl.clear()),
+                            child: const Icon(Icons.close, size: 14, color: Color(0xFF9CA3AF)),
+                          ),
+                        ]),
+                      ),
+                    ],
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _subiendoAudio ? null : () async {
+                          setState(() => _subiendoAudio = true);
+                          final url = await widget.svc.subirArchivo(
+                            widget.empresaId,
+                            'blog/audios',
+                            ['mp3', 'm4a', 'ogg', 'wav', 'aac'],
+                          );
+                          if (mounted) setState(() {
+                            if (url != null) _audioUrlCtrl.text = url;
+                            _subiendoAudio = false;
+                          });
+                        },
+                        icon: _subiendoAudio
+                            ? const SizedBox(width: 13, height: 13,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.upload_file_rounded, size: 15),
+                        label: Text(_subiendoAudio ? 'Subiendo…' : 'Subir audio (.mp3, .m4a…)'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: color,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _audioUrlCtrl,
+                      onChanged: (_) => setState(() {}),
+                      decoration: _cfgDeco('O pega una URL de Ivoox, SoundCloud…'),
+                    ),
                     const SizedBox(height: 16),
                     // Slug
                     _cfgLabel('URL (slug)'),

@@ -157,9 +157,10 @@ class _PersonalizacionAppScreenState extends State<PersonalizacionAppScreen>
   // ─────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final canPop = ModalRoute.of(context)?.isFirst == false;
     return Scaffold(
       backgroundColor: _kPrimario,
-      appBar: FluixAppBar(
+      appBar: canPop ? FluixAppBar(
         titulo: 'Personalización App',
         showLeading: true,
         extraActions: [
@@ -180,7 +181,7 @@ class _PersonalizacionAppScreenState extends State<PersonalizacionAppScreen>
             ),
           const SizedBox(width: 8),
         ],
-      ),
+      ) : null,
       body: Column(children: [
         TabBar(
           controller: _tabs,

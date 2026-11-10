@@ -4,68 +4,128 @@
       "collectionGroup": "pedidos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "estado_pago",    "order": "ASCENDING" },
-        { "fieldPath": "cliente_nombre", "order": "ASCENDING" },
-        { "fieldPath": "fecha_hora",     "order": "DESCENDING" }
+        {
+          "fieldPath": "estado_pago",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "cliente_nombre",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_hora",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "pedidos_web_nazari",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "tiene_ebook",     "order": "ASCENDING" },
-        { "fieldPath": "fecha_creacion",  "order": "DESCENDING" }
+        {
+          "fieldPath": "tiene_ebook",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_creacion",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "categorias_catalogo",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "activo", "order": "ASCENDING" },
-        { "fieldPath": "orden",  "order": "ASCENDING" }
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "orden",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "colecciones_catalogo",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "activo", "order": "ASCENDING" },
-        { "fieldPath": "orden",  "order": "ASCENDING" }
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "orden",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "carta_web",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "categoria", "order": "ASCENDING" },
-        { "fieldPath": "orden",     "order": "ASCENDING" }
+        {
+          "fieldPath": "categoria",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "orden",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "menu_semanal",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "activo", "order": "ASCENDING" },
-        { "fieldPath": "orden",  "order": "ASCENDING" }
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "orden",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "seleccion_nazari",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "activo",  "order": "ASCENDING" },
-        { "fieldPath": "en_pack", "order": "ASCENDING" },
-        { "fieldPath": "orden",   "order": "ASCENDING" }
+        {
+          "fieldPath": "activo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "en_pack",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "orden",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "pdf_templates",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresa_id", "order": "ASCENDING" },
-        { "fieldPath": "tipo",       "order": "ASCENDING" },
-        { "fieldPath": "es_default", "order": "ASCENDING" },
-        { "fieldPath": "activa",     "order": "ASCENDING" }
+        {
+          "fieldPath": "empresa_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "tipo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "es_default",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "activa",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
@@ -846,41 +906,74 @@
       "collectionGroup": "blog",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "publicada",         "order": "ASCENDING" },
-        { "fieldPath": "fecha_publicacion", "order": "DESCENDING" }
+        {
+          "fieldPath": "publicada",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_publicacion",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "blog",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "tipo",              "order": "ASCENDING" },
-        { "fieldPath": "fecha_publicacion", "order": "DESCENDING" }
+        {
+          "fieldPath": "tipo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_publicacion",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "blog",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "eliminado",         "order": "ASCENDING" },
-        { "fieldPath": "fecha_publicacion", "order": "DESCENDING" }
+        {
+          "fieldPath": "eliminado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_publicacion",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "blog",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "seccion_id",        "order": "ASCENDING" },
-        { "fieldPath": "eliminado",         "order": "ASCENDING" },
-        { "fieldPath": "fecha_publicacion", "order": "DESCENDING" }
+        {
+          "fieldPath": "seccion_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "eliminado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_publicacion",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "eventos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "eliminado", "order": "ASCENDING" },
-        { "fieldPath": "fecha",     "order": "ASCENDING" }
+        {
+          "fieldPath": "eliminado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
@@ -961,87 +1054,168 @@
       "collectionGroup": "fichajes",
       "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "empleado_id",  "order": "ASCENDING"},
-        {"fieldPath": "fecha",        "order": "ASCENDING"},
-        {"fieldPath": "es_correccion","order": "ASCENDING"},
-        {"fieldPath": "creado_at",    "order": "DESCENDING"}
+        {
+          "fieldPath": "empleado_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "es_correccion",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "creado_at",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "fichajes",
       "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "fecha",        "order": "ASCENDING"},
-        {"fieldPath": "es_correccion","order": "ASCENDING"},
-        {"fieldPath": "creado_at",    "order": "ASCENDING"}
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "es_correccion",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "creado_at",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "fichajes",
       "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "empleado_id",  "order": "ASCENDING"},
-        {"fieldPath": "fecha",        "order": "ASCENDING"},
-        {"fieldPath": "es_correccion","order": "ASCENDING"},
-        {"fieldPath": "corregido_at", "order": "DESCENDING"}
+        {
+          "fieldPath": "empleado_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "es_correccion",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "corregido_at",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "fichajes",
       "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "correccion_de","order": "ASCENDING"},
-        {"fieldPath": "corregido_at", "order": "DESCENDING"}
+        {
+          "fieldPath": "correccion_de",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "corregido_at",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "pedidos",
       "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "estado_pago",    "order": "ASCENDING"},
-        {"fieldPath": "cliente_nombre", "order": "ASCENDING"},
-        {"fieldPath": "fecha_hora",     "order": "DESCENDING"}
+        {
+          "fieldPath": "estado_pago",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "cliente_nombre",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_hora",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "mensajes",
       "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "remitente", "order": "ASCENDING"},
-        {"fieldPath": "leido",     "order": "ASCENDING"}
+        {
+          "fieldPath": "remitente",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "leido",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "solicitudes",
       "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "empleado_id",   "order": "ASCENDING"},
-        {"fieldPath": "tipo",          "order": "ASCENDING"},
-        {"fieldPath": "estado",        "order": "ASCENDING"}
+        {
+          "fieldPath": "empleado_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "tipo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "estado",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "solicitudes",
       "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "empleado_id",   "order": "ASCENDING"},
-        {"fieldPath": "fecha_creacion","order": "DESCENDING"}
+        {
+          "fieldPath": "empleado_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_creacion",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "pedidos",
       "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "cliente_correo",  "order": "ASCENDING"},
-        {"fieldPath": "fecha_creacion",  "order": "DESCENDING"}
+        {
+          "fieldPath": "cliente_correo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_creacion",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "pedidos",
       "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "cliente_nombre",  "order": "ASCENDING"},
-        {"fieldPath": "fecha_creacion",  "order": "DESCENDING"}
+        {
+          "fieldPath": "cliente_nombre",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha_creacion",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
@@ -1410,6 +1584,46 @@
         },
         {
           "fieldPath": "fecha_modificacion",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "alertas_despacho",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "estado",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "fecha_hora",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "nominas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "empleado_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "anio",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "es_correccion",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "mes",
           "order": "DESCENDING"
         }
       ]

@@ -23,10 +23,12 @@ class _ModuloServiciosScreenState extends State<ModuloServiciosScreen>
 
   @override
   Widget build(BuildContext context) {
+    final canPop = ModalRoute.of(context)?.isFirst == false;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: FluixAppBar(
+      appBar: canPop ? FluixAppBar(
         titulo: 'Servicios',
+        showLeading: true,
         extraActions: [
           if (widget.sesion?.puedeGestionarServicios ?? true)
             IconButton(
@@ -35,7 +37,7 @@ class _ModuloServiciosScreenState extends State<ModuloServiciosScreen>
               onPressed: _importarCsv,
             ),
         ],
-      ),
+      ) : null,
       body: StreamBuilder<QuerySnapshot>(
         stream: _firestore
             .collection('empresas')

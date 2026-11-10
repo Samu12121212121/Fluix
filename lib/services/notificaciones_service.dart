@@ -7,13 +7,18 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../core/navigation/app_navigator.dart';
+import '../features/fichajes/pantallas/pantalla_alerta_despacho.dart';
 import 'sonido_notificacion_service.dart';
 import 'notificaciones_windows_service.dart';
 
-/// Handler global para mensajes en background (debe ser función top-level)
+/// Handler global para mensajes en background (debe ser función top-level).
+/// Solo se invoca para mensajes data-only; los mensajes con campo notification
+/// los muestra Android directamente sin pasar por aquí.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print('🔔 Notificación en background: ${message.notification?.title}');
+  // No inicializar Firebase aquí — ya está inicializado por el isolate principal.
+  print('🔔 FCM background: ${message.notification?.title ?? message.data['tipo']}');
 }
 
 /// Devuelve true si la plataforma actual NO soporta Firebase Messaging.
@@ -73,6 +78,18 @@ class NotificacionesService {
     enableVibration: true,
   );
 
+  // Canal dedicado para alertas de despacho — máxima prioridad, full-screen intent
+  static const AndroidNotificationChannel _canalDespacho =
+  AndroidNotificationChannel(
+    'sysday_despacho',
+    'Alertas de Despacho',
+    description: 'Avisos de despacho urgente para operarios de ambulancias',
+    importance: Importance.max,
+    playSound: true,
+    enableVibration: true,
+    showBadge: true,
+  );
+
   /// Inicializar el servicio completo de notificaciones
   Future<void> inicializar() async {
     if (_inicializado) return;
@@ -100,12 +117,26 @@ class NotificacionesService {
     await androidPlugin?.createNotificationChannel(_canal);
     await androidPlugin?.createNotificationChannel(_canalResenasNegativas);
     await androidPlugin?.createNotificationChannel(_canalFiscal);
+    await androidPlugin?.createNotificationChannel(_canalDespacho);
+
+    // Android 14+: solicitar permiso para mostrar pantalla completa sobre lock screen
+    // Necesario para alertas de despacho que aparezcan aunque la pantalla esté bloqueada
+    await androidPlugin?.requestFullScreenIntentPermission();
 
     // Escuchar mensajes en primer plano
     FirebaseMessaging.onMessage.listen(_manejarMensajePrimerPlano);
 
     // Escuchar tap en notificación con app en background
     FirebaseMessaging.onMessageOpenedApp.listen(_manejarTapNotificacion);
+
+    // App abierta desde notificación con app CERRADA (terminated state)
+    final initialMessage = await _messaging.getInitialMessage();
+    if (initialMessage != null) {
+      // Pequeño delay para que el árbol de widgets esté listo
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _procesarPayload(jsonEncode(initialMessage.data));
+      });
+    }
 
     // Guardar token del dispositivo en Firestore
     await _guardarTokenDispositivo();
@@ -161,19 +192,22 @@ class NotificacionesService {
     final notif = message.notification;
     if (notif == null) return;
 
+    final esDespacho = (message.data['tipo'] as String?) == 'alerta_despacho';
+    final canal = esDespacho ? _canalDespacho : _canal;
+
     _localNotifications.show(
       message.hashCode,
       notif.title,
       notif.body,
       NotificationDetails(
         android: AndroidNotificationDetails(
-          _canal.id,
-          _canal.name,
-          channelDescription: _canal.description,
+          canal.id,
+          canal.name,
+          channelDescription: canal.description,
           importance: Importance.max,
           priority: Priority.max,
           icon: '@mipmap/ic_launcher',
-          color: const Color(0xFF0D47A1),
+          color: esDespacho ? const Color(0xFFDC2626) : const Color(0xFF0D47A1),
           playSound: true,
           enableVibration: true,
           enableLights: true,
@@ -213,6 +247,23 @@ class NotificacionesService {
       final data = jsonDecode(payload) as Map<String, dynamic>;
       final tipo = data['tipo'] as String?;
       print('🔔 Procesando notificación tipo: $tipo, data: $data');
+
+      // ── Alerta de despacho — abre pantalla full-screen ───────────────────
+      if (tipo == 'alerta_despacho') {
+        final empresaId = data['empresa_id'] as String?;
+        final alertaId  = data['alerta_id']  as String?;
+        if (empresaId != null && alertaId != null) {
+          AppNavigator.key.currentState?.push(MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => PantallaAlertaDespacho(
+              empresaId: empresaId,
+              alertaId:  alertaId,
+            ),
+          ));
+          return;
+        }
+      }
+
       _tapStreamCtrl.add(data);
     } catch (e) {
       print('❌ Error procesando payload: $e');

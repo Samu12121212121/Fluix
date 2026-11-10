@@ -26,7 +26,11 @@ class VacacionesScreen extends StatefulWidget {
   /// true  = dentro del dashboard (no crea Scaffold propio)
   /// false = ruta standalone (crea Scaffold + FluixAppBar, oculta header verde)
   final bool embedded;
-  const VacacionesScreen({super.key, required this.empresaId, this.sesion, this.embedded = true});
+  /// Si se proporciona, el filtro de empleado se pre-selecciona al abrir.
+  final String? empleadoIdInicial;
+  /// Nombre del empleado pre-seleccionado (para mostrar en el chip del filtro).
+  final String? empleadoNombreInicial;
+  const VacacionesScreen({super.key, required this.empresaId, this.sesion, this.embedded = true, this.empleadoIdInicial, this.empleadoNombreInicial});
 
   @override
   State<VacacionesScreen> createState() => _VacacionesScreenState();
@@ -65,6 +69,12 @@ class _VacacionesScreenState extends State<VacacionesScreen>
     _isDark = AppSettings.darkMode.value;
     AppSettings.darkMode.addListener(_onDark);
     _tabs = TabController(length: 3, vsync: this);
+    if (widget.empleadoIdInicial != null) {
+      _empleadoIdFiltro = widget.empleadoIdInicial;
+      if (widget.empleadoNombreInicial != null) {
+        _empleadoNombreFiltro = widget.empleadoNombreInicial!;
+      }
+    }
   }
 
   @override
@@ -87,77 +97,83 @@ class _VacacionesScreenState extends State<VacacionesScreen>
     // Staff: vista simplificada con sus propias solicitudes únicamente
     if (!_esAdmin) return _buildVistaStaff(context);
 
-    return Scaffold(
-      backgroundColor: _bg,
-      appBar: FluixAppBar(
-        titulo: 'Vacaciones y ausencias',
-        showLeading: true,
-        extraActions: [
-          IconButton(
-            icon: const Icon(Icons.add_rounded),
-            tooltip: 'Nueva solicitud',
-            onPressed: _nuevaSolicitud,
-          )
-        ],
-      ),
-      body: StreamBuilder<List<SolicitudVacaciones>>(
-        stream: _svc.obtenerSolicitudes(widget.empresaId),
-        builder: (ctx, snap) {
-          if (snap.hasError) {
-            return Center(child: Text('Error al cargar ausencias: ${snap.error}',
-                style: const TextStyle(color: Colors.red)));
-          }
-          if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final todas     = snap.data ?? [];
-          final filtradas = _filtrar(todas);
-          final pendientes = todas.where((s) => s.estado == EstadoSolicitud.solicitado).length;
+    final canPop = ModalRoute.of(context)?.isFirst == false;
 
-          return ColoredBox(
-            color: _bg,
-            child: Column(children: [
-              _buildTabBar(pendientes),
-              Expanded(child: TabBarView(
-                controller: _tabs,
-                children: [
-                  _buildCalendarioTab(filtradas),
-                  _buildSolicitudesTab(filtradas, todas),
-                  _buildCoberturaTab(todas),
-                ],
-              )),
-            ]),
-          );
-        },
+    final actions = [
+      IconButton(
+        icon: const Icon(Icons.add_rounded),
+        tooltip: 'Nueva solicitud',
+        onPressed: _nuevaSolicitud,
       ),
+    ];
+
+    final body = StreamBuilder<List<SolicitudVacaciones>>(
+      stream: _svc.obtenerSolicitudes(widget.empresaId),
+      builder: (ctx, snap) {
+        if (snap.hasError) {
+          return Center(child: Text('Error al cargar ausencias: ${snap.error}',
+              style: const TextStyle(color: Colors.red)));
+        }
+        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final todas      = snap.data ?? [];
+        final filtradas  = _filtrar(todas);
+        final pendientes = todas.where((s) => s.estado == EstadoSolicitud.solicitado).length;
+
+        return ColoredBox(
+          color: _bg,
+          child: Column(children: [
+            _buildTabBar(pendientes),
+            Expanded(child: TabBarView(
+              controller: _tabs,
+              children: [
+                _buildCalendarioTab(filtradas),
+                _buildSolicitudesTab(filtradas, todas),
+                _buildCoberturaTab(todas),
+              ],
+            )),
+          ]),
+        );
+      },
     );
+
+    if (canPop) {
+      return Scaffold(
+        backgroundColor: _bg,
+        appBar: FluixAppBar(
+          titulo: 'Vacaciones y ausencias',
+          showLeading: true,
+          extraActions: actions,
+        ),
+        body: body,
+      );
+    }
+    return ColoredBox(color: _bg, child: body);
   }
 
   // ── Vista simplificada para staff (solo sus propias solicitudes) ───────────
   Widget _buildVistaStaff(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    return Scaffold(
-      backgroundColor: _bg,
-      appBar: FluixAppBar(
-        titulo: 'Mis vacaciones',
-        showLeading: true,
-        extraActions: [
-          IconButton(
-            icon: const Icon(Icons.add_rounded),
-            tooltip: 'Nueva solicitud',
-            onPressed: () => showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (_) => NuevaSolicitudForm(
-                empresaId: widget.empresaId,
-                empleadoIdFijo: uid,
-              ),
-            ),
+    final uid    = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final canPop = ModalRoute.of(context)?.isFirst == false;
+
+    final staffActions = [
+      IconButton(
+        icon: const Icon(Icons.add_rounded),
+        tooltip: 'Nueva solicitud',
+        onPressed: () => showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => NuevaSolicitudForm(
+            empresaId: widget.empresaId,
+            empleadoIdFijo: uid,
           ),
-        ],
+        ),
       ),
-      body: StreamBuilder<QuerySnapshot>(
+    ];
+
+    final staffBody = StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('vacaciones').doc(widget.empresaId)
             .collection('solicitudes')
@@ -257,8 +273,20 @@ class _VacacionesScreenState extends State<VacacionesScreen>
             },
           );
         },
-      ),
-    );
+      );
+
+    if (canPop) {
+      return Scaffold(
+        backgroundColor: _bg,
+        appBar: FluixAppBar(
+          titulo: 'Mis vacaciones',
+          showLeading: true,
+          extraActions: staffActions,
+        ),
+        body: staffBody,
+      );
+    }
+    return ColoredBox(color: _bg, child: staffBody);
   }
 
   static const _docBand = Color(0xFF16A34A);

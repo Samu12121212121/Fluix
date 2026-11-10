@@ -39,8 +39,10 @@ export const remitirVerifactu = onCall(
 
     const db = admin.firestore();
 
-    // 1. Leer entorno (pruebas/produccion)
-    const configDoc = await db.collection("config").doc("verifactu").get();
+    // 1. Leer entorno (pruebas/produccion) — por empresa
+    const configDoc = await db
+      .collection("empresas").doc(empresaId)
+      .collection("configuracion").doc("verifactu").get();
     const entorno = (configDoc.data()?.entorno ?? "pruebas") as keyof typeof ENDPOINTS;
     const endpoint = ENDPOINTS[entorno] ?? ENDPOINTS.pruebas;
 
@@ -149,7 +151,9 @@ export async function enviarSOAPInterno(
   xmlFirmado: string
 ): Promise<{ estado: string; csv: string | null; descripcionError: string | null }> {
   const db = admin.firestore();
-  const configDoc = await db.collection("config").doc("verifactu").get();
+  const configDoc = await db
+    .collection("empresas").doc(empresaId)
+    .collection("configuracion").doc("verifactu").get();
   const entorno = (configDoc.data()?.entorno ?? "pruebas") as keyof typeof ENDPOINTS;
   const endpoint = ENDPOINTS[entorno] ?? ENDPOINTS.pruebas;
 

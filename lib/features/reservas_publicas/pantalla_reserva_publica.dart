@@ -16,36 +16,56 @@ class PantallaReservaPublica extends StatefulWidget {
 }
 
 class _PantallaReservaPublicaState extends State<PantallaReservaPublica> {
-  late final Future<DocumentSnapshot> _future;
+  late final Future<_DatosNegocio> _future;
 
   @override
   void initState() {
     super.initState();
-    _future = FirebaseFirestore.instance
-        .collection('empresas')
-        .doc(widget.empresaId)
-        .get();
+    _future = _cargarDatos();
+  }
+
+  Future<_DatosNegocio> _cargarDatos() async {
+    final db = FirebaseFirestore.instance;
+    final results = await Future.wait([
+      db.collection('empresas').doc(widget.empresaId).get(),
+      db.collection('empresas').doc(widget.empresaId)
+          .collection('configuracion').doc('reservas').get(),
+    ]);
+    return _DatosNegocio(empresa: results[0], config: results[1]);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: FutureBuilder<DocumentSnapshot>(
+      body: FutureBuilder<_DatosNegocio>(
         future: _future,
         builder: (ctx, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snap.hasData || !snap.data!.exists) {
+          if (!snap.hasData || !snap.data!.empresa.exists) {
             return const _ErrorNegocio();
           }
-          final data = snap.data!.data() as Map<String, dynamic>? ?? {};
+          final data = snap.data!.empresa.data() as Map<String, dynamic>? ?? {};
           final nombre = data['nombre'] as String? ??
               data['nombre_empresa'] as String? ?? 'Reserva';
           final logo   = data['logo_url'] as String?;
           final color  = _parseColor(data['color_primario'] as String?) ??
               const Color(0xFF1565C0);
+
+          final configData = snap.data!.config.exists
+              ? snap.data!.config.data() as Map<String, dynamic>? ?? {}
+              : <String, dynamic>{};
+          final activo = configData['activo'] as bool? ?? true;
+          if (!activo) {
+            return _NegocioCerrado(
+              nombreEmpresa: nombre,
+              logoUrl: logo,
+              color: color,
+            );
+          }
+
           return _FormReservaPublica(
             empresaId: widget.empresaId,
             nombreEmpresa: nombre,
@@ -428,6 +448,76 @@ class _PantallaExito extends StatelessWidget {
             Text('$nombreEmpresa confirmará tu reserva a la mayor brevedad.',
                 style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
                 textAlign: TextAlign.center),
+            const SizedBox(height: 40),
+            Text('Powered by Fluix',
+                style: TextStyle(fontSize: 12, color: Colors.grey[400])),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DatosNegocio {
+  final DocumentSnapshot empresa;
+  final DocumentSnapshot config;
+  const _DatosNegocio({required this.empresa, required this.config});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _NegocioCerrado extends StatelessWidget {
+  final String nombreEmpresa;
+  final String? logoUrl;
+  final Color color;
+
+  const _NegocioCerrado({
+    required this.nombreEmpresa,
+    required this.logoUrl,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            if (logoUrl != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.network(logoUrl!,
+                    width: 64, height: 64, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox()),
+              ),
+            const SizedBox(height: 20),
+            Text(nombreEmpresa,
+                style: const TextStyle(fontSize: 20,
+                    fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFFED7AA)),
+              ),
+              child: const Column(children: [
+                Icon(Icons.event_busy_rounded, size: 44, color: Color(0xFFF97316)),
+                SizedBox(height: 12),
+                Text('Reservas no disponibles',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700,
+                        color: Color(0xFF9A3412))),
+                SizedBox(height: 8),
+                Text('Este negocio no está aceptando reservas en este momento.',
+                    style: TextStyle(fontSize: 14, color: Color(0xFFC2410C)),
+                    textAlign: TextAlign.center),
+              ]),
+            ),
             const SizedBox(height: 40),
             Text('Powered by Fluix',
                 style: TextStyle(fontSize: 12, color: Colors.grey[400])),

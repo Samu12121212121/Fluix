@@ -83,6 +83,7 @@ class _TabConfigWebState extends State<TabConfigWeb> {
   final List<String> _horasBloqueadas  = [];
   final List<String> _fechasBloqueadas = [];
   final List<int>    _diasCerrados     = [];
+  final List<Map<String, String>> _intervalos = [];
   final _msgSlotCtrl = TextEditingController();
   final Map<int, Map<String, String>> _horarioPorDia = {};
 
@@ -170,6 +171,7 @@ class _TabConfigWebState extends State<TabConfigWeb> {
         _horasBloqueadas..clear()..addAll(r.horasBloqueadas);
         _fechasBloqueadas..clear()..addAll(r.fechasBloqueadas);
         _diasCerrados..clear()..addAll(r.diasRecurrentesCerrados);
+        _intervalos..clear()..addAll(r.intervalosCerrados);
         _msgSlotCtrl.text = r.mensajeSlotLleno ?? '';
         _horarioPorDia.clear();
         r.horarioPorDia.forEach((k, v) {
@@ -769,6 +771,7 @@ class _TabConfigWebState extends State<TabConfigWeb> {
         summary: [
           ('Horas bloqueadas', _horasBloqueadas.isEmpty ? 'Ninguna' : '${_horasBloqueadas.length} horas'),
           ('Fechas bloqueadas', _fechasBloqueadas.isEmpty ? 'Ninguna' : '${_fechasBloqueadas.length} días'),
+          ('Períodos cerrados', _intervalos.isEmpty ? 'Ninguno' : '${_intervalos.length} período${_intervalos.length > 1 ? 's' : ''}'),
         ],
         onTap: () => _openSheet(context, color, 'Excepciones', _buildEditorExcepciones(color)),
       ),
@@ -1409,6 +1412,49 @@ class _TabConfigWebState extends State<TabConfigWeb> {
               deleteIconColor: Colors.red[400],
               onDeleted: () => setState(() { _fechasBloqueadas.remove(f); _hasChanges = true; }),
             )).toList()),
+      const SizedBox(height: 16),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text('Períodos cerrados (vacaciones…)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.grey[800])),
+        TextButton.icon(
+          onPressed: () async {
+            final rango = await showDateRangePicker(
+              context: context,
+              firstDate: DateTime.now(),
+              lastDate: DateTime.now().add(const Duration(days: 730)),
+              locale: const Locale('es'),
+              builder: (ctx, child) => Theme(data: Theme.of(ctx), child: child!),
+            );
+            if (rango == null) return;
+            final inicio = rango.start.toIso8601String().split('T').first;
+            final fin    = rango.end.toIso8601String().split('T').first;
+            setState(() { _intervalos.add({'inicio': inicio, 'fin': fin}); _hasChanges = true; });
+          },
+          icon: const Icon(Icons.add, size: 13), label: const Text('Añadir', style: TextStyle(fontSize: 12)),
+          style: TextButton.styleFrom(foregroundColor: color, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+        ),
+      ]),
+      if (_intervalos.isEmpty)
+        Text('Sin períodos cerrados', style: TextStyle(fontSize: 11, color: Colors.grey[400], fontStyle: FontStyle.italic))
+      else
+        Column(children: _intervalos.map((iv) => Container(
+          margin: const EdgeInsets.only(top: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: Colors.orange[50],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.orange[200]!),
+          ),
+          child: Row(children: [
+            Icon(Icons.beach_access_rounded, size: 14, color: Colors.orange[700]),
+            const SizedBox(width: 8),
+            Expanded(child: Text('${iv['inicio']} → ${iv['fin']}',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange[800]))),
+            GestureDetector(
+              onTap: () => setState(() { _intervalos.remove(iv); _hasChanges = true; }),
+              child: Icon(Icons.close, size: 14, color: Colors.orange[400]),
+            ),
+          ]),
+        )).toList()),
     ]);
   }
 
@@ -1668,6 +1714,7 @@ class _TabConfigWebState extends State<TabConfigWeb> {
         horasBloqueadas:         List.from(_horasBloqueadas),
         fechasBloqueadas:        List.from(_fechasBloqueadas),
         diasRecurrentesCerrados: List.from(_diasCerrados),
+        intervalosCerrados:      List.from(_intervalos),
         horarioPorDia:           horario.map((k, v) => MapEntry(k, Map<String,String>.from(v))),
         mensajeSlotLleno:        _t(_msgSlotCtrl),
       ));

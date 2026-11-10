@@ -96,9 +96,10 @@ class _PantallaValoracionesNegocioState extends State<PantallaValoracionesNegoci
 
   @override
   Widget build(BuildContext context) {
+    final canPop = ModalRoute.of(context)?.isFirst == false;
     return Scaffold(
       backgroundColor: _C.fondo,
-      appBar: FluixAppBar(titulo: 'Reseñas · ${widget.negocioNombre}', showLeading: true),
+      appBar: canPop ? FluixAppBar(titulo: 'Reseñas · ${widget.negocioNombre}', showLeading: true) : null,
       body: _items.isEmpty && _cargando
           ? _shimmer()
           : _items.isEmpty

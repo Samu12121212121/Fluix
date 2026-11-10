@@ -57,9 +57,11 @@ class NominasService {
   static const String _convConstruccionCuencaId = 'construccion-obras-publicas-cuenca';
   static const String _convHosteleriaCuencaId   = 'hosteleria-cuenca';
   static const String _convComercioCuencaId     = 'comercio-general-cuenca';
+  // Transporte sanitario — pendiente convenio estatal BOE (placeholder: construcción jornada 1736h)
+  static const String _convAmbulanciaId = 'transporte-sanitario-estatal';
 
-  // Referencia SMI 2026 (anual, 14 pagas). Se usa como umbral mínimo.
-  static const double _smiAnual2026 = 15876.0;
+  // SMI 2026 — RD 126/2026, de 18/02 (BOE 19/02). 1.221€/mes × 14 pagas = 17.094€/año.
+  static const double _smiAnual2026 = 17094.0;
 
   // Horas anuales de referencia por convenio (para valor hora y pluses % sobre hora)
   static const Map<String, int> _horasAnualesRef = {
@@ -73,6 +75,7 @@ class NominasService {
     _convConstruccionCuencaId: 1736,  // Jornada anual convenio construcción Cuenca
     _convHosteleriaCuencaId: 1800,    // Jornada anual convenio hostelería Cuenca
     _convComercioCuencaId: 1800,      // Jornada anual convenio comercio Cuenca
+    _convAmbulanciaId: 1800,          // Convenio CLM ambulancias — art. 22: 1800h/año personal movimiento
   };
 
   String _resolverConvenioPorSector(String? sector) {
@@ -103,6 +106,13 @@ class NominasService {
       case 'comercio_cuenca':
       case 'comercio_general_cuenca':
         return _convComercioCuencaId;
+      // ── Transporte sanitario / ambulancias ────────────────────────────────
+      case 'ambulancia':
+      case 'ambulancias':
+      case 'transporte_sanitario':
+      case 'emergencias_sanitarias':
+      case 'tes':
+        return _convAmbulanciaId;
       default:
         // ⚠️ Sector no reconocido: NO usar hostelería silenciosamente.
         // Se lanza excepción para que el usuario configure el sector correcto.
@@ -162,7 +172,7 @@ class NominasService {
   static const double _ssEmpDesemplT= 6.70;   // Desempleo temporal/prácticas (empresa)
   static const double _ssEmpFogasa  = 0.20;   // FOGASA (solo empresa)
   static const double _ssEmpFP      = 0.60;   // Formación Profesional (empresa)
-  static const double _ssEmpAT      = 1.50;   // Accidentes trabajo (IT+IMS media)
+  static const double _ssEmpAT      = 1.75;   // AT — CNAE 869 Otras activ. sanitarias (ambulancias): IT 0,95% + IMS 0,80% = 1,75% (RDL 3/2026 DF1.3)
 
   // ── MEI — Mecanismo de Equidad Intergeneracional 2026 ──────────────────
   // ⚠️ SUBIDA IMPORTANTE respecto a 2025 (era 0,60% total → ahora 0,90%)
@@ -184,11 +194,11 @@ class NominasService {
   // Tramo 3: > +50%                 → 1.17% (tra 0.12%, emp 1.05%)
   static const double _baseMaxAnual = 61214.40; // 5.101,20 × 12 (RDL 3/2026)
 
-  static const double _baseMinMensual = 1381.20; // Provisional hasta publicación SMI 2026
+  static const double _baseMinMensual = 1424.40; // Orden PJC/297/2026 (BOE-A-2026-7296)
   static const double _baseMaxMensual = 5101.20; // RDL 3/2026
 
   // ── CONTRATO FORMACIÓN EN ALTERNANCIA — Cuotas fijas mensuales 2026 ────
-  // Orden PJC/178/2025. Base cotización formación: 1.381,20€/mes (cuotas únicas fijas)
+  // Orden PJC/178/2025 (pendiente verificar cuotas con Orden PJC/297/2026). Fijas.
   static const double _formCCTra         = 11.16;   // CC trabajador (fija)
   static const double _formCCEmp         = 55.97;   // CC empresa (fija)
   static const double _formATEmp         = 7.71;    // Contingencias profesionales empresa (fija)
@@ -490,6 +500,7 @@ class NominasService {
     List<Map<String, dynamic>> lineasAusencias = const [],
     List<Embargo> embargos = const [],
     TipoHoraExtra tipoHoraExtra = TipoHoraExtra.noEstructural,
+    double? tipoAtEmpresa,
   }) {
     // Calcular importe horas extra si solo se pasa precio por hora
     final double importeHorasExtraFinal = importeHorasExtra > 0
@@ -573,12 +584,13 @@ class NominasService {
     if (config.antiguedadManual) {
       // Antigüedad manual: usar importe fijo del empleado
       plusAntiguedad = config.antiguedadManualImporte;
-    } else if (config.fechaInicioContrato != null) {
+    } else if (config.fechaAltaRealEmpresa != null || config.fechaInicioContrato != null) {
       final convenioNorm = AntiguedadCalculator.normalizarConvenio(config.sectorEmpresa);
       if (convenioNorm.isNotEmpty) {
         final fechaCalculo = DateTime(anio, mes + 1, 0); // último día del mes
+        // fechaAltaRealEmpresa tiene prioridad: captura antigüedad de contratos previos
         final resAnt = AntiguedadCalculator.calcular(
-          fechaInicio: config.fechaInicioContrato!,
+          fechaInicio: config.fechaAltaRealEmpresa ?? config.fechaInicioContrato!,
           fechaCalculo: fechaCalculo,
           convenio: convenioNorm,
           salarioBase: salarioBase,
@@ -599,11 +611,11 @@ class NominasService {
     final totalDevengos = totalDevengosCash + retrEspecie;
 
     // ── Base de cotización (con topes por grupo) ──────────────────────────────
-    // Formación en alternancia: base fija 1.381,20€/mes (Orden PJC/178/2025)
+    // Formación en alternancia: base fija = tope mínimo 1.424,40€/mes (Orden PJC/297/2026)
     // Si tiene grupo de cotización, usar su base mínima específica
     final baseMinGrupo = config.grupoCotizacion?.baseMinMensual ?? _baseMinMensual;
     final baseCot = config.tipoContrato == TipoContrato.formacion
-        ? _baseMinMensual  // 1.381,20€ fija para formación
+        ? _baseMinMensual  // 1.424,40€ fija para formación (Orden PJC/297/2026)
         : totalDevengos.clamp(baseMinGrupo, _baseMaxMensual);
 
     // ── SS Trabajador ────────────────────────────────────────────────────────
@@ -698,8 +710,9 @@ class NominasService {
     final ssEmpDesemp = esFormacion ? 0.0            : baseCot * (esTemporal ? _ssEmpDesemplT : _ssEmpDesempl) / 100;
     final ssEmpFog    = esFormacion ? _formFogasaEmp : baseCot * _ssEmpFogasa / 100;
     final ssEmpFP_    = esFormacion ? _formFPEmp     : baseCot * _ssEmpFP / 100;
-    // AT/EP: usar personalizado > grupo > media (formación: cuota fija)
+    // AT/EP: personalizado empleado > empresa (CNAE real) > grupo > media
     final tipoAT      = config.porcentajeATPersonalizado
+        ?? tipoAtEmpresa
         ?? config.grupoCotizacion?.tipoATOrientativo
         ?? _ssEmpAT;
     final ssEmpAT_    = esFormacion ? _formATEmp : baseCot * tipoAT / 100;
@@ -909,29 +922,56 @@ class NominasService {
 
   Future<void> eliminarNomina(String empresaId, String nominaId) async {
     final doc = await _nominas(empresaId).doc(nominaId).get();
-    if (doc.exists && doc.data()?['estado'] == 'borrador') {
-      await doc.reference.delete();
-    }
+    if (doc.exists) await doc.reference.delete();
+  }
+
+  /// Envía una notificación al portal del empleado informando de que su nómina
+  /// está disponible. No cambia el estado de la nómina.
+  Future<void> notificarNominaAlPortal(String empresaId, String nominaId) async {
+    final doc = await _nominas(empresaId).doc(nominaId).get();
+    if (!doc.exists) throw Exception('Nómina no encontrada');
+    final data = doc.data()!;
+    final empleadoId = data['empleado_id'] as String? ?? '';
+    final periodo    = data['periodo']     as String? ?? '';
+    if (empleadoId.isEmpty) throw Exception('Empleado no identificado');
+
+    await _db.collection('usuarios').doc(empleadoId)
+        .collection('notificaciones').add({
+      'titulo':          'Nómina disponible',
+      'cuerpo':          'Tu nómina de $periodo ya está disponible en tu portal.',
+      'tipo':            'nomina_disponible',
+      'timestamp':       FieldValue.serverTimestamp(),
+      'leida':           false,
+      'modulo_destino':  'nominas',
+      'entidad_id':      nominaId,
+      'empresa_id':      empresaId,
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // GENERACIÓN MASIVA
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Future<int> generarNominasMasivas(String empresaId, int mes, int anio) async {
+  /// [soloUids] — si no es null, solo genera nóminas para los UIDs indicados.
+  /// Útil para la cuenta demo donde puede haber decenas de empleados acumulados.
+  Future<int> generarNominasMasivas(String empresaId, int mes, int anio,
+      {List<String>? soloUids}) async {
     final existentes = await _nominas(empresaId)
         .where('anio', isEqualTo: anio)
         .where('mes', isEqualTo: mes)
         .get();
 
-    if (existentes.docs.isNotEmpty) {
+    // Si soloUids está definido, solo bloqueamos si YA existe nómina
+    // para alguno de esos UIDs concretos (no para toda la empresa).
+    if (soloUids == null && existentes.docs.isNotEmpty) {
       throw Exception(
           'Ya existen ${existentes.docs.length} nóminas para ${Nomina.nombreMes(mes)} $anio');
     }
 
-    // Obtener el sector de la empresa para usarlo como fallback
+    // Obtener datos de la empresa (sector, CNAE, tipo AT para nóminas)
     final empresaDoc = await _db.collection('empresas').doc(empresaId).get();
     final sectorEmpresa = (empresaDoc.data()?['sector'] as String?)?.toLowerCase().trim();
+    final tipoAtEmpresa = (empresaDoc.data()?['tipo_at_ss'] as num?)?.toDouble();
 
     final empleados = await _db
         .collection('usuarios')
@@ -942,7 +982,19 @@ class NominasService {
     final vacSvc = VacacionesService();
     int generadas = 0;
 
+    // UIDs ya procesados en este mes (para skip cuando soloUids está activo)
+    final yaExistenUids = soloUids != null
+        ? existentes.docs.map((d) => d.data()['empleado_id'] as String? ?? '').toSet()
+        : <String>{};
+
     for (final emp in empleados.docs) {
+      // Filtrar por UIDs si está especificado
+      if (soloUids != null && !soloUids.contains(emp.id)) continue;
+      // Saltar si ya tiene nómina este mes
+      if (yaExistenUids.contains(emp.id)) {
+        debugPrint('⚠️ Nómina ya existe para ${emp.id} en $mes/$anio — omitido');
+        continue;
+      }
       final data = emp.data();
       final datosNomina = data['datos_nomina'] as Map<String, dynamic>?;
       if (datosNomina == null) {
@@ -1012,6 +1064,7 @@ class NominasService {
         descuentoAusencias: descuentoAusencias,
         lineasAusencias: lineasAusencias,
         embargos: embargos,
+        tipoAtEmpresa: tipoAtEmpresa,
       );
 
       await guardarNomina(empresaId, nomina);
@@ -1398,6 +1451,7 @@ class NominasService {
     if (sector == 'comercio_cuenca' || sector == 'comercio_general_cuenca') posiblesConvenios.add(_convComercioCuencaId);
     if (sector == 'construccion_cuenca' || sector == 'construccion_obras_publicas_cuenca') posiblesConvenios.add(_convConstruccionCuencaId);
     if (sector == 'construccion' || sector == 'obras_publicas' || sector == 'construccion_obras_publicas') posiblesConvenios.add(_convConstruccionId);
+    if (sector == 'ambulancia' || sector == 'ambulancias' || sector == 'transporte_sanitario' || sector == 'emergencias_sanitarias' || sector == 'tes') posiblesConvenios.add(_convAmbulanciaId);
     if (posiblesConvenios.isEmpty) {
       posiblesConvenios.addAll([
         _convHosteleriaId, _convComercioId, _convPeluqueriaId,

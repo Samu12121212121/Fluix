@@ -45,9 +45,10 @@ class _ResumenFiscalScreenState extends State<ResumenFiscalScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canPop = ModalRoute.of(context)?.isFirst == false;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: const FluixAppBar(titulo: 'Resumen Fiscal', showLeading: true),
+      appBar: canPop ? const FluixAppBar(titulo: 'Resumen Fiscal', showLeading: true) : null,
       body: Column(
         children: [
           _buildSelectorPeriodo(),

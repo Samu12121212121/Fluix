@@ -2,7 +2,7 @@ name: planeag_flutter
 description: PlaneaGuada CRM para pymes
 publish_to: 'none'
 
-version: 1.0.21+21
+version: 1.0.22+22
 
 environment:
     sdk: ^3.11.1
@@ -23,17 +23,17 @@ dependencies:
     # Use with the CupertinoIcons class for iOS style icons.
     cupertino_icons: ^1.0.8
 
-    # Firebase — actualizado a v4.x/v6.x para corregir el bug de platform thread en Windows
-    firebase_core: ^4.15.0
-    cloud_firestore: ^6.10.0
-    firebase_auth: ^6.7.0
-    firebase_messaging: ^16.7.0
-    firebase_analytics: ^12.6.0
-    firebase_storage: ^13.6.0
-    cloud_functions: ^6.5.0
-    firebase_crashlytics: ^5.4.0
-    firebase_performance: ^0.11.6
-    firebase_app_check: ^0.4.8
+    # Firebase — v5.x/v7.x parche seguridad TLS (eMudhra CA, oct 2026)
+    firebase_core: ^5.1.0
+    cloud_firestore: ^7.1.0
+    firebase_auth: ^7.0.1
+    firebase_messaging: ^17.0.1
+    firebase_analytics: ^13.0.1
+    firebase_storage: ^14.0.1
+    cloud_functions: ^7.0.1
+    firebase_crashlytics: ^6.0.1
+    firebase_performance: ^0.12.1
+    firebase_app_check: ^0.5.1
 
     # State Management
     provider: ^6.1.2
@@ -177,7 +177,7 @@ dev_dependencies:
         sdk: flutter
     mockito: ^5.4.4
     build_runner: ^2.4.12
-    fake_cloud_firestore: ^4.2.0
+    fake_cloud_firestore: ^4.5.0
     flutter_launcher_icons: ^0.14.3
 
     # The "flutter_lints" package below contains a set of recommended lints to

@@ -37,13 +37,15 @@ class _ModuloWhatsAppScreenState extends State<ModuloWhatsAppScreen>
 
   @override
   Widget build(BuildContext context) {
+    final canPop = ModalRoute.of(context)?.isFirst == false;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       behavior: HitTestBehavior.opaque,
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
-        appBar: FluixAppBar(
+        appBar: canPop ? FluixAppBar(
           titulo: 'WhatsApp',
+          showLeading: true,
           extraActions: [
             if (widget.esPropietario)
               IconButton(
@@ -55,7 +57,7 @@ class _ModuloWhatsAppScreenState extends State<ModuloWhatsAppScreen>
                 onPressed: _creandoPrueba ? null : _crearDatosPrueba,
               ),
           ],
-        ),
+        ) : null,
         body: Column(children: [
           TabBar(
             controller: _tabs,

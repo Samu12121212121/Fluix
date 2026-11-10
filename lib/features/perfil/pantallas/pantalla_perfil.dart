@@ -42,7 +42,7 @@ class PantallaPerfil extends StatelessWidget {
     if (embedded) return _TabPerfil(sesion: sesion, dark: dark, onAbrirCuentas: onAbrirCuentas);
     return Scaffold(
       backgroundColor: bg,
-      appBar: const FluixAppBar(titulo: 'Mi perfil'),
+      appBar: const FluixAppBar(titulo: 'Configuración General'),
       body: _TabPerfil(sesion: sesion, dark: dark, onAbrirCuentas: onAbrirCuentas),
     );
   }
@@ -222,10 +222,14 @@ class _TabPerfilState extends State<_TabPerfil> {
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 48),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // ── Título de página ──────────────────────────────────────────────
-          Text('Mi perfil',
+          Text('Configuración',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: _text)),
-          Text('Gestiona tu información personal y preferencias de la cuenta.',
+          Text('Gestiona tu cuenta, empresa y todas las configuraciones del negocio.',
               style: TextStyle(fontSize: 13, color: _sub)),
+          const SizedBox(height: 20),
+
+          // ── Accesos rápidos ───────────────────────────────────────────────
+          _buildAccesosRapidos(context, sesion),
           const SizedBox(height: 20),
 
           // ── Hero card (avatar + info + plan) ──────────────────────────────
@@ -536,6 +540,61 @@ class _TabPerfilState extends State<_TabPerfil> {
           if (!isLast) Divider(height: 1, color: _div),
         ]);
       }).toList()),
+    );
+  }
+
+  // ── Accesos rápidos a configuración ──────────────────────────────────────
+
+  Widget _buildAccesosRapidos(BuildContext context, SesionUsuario? sesion) {
+    final empresaId = sesion?.empresaId;
+    final esAdmin = sesion?.esAdmin == true || sesion?.esPropietario == true;
+
+    final List<(IconData, Color, String, String, VoidCallback)> items = [
+      if (esAdmin && empresaId != null) ...[
+        (Icons.receipt_long_rounded, const Color(0xFF2563EB),
+            'Configuración Fiscal', 'NIF, series de facturación y datos fiscales',
+            () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => ChangeNotifierProvider(
+                    create: (_) => EmpresaConfigProvider(empresaId)..cargar(),
+                    child: const PantallaConfiguracionFiscalEmpresa())))),
+        (Icons.picture_as_pdf_rounded, const Color(0xFFDC2626),
+            'Plantillas PDF', 'Diseño y personalización de documentos',
+            () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => PdfTemplatesListScreen(empresaId: empresaId)))),
+        (Icons.tune_rounded, const Color(0xFF6D5EF8),
+            'Configuración de PDFs', 'Emisor, IBAN, textos y opciones por tipo',
+            () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => PdfConfigScreen(empresaId: empresaId)))),
+      ],
+      (Icons.api_rounded, const Color(0xFF3B82F6),
+          'Integraciones APIs', 'Conecta servicios externos a Fluix',
+          () => mostrarIntegracionesApis(context,
+              dark: _dark, empresaId: sesion?.empresaId ?? '')),
+      (Icons.lock_outline_rounded, const Color(0xFF7C3AED),
+          'Cambiar contraseña', 'Actualiza tu contraseña de acceso',
+          () => _mostrarCambioPassword(context)),
+    ];
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return _card(
+      header: Row(children: [
+        Icon(Icons.settings_rounded, size: 18, color: _text),
+        const SizedBox(width: 8),
+        Text('Accesos rápidos',
+            style: TextStyle(
+                fontSize: 14.5, fontWeight: FontWeight.w700, color: _text)),
+      ]),
+      child: Column(
+        children: items.asMap().entries.map((e) {
+          final item = e.value;
+          final isLast = e.key == items.length - 1;
+          return Column(children: [
+            _securityRow(item.$1, item.$2, item.$3, item.$4, item.$5),
+            if (!isLast) Divider(height: 1, color: _div),
+          ]);
+        }).toList(),
+      ),
     );
   }
 

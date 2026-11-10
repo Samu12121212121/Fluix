@@ -125,7 +125,8 @@ class _SubirCertificadoVerifactuScreenState
 
   Future<void> _cargarEntorno() async {
     final doc = await FirebaseFirestore.instance
-        .collection('config').doc('verifactu').get();
+        .collection('empresas').doc(widget.empresaId)
+        .collection('configuracion').doc('verifactu').get();
     if (!doc.exists || !mounted) return;
     final e = doc.data()?['entorno'] as String? ?? 'pruebas';
     setState(() => _entorno = e);
@@ -282,7 +283,8 @@ class _SubirCertificadoVerifactuScreenState
     setState(() { _guardandoEntorno = true; _entorno = nuevo; });
     try {
       await FirebaseFirestore.instance
-          .collection('config').doc('verifactu')
+          .collection('empresas').doc(widget.empresaId)
+          .collection('configuracion').doc('verifactu')
           .set({'entorno': nuevo}, SetOptions(merge: true));
       if (mounted) _snack('Entorno cambiado a ${nuevo == 'produccion' ? 'Producción' : 'Pruebas'}');
     } catch (e) {

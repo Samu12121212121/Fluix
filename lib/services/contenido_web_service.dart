@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import '../domain/modelos/seccion_web.dart';
 import '../domain/modelos/evento_web.dart';
@@ -279,6 +280,41 @@ class ContenidoWebService {
       return urls;
     } catch (e) {
       return [];
+    }
+  }
+
+  /// Abre el selector de archivos, sube el archivo a Storage y devuelve la URL de descarga.
+  Future<String?> subirArchivo(
+      String empresaId, String carpeta, List<String> extensiones) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: extensiones,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return null;
+      final picked = result.files.first;
+      final bytes = picked.bytes;
+      if (bytes == null) return null;
+      final ext = picked.extension ?? extensiones.first;
+      final nombre = '${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final ref = _storage.ref().child('empresas/$empresaId/$carpeta/$nombre');
+      await ref.putData(bytes, SettableMetadata(contentType: _mimeDesdeExt(ext)));
+      return await ref.getDownloadURL();
+    } catch (e) {
+      print('Error subiendo archivo: $e');
+      return null;
+    }
+  }
+
+  static String _mimeDesdeExt(String ext) {
+    switch (ext.toLowerCase()) {
+      case 'mp3': return 'audio/mpeg';
+      case 'm4a': return 'audio/mp4';
+      case 'ogg': return 'audio/ogg';
+      case 'wav': return 'audio/wav';
+      case 'aac': return 'audio/aac';
+      default:    return 'application/octet-stream';
     }
   }
 

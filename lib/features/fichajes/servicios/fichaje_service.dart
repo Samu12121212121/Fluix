@@ -119,6 +119,7 @@ class FichajeService {
     required String empleadoNombre,
     required String dispositivoId,
     TipoHoras tipoHoras = TipoHoras.ordinarias,
+    List<String> fotosUrls = const [],
   }) async {
     final existente = await obtenerFichajeHoy(empresaId, empleadoId);
     if (existente != null) {
@@ -146,6 +147,8 @@ class FichajeService {
       'creado_at': FieldValue.serverTimestamp(),
       // ── Firma de integridad SHA-256 (RDL 8/2019 nivel básico) ────────────
       'firma_integridad': firma,
+      // ── Fotos de entrada (ej: inspección visual de ambulancia) ───────────
+      'fotos_entrada': fotosUrls,
       // ── Audit trail ──────────────────────────────────────────────────────
       'es_correccion': false,
       'correccion_de': null,
@@ -324,6 +327,24 @@ class FichajeService {
 
     // Crear NUEVO documento — el original queda intacto
     final corrDocRef = _col(empresaId).doc();
+    final empleadoId  = original['empleado_id'] as String? ?? '';
+    final fechaDoc    = original['fecha'] as String? ?? '';
+    final dispositivoId = original['dispositivo_id'] as String? ?? 'desconocido';
+    final firmaCorr = _firmaIntegridad(
+      empleadoId: empleadoId,
+      fecha: fechaDoc,
+      entradaMs: nuevaEntrada?.millisecondsSinceEpoch,
+      dispositivoId: dispositivoId,
+    );
+    final firmaSalidaCorr = nuevaSalida != null
+        ? _firmaIntegridadSalida(
+            empleadoId: empleadoId,
+            fecha: fechaDoc,
+            entradaMs: nuevaEntrada?.millisecondsSinceEpoch,
+            salidaMs: nuevaSalida.millisecondsSinceEpoch,
+            dispositivoId: dispositivoId,
+          )
+        : null;
     final correccionData = {
       'empleado_id': original['empleado_id'],
       'empleado_nombre': original['empleado_nombre'],
@@ -334,6 +355,9 @@ class FichajeService {
       'tipo_horas': original['tipo_horas'],
       'dispositivo_id': original['dispositivo_id'],
       'creado_at': FieldValue.serverTimestamp(),
+      // ── Firma de integridad de la corrección ──────────────────────────────
+      'firma_integridad': firmaCorr,
+      if (firmaSalidaCorr != null) 'firma_salida': firmaSalidaCorr,
       // ── Audit trail completo ──────────────────────────────────────────────
       'es_correccion': true,
       'correccion_de': fichajeOriginalId,
@@ -360,9 +384,8 @@ class FichajeService {
     // ── Notificación al empleado ──────────────────────────────────────────
     // Se escribe en usuarios/{empleadoId}/notificaciones para que la vea
     // en el Portal Empleado. Cumple el deber de transparencia RDL 8/2019.
-    final empleadoId = original['empleado_id'] as String?;
-    final fecha      = original['fecha'] as String? ?? '';
-    if (empleadoId != null && empleadoId.isNotEmpty) {
+    final fecha = fechaDoc;
+    if (empleadoId.isNotEmpty) {
       final fechaFmt = _formatearFechaFichaje(fecha);
       await FirebaseFirestore.instance
           .collection('usuarios')

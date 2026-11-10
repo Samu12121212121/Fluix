@@ -58,8 +58,10 @@ exports.remitirVerifactu = (0, https_1.onCall)({ region: REGION, timeoutSeconds:
         throw new https_1.HttpsError("invalid-argument", "Parámetros requeridos: xmlFirmado, empresaId, facturaId");
     }
     const db = admin.firestore();
-    // 1. Leer entorno (pruebas/produccion)
-    const configDoc = await db.collection("config").doc("verifactu").get();
+    // 1. Leer entorno (pruebas/produccion) — por empresa
+    const configDoc = await db
+        .collection("empresas").doc(empresaId)
+        .collection("configuracion").doc("verifactu").get();
     const entorno = ((_b = (_a = configDoc.data()) === null || _a === void 0 ? void 0 : _a.entorno) !== null && _b !== void 0 ? _b : "pruebas");
     const endpoint = (_c = ENDPOINTS[entorno]) !== null && _c !== void 0 ? _c : ENDPOINTS.pruebas;
     // 2. Cargar certificado PKCS12
@@ -143,7 +145,9 @@ exports.remitirVerifactu = (0, https_1.onCall)({ region: REGION, timeoutSeconds:
 async function enviarSOAPInterno(empresaId, facturaId, xmlFirmado) {
     var _a, _b, _c, _d, _e, _f, _g;
     const db = admin.firestore();
-    const configDoc = await db.collection("config").doc("verifactu").get();
+    const configDoc = await db
+        .collection("empresas").doc(empresaId)
+        .collection("configuracion").doc("verifactu").get();
     const entorno = ((_b = (_a = configDoc.data()) === null || _a === void 0 ? void 0 : _a.entorno) !== null && _b !== void 0 ? _b : "pruebas");
     const endpoint = (_c = ENDPOINTS[entorno]) !== null && _c !== void 0 ? _c : ENDPOINTS.pruebas;
     let certDoc = await db

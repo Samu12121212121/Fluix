@@ -65,6 +65,22 @@ service cloud.firestore {
     return esPlataformaAdmin();
   }
 
+  // ── HELPERS DE JERARQUÍA (Custom Claims — sin coste de lectura) ───────────
+  // La CF actualizarClaimsEmpleado setea nivel_jerarquico en el JWT.
+  // 1 = Director, 2 = Jefe/Mando intermedio, 3-5 = empleados.
+  function nivelClaim() {
+    return request.auth.token.get('nivel_jerarquico', 99);
+  }
+
+  function deptIdClaim() {
+    return request.auth.token.get('departamento_id', '');
+  }
+
+  // Nivel ≤ 2 → puede ver datos de su equipo (Director o Jefe de Base)
+  function esJefeOSuperior(empresaId) {
+    return perteneceAEmpresa(empresaId) && nivelClaim() <= 2;
+  }
+
   function modulosStaff() {
     return getUserData().get('modulos_permitidos',
       ['reservas', 'citas', 'clientes', 'valoraciones']);
@@ -271,8 +287,23 @@ service cloud.firestore {
       allow read, write: if esUsuarioReal() && uid() == userId;
       allow read, write: if esUsuarioReal()
         && existeUsuarioDoc()
+        && (getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
+            || get(/databases/$(database)/documents/usuarios/$(userId)).data.get('empresa_ids', []).hasAny([getUserData().empresa_id]))
+        && (getRol() == 'admin' || getRol() == 'propietario');
+    }
+
+    // ── FIRMA ELECTRÓNICA AVANZADA (eIDAS art. 26) ──────────────────────────
+    // OTPs de firma: el empleado escribe/lee sus propios códigos (flujo de verificación).
+    // El hash almacenado es SHA-256(codigo+uid+docId) — no es reversible en el tiempo
+    // de validez (10 min, máx 3 intentos). Admin puede auditar.
+    match /otps_firma/{docId} {
+      allow read, write: if esUsuarioReal() && uid() == userId;
+      allow read: if esUsuarioReal()
+        && existeUsuarioDoc()
         && getUserData().empresa_id == get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id
         && (getRol() == 'admin' || getRol() == 'propietario');
+      // Escritura denegada a admin (el OTP solo lo genera el propio empleado)
+      allow write: if false;
     }
 
     match /renovaciones/{renovacionId} {
@@ -308,6 +339,13 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leida']);
       // El propio usuario puede crear notificaciones propias (ej: confirmación de reserva)
       allow create: if esUsuarioReal() && uid() == userId;
+      // Admin/propietario puede crear notificaciones para empleados de su empresa (ej: nómina disponible)
+      allow create: if esUsuarioReal()
+        && existeUsuarioDoc()
+        && (getRol() == 'admin' || getRol() == 'propietario')
+        && request.resource.data.get('empresa_id', '') == getUserData().empresa_id
+        && exists(/databases/$(database)/documents/usuarios/$(userId))
+        && get(/databases/$(database)/documents/usuarios/$(userId)).data.empresa_id == getUserData().empresa_id;
       allow delete: if false;
     }
 
@@ -691,7 +729,9 @@ service cloud.firestore {
     match /nominas/{nominaId} {
       allow read: if (esAdminOPropietario(empresaId) && accesoAddonPremium(empresaId, 'nominas'))
         || esPlataformaAdmin()
-        || (perteneceAEmpresa(empresaId) && resource.data.empleado_id == request.auth.uid);
+        || (perteneceAEmpresa(empresaId) && resource.data.empleado_id == request.auth.uid)
+        // Jefes (nivel ≤ 2) pueden ver nóminas de su equipo (requiere addon activo)
+        || (esJefeOSuperior(empresaId) && accesoAddonPremium(empresaId, 'nominas'));
       allow write: if (esAdminOPropietario(empresaId) && accesoAddonPremium(empresaId, 'nominas'))
         || esPlataformaAdmin();
     }
@@ -708,7 +748,10 @@ service cloud.firestore {
     match /fichajes/{fichajeId} {
       allow read: if esAdminOPropietario(empresaId)
         || esPlataformaAdmin()
-        || (perteneceAEmpresa(empresaId) && resource.data.empleado_id == request.auth.uid);
+        || (perteneceAEmpresa(empresaId) && resource.data.empleado_id == request.auth.uid)
+        // Jefes (nivel ≤ 2) ven todos los fichajes de su empresa.
+        // TODO: acotar a departamento_id cuando se propague el campo a fichajes.
+        || esJefeOSuperior(empresaId);
 
       // Empleado crea su propia jornada (fichar entrada — esquema jornada única)
       allow create: if perteneceAEmpresa(empresaId)
@@ -727,7 +770,7 @@ service cloud.firestore {
         && resource.data.get('es_correccion', false) == false
         && resource.data.get('salida', null) == null
         && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['salida', 'pausas']);
+            .hasOnly(['salida', 'pausas', 'firma_salida']);
 
       // Admin puede corregir o modificar cualquier fichaje
       allow update: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
@@ -749,7 +792,24 @@ service cloud.firestore {
     }
 
     match /empleados_fichaje/{docId} {
-      allow read, write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      // Lectura para todo el personal: el kiosko verifica el PIN con el usuario logueado
+      allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    // ── ROLES PERSONALIZADOS ──────────────────────────────────────────────────
+    // Admin crea/edita; cualquier miembro puede leer (para mostrar en formularios)
+    match /roles_empresa/{rolId} {
+      allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      allow create, update: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow delete: if false; // soft-delete via activo=false
+    }
+
+    // ── DEPARTAMENTOS ─────────────────────────────────────────────────────────
+    match /departamentos/{deptId} {
+      allow read: if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      allow create, update: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow delete: if false; // soft-delete via activo=false
     }
 
     match /equipos/{equipoId} {
@@ -1428,6 +1488,28 @@ service cloud.firestore {
       allow write: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
     }
 
+    // ── ALERTAS DE DESPACHO (Sysday Emergencias) ─────────────────────────────
+    // Admin crea la alerta; cualquier miembro puede leer la suya y actualizar estado
+    match /alertas_despacho/{alertaId} {
+      allow read:   if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      allow create: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow update: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow update: if perteneceAEmpresa(empresaId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['estado', 'operador_uid', 'fecha_respuesta', 'ambulancia_asignada']);
+      allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    }
+
+    // ── VEHÍCULOS CAD — posición GPS en tiempo real ───────────────────────────
+    match /vehiculos_cad/{vehiculoId} {
+      allow read:   if perteneceAEmpresa(empresaId) || esPlataformaAdmin();
+      allow write:  if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+      allow update: if perteneceAEmpresa(empresaId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['lat', 'lng', 'rumbo', 'velocidad', 'estado',
+                     'alerta_asignada_id', 'ultima_actualizacion']);
+    }
+
   } // fin /empresas/{empresaId}
 
   // ════════════════════════════════════════════════════════════════════
@@ -1773,7 +1855,11 @@ match /pdf_templates/{templateId} {
                   && request.resource.data.texto is string
                   && request.resource.data.texto.size() > 0
                   && request.resource.data.texto.size() <= 2000;
+    // Admin puede editar cualquier campo; empleado solo puede marcar 'leido'
     allow update: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
+    allow update: if perteneceAEmpresa(empresaId)
+                  && uid() == empleadoUid
+                  && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leido']);
     allow delete: if esAdminOPropietario(empresaId) || esPlataformaAdmin();
   }
   match /empresas/{empresaId}/mensajes_internos/{empleadoUid} {

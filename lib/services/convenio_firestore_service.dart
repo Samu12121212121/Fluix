@@ -1758,6 +1758,189 @@ class ConvenioFirestoreService {
     _log.i('✅ Datos del convenio de Comercio en General (Cuenca 2025-2026) creados en Firestore.');
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // IV CONVENIO COLECTIVO TRANSPORTE SANITARIO — CASTILLA-LA MANCHA
+  // En ultraactividad desde oct 2022 (tablas 2022, vigentes en 2026)
+  // Fuente: DOCM 2021-11-22 + tablas facilitadas por sector
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> seedConvenioAmbulanciasCastillaLaMancha({bool force = false}) async {
+    const convenioId = 'transporte-sanitario-estatal';
+    final doc = await _conveniosRef.doc(convenioId).get();
+    if (doc.exists && !force) {
+      _log.i('El convenio de Ambulancias CLM ya existe. No se hará nada.');
+      return;
+    }
+    _log.i('Creando datos para el IV Convenio de Ambulancias — Castilla-La Mancha...');
+
+    const int horasAnuales = 1736;
+
+    // Salarios base mensuales — tablas oct 2022 en ultraactividad (vigentes 2026)
+    const double sbAts        = 1717.40; // ATS / DUE
+    const double sbTes        = 1562.36; // TES Nivel I
+    const double sbJefeEquipo = 1309.32; // Jefe de equipo / base
+    const double sbConductor  = 1302.09; // TES Conductor
+    const double sbAyudante   = 1130.77; // TES Ayudante / Camillero
+    const double sbAdmin      = 1200.00; // Administrativo (estimado sobre SMI 2022)
+    const double sbTeleop     = 1100.00; // Teleoperador / Despachador (estimado)
+
+    final data = {
+      "convenio": {
+        "nombre": "IV Convenio Colectivo de Transporte Sanitario — Castilla-La Mancha",
+        "ambito": "autonomico",
+        "sector": "ambulancia",
+        "tipo_convenio": "sectorial_autonomico",
+        "vigencia": {
+          "inicio": "2019-01-01",
+          "fin": "2022-10-31",
+          "estado_dato": "ultraactividad_2026",
+          "nota": "En ultraactividad desde nov 2022 — tablas oct 2022 vigentes hasta nuevo convenio"
+        },
+        "fuente": {
+          "documento": "DOCM Resolución 22/11/2021. Tablas oct-2022 (última revisión salarial).",
+          "fecha_extraccion": "2026-11-04",
+          "version": "v1",
+          "nota": "ULTRAACTIVIDAD — actualizar cuando se firme V Convenio CLM."
+        },
+        "provincia_aplicacion": "Castilla-La Mancha (Guadalajara, Toledo, Ciudad Real, Cuenca, Albacete)",
+        "pagas": 14,
+        "jornada_horas_anuales": horasAnuales,
+      },
+      "categorias": [
+        {
+          "id": "ats-due",
+          "nombre": "ATS / DUE — Diplomado/a en Enfermería",
+          "grupo_profesional": "Personal Sanitario Titulado",
+          "nivel": 1,
+          "salario_base_mensual": sbAts,
+          "salario_anual": sbAts * 14,
+          "num_pagas": 14,
+          "hora_ordinaria": sbAts * 14 / horasAnuales,
+        },
+        {
+          "id": "tes-nivel-i",
+          "nombre": "TES — Técnico en Emergencias Sanitarias Nivel I",
+          "grupo_profesional": "Personal Técnico Sanitario",
+          "nivel": 2,
+          "salario_base_mensual": sbTes,
+          "salario_anual": sbTes * 14,
+          "num_pagas": 14,
+          "hora_ordinaria": sbTes * 14 / horasAnuales,
+          "nota": "Anteriormente denominado TTS. Requiere Título FP Grado Medio Emergencias Sanitarias."
+        },
+        {
+          "id": "jefe-equipo",
+          "nombre": "Jefe de Equipo / Jefe de Base",
+          "grupo_profesional": "Personal de Mando",
+          "nivel": 2,
+          "salario_base_mensual": sbJefeEquipo,
+          "salario_anual": sbJefeEquipo * 14,
+          "num_pagas": 14,
+          "hora_ordinaria": sbJefeEquipo * 14 / horasAnuales,
+        },
+        {
+          "id": "tes-conductor",
+          "nombre": "TES Conductor — Técnico Conductor de Ambulancia",
+          "grupo_profesional": "Personal Técnico Sanitario",
+          "nivel": 3,
+          "salario_base_mensual": sbConductor,
+          "salario_anual": sbConductor * 14,
+          "num_pagas": 14,
+          "hora_ordinaria": sbConductor * 14 / horasAnuales,
+        },
+        {
+          "id": "tes-ayudante",
+          "nombre": "TES Ayudante / Camillero",
+          "grupo_profesional": "Personal Técnico Sanitario",
+          "nivel": 4,
+          "salario_base_mensual": sbAyudante,
+          "salario_anual": sbAyudante * 14,
+          "num_pagas": 14,
+          "hora_ordinaria": sbAyudante * 14 / horasAnuales,
+        },
+        {
+          "id": "administrativo",
+          "nombre": "Administrativo / Auxiliar Administrativo",
+          "grupo_profesional": "Personal de Administración",
+          "nivel": 4,
+          "salario_base_mensual": sbAdmin,
+          "salario_anual": sbAdmin * 14,
+          "num_pagas": 14,
+          "hora_ordinaria": sbAdmin * 14 / horasAnuales,
+        },
+        {
+          "id": "teleoperador",
+          "nombre": "Teleoperador / Despachador",
+          "grupo_profesional": "Personal de Administración",
+          "nivel": 4,
+          "salario_base_mensual": sbTeleop,
+          "salario_anual": sbTeleop * 14,
+          "num_pagas": 14,
+          "hora_ordinaria": sbTeleop * 14 / horasAnuales,
+        },
+      ],
+      "pluses": [
+        {
+          "id": "nocturnidad",
+          "nombre": "Plus de Nocturnidad (22h-6h)",
+          "tipo": "porcentaje",
+          "importe": 10.0,
+          "base_calculo": "salario_base_hora",
+          "descripcion": "10% sobre salario base por hora trabajada en horario nocturno"
+        },
+        {
+          "id": "festivo_especial",
+          "nombre": "Plus Festividades Especiales",
+          "tipo": "fijo",
+          "importe": 36.0,
+          "base_calculo": "dia_festivo_trabajado",
+          "descripcion": "36€ por día trabajado en: 24, 25 y 31 dic / 1 ene / Jueves y Viernes Santo"
+        },
+        {
+          "id": "dieta_nocturna",
+          "nombre": "Dieta Nocturna",
+          "tipo": "fijo",
+          "importe": 75.0,
+          "base_calculo": "mes",
+          "descripcion": "75€/mes para personal con jornada habitual nocturna"
+        },
+      ],
+      "jornada_laboral": {
+        "horas_anuales": horasAnuales,
+        "regimen_guardias": "turnos de 12h y 24h según cuadrante",
+        "descansos": "Mínimo 12h entre jornadas; 48h ininterrumpidas tras guardia de 24h",
+        "vacaciones_dias_naturales": 30
+      },
+      "pagas_extra": [
+        {"nombre": "Paga de Verano", "mes_pago": 6, "devengo": "semestral", "calculo": "30 días salario base"},
+        {"nombre": "Paga de Navidad", "mes_pago": 12, "devengo": "semestral", "calculo": "30 días salario base"}
+      ],
+      "antiguedad": {
+        "primer_tramo_anos": 3,
+        "primer_tramo_porcentaje": 3.0,
+        "incremento_anual_desde_ano_4": 1.0,
+        "maximo_porcentaje": 20.0,
+        "base_calculo": "salario_base"
+      },
+    };
+
+    final WriteBatch batch = _db.batch();
+    final convenioDocRef = _conveniosRef.doc(convenioId);
+    batch.set(convenioDocRef, data['convenio'] as Map<String, dynamic>);
+
+    for (final catData in (data['categorias'] as List<Map<String, dynamic>>)) {
+      final catId = catData['id'] as String;
+      batch.set(convenioDocRef.collection('categorias').doc(catId), catData);
+    }
+    for (final plusData in (data['pluses'] as List<Map<String, dynamic>>)) {
+      final plusId = plusData['id'] as String;
+      batch.set(convenioDocRef.collection('pluses').doc(plusId), plusData);
+    }
+
+    await batch.commit();
+    _log.i('✅ IV Convenio Ambulancias CLM — datos creados en Firestore.');
+  }
+
   /// Siembra todos los convenios Fluixtech.
   /// Usa [force] para reescribir valores en caso de tablas nuevas.
   Future<void> seedConveniosFluixtech({bool force = false}) async {
@@ -1770,6 +1953,7 @@ class ConvenioFirestoreService {
     await seedConvenioConstruccionCuenca(force: force);
     await seedConvenioHosteleriaCuenca(force: force);
     await seedConvenioComercioCuenca(force: force);
+    await seedConvenioAmbulanciasCastillaLaMancha(force: force);
   }
 
   Future<CategoriaConvenio?> obtenerCategoriaPorId(String convenioId, String categoriaId) async {

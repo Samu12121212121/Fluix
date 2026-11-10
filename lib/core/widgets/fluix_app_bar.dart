@@ -141,8 +141,8 @@ class FluixAppBar extends StatelessWidget implements PreferredSizeWidget {
             onSelected: onManejarMenu,
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'perfil', child: ListTile(
-                leading: Icon(Icons.person),
-                title: Text('Mi Perfil'),
+                leading: Icon(Icons.settings_rounded),
+                title: Text('Configuración General'),
                 contentPadding: EdgeInsets.zero,
               )),
               PopupMenuDivider(),

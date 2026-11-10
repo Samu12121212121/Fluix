@@ -43,7 +43,7 @@ class _ModuloFacturacionScreenState extends State<ModuloFacturacionScreen> {
       appBar: canPop
           ? const FluixAppBar(
               titulo:             'Facturación',
-              titleNavigatesBack: true,
+              showLeading: true,
             )
           : null,
       body: TabFacturas(

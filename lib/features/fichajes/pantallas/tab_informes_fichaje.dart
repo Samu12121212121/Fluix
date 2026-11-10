@@ -4,14 +4,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../modelos/fichaje.dart';
 import '../servicios/fichaje_service.dart';
 import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 import '../../pdf_templates/data/pdf_template_service.dart' as ptSvc;
 import '../../pdf_templates/domain/models/pdf_template.dart' as ptModel;
+import 'fichaje_pdf_builder.dart';
 import 'fichajes_colors.dart';
 
 class TabInformesFichaje extends StatefulWidget {
@@ -593,65 +592,42 @@ class _TabInformesFichajeState extends State<TabInformesFichaje> {
   }
 
   Future<List<int>> _generarPdfBytes() async {
-    final fmt = DateFormat('MMMM yyyy', 'es_ES');
-    final mesTxt = fmt.format(_mes);
-    final titulo =
-        'Informe de Horas — ${mesTxt[0].toUpperCase()}${mesTxt.substring(1)}';
-    String colorHex = '#22C55E';
+    final fmt     = DateFormat('MMMM yyyy', 'es_ES');
+    final mesTxt  = fmt.format(_mes);
+    final mes     = '${mesTxt[0].toUpperCase()}${mesTxt.substring(1)}';
+    final titulo  = 'Informe de Horas — $mes';
+
+    String colorHex    = '#22C55E';
+    String estiloLayout = 'd1_corp';
     try {
       final p = await ptSvc.PdfTemplateService().getPlantillaDefault(
               widget.empresaId, ptModel.TipoDocumentoPdf.horasEmpleado) ??
           await ptSvc.PdfTemplateService().getPlantillaDefault(
               widget.empresaId, ptModel.TipoDocumentoPdf.fichajes);
-      if (p != null && p.colorPrimario.isNotEmpty) colorHex = p.colorPrimario;
+      if (p != null) {
+        if (p.colorPrimario.isNotEmpty) colorHex = p.colorPrimario;
+        if (p.estiloLayout.isNotEmpty)  estiloLayout = p.estiloLayout;
+      }
     } catch (_) {}
-    PdfColor pdfColor(String hex) {
-      try { return PdfColor.fromHex(hex); } catch (_) { return PdfColor.fromHex('#22C55E'); }
-    }
 
-    final colPrimary = pdfColor(colorHex);
-    final pdf = pw.Document();
-    final totalMins = _datos.fold(0, (s, d) => s + d.minutosNetos);
-    pdf.addPage(pw.MultiPage(
-      pageFormat: PdfPageFormat.a4.landscape,
-      margin: const pw.EdgeInsets.all(28),
-      build: (ctx) => [
-        pw.Text(titulo,
-            style: pw.TextStyle(
-                fontSize: 16, fontWeight: pw.FontWeight.bold, color: colPrimary)),
-        pw.SizedBox(height: 4),
-        pw.Text('Generado: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
-            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
-        pw.Text(
-            'Total horas: ${_fmtMin(totalMins)}  ·  Empleados: ${_datos.where((d) => d.dias > 0).length}',
-            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
-        pw.SizedBox(height: 16),
-        pw.TableHelper.fromTextArray(
-          headers: ['Empleado','H. Planif.','H. Trab.','H. Extra','Pausas','Días','Incidencias'],
-          data: _datos.map((d) => [
-                d.nombre, d.horasPlanifStr, d.horasStr, d.horasExtraStr,
-                d.pausasStr, '${d.dias}d',
-                d.incidencias > 0 ? '⚠ ${d.incidencias}' : '—'
-              ]).toList(),
-          headerStyle: pw.TextStyle(
-              fontWeight: pw.FontWeight.bold, color: PdfColors.white, fontSize: 9),
-          headerDecoration: pw.BoxDecoration(color: colPrimary),
-          cellStyle: const pw.TextStyle(fontSize: 9),
-          border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
-          cellPadding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-          columnWidths: const {
-            0: pw.FlexColumnWidth(3.0),
-            1: pw.FlexColumnWidth(1.2),
-            2: pw.FlexColumnWidth(1.2),
-            3: pw.FlexColumnWidth(1.2),
-            4: pw.FlexColumnWidth(1.2),
-            5: pw.FlexColumnWidth(0.8),
-            6: pw.FlexColumnWidth(1.4),
-          },
-        ),
-      ],
-    ));
-    return pdf.save();
+    final datos = _datos.map((d) => FichajeResumen(
+      nombre:        d.nombre,
+      dias:          d.dias,
+      minutosNetos:  d.minutosNetos,
+      minutosPlani:  d.minutosPlani,
+      minutosExtra:  d.minutosExtra,
+      numPausas:     d.numPausas,
+      incidencias:   d.incidencias,
+    )).toList();
+
+    return FichajePdfBuilder.generar(
+      estiloLayout:  estiloLayout,
+      titulo:        titulo,
+      empresaNombre: _empresaNombre,
+      mes:           mes,
+      datos:         datos,
+      colorHex:      colorHex,
+    );
   }
 }
 

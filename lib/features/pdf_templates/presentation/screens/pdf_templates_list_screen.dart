@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import '../../domain/models/pdf_template.dart';
@@ -49,7 +50,8 @@ class _State extends State<PdfTemplatesListScreen> {
   String? _enviandoEmailKey;
   bool _enviandoBulk = false;
 
-  static const _kDestinatario = 'sacoor90@gmail.com';
+  String get _kDestinatario =>
+      FirebaseAuth.instance.currentUser?.email ?? '';
 
   // Colores adaptativos al modo oscuro
   Color get _kBg      => _isDark ? const Color(0xFF0F172A) : const Color(0xFFEEF1F6);
@@ -131,9 +133,10 @@ class _State extends State<PdfTemplatesListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canPop = ModalRoute.of(context)?.isFirst == false;
     return Scaffold(
       backgroundColor: _kBg,
-      appBar: FluixAppBar(
+      appBar: canPop ? FluixAppBar(
         titulo: 'Plantillas PDF',
         showLeading: true,
         extraActions: [
@@ -147,7 +150,7 @@ class _State extends State<PdfTemplatesListScreen> {
             ),
           ),
         ],
-      ),
+      ) : null,
       body: _init
         ? const Center(child: CircularProgressIndicator())
         : _cat == _Cat.misPlantillas

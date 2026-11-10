@@ -150,10 +150,12 @@ class _ModuloTareasScreenState extends State<ModuloTareasScreen> {
         // Cargar nombres en background
         if (todas.isNotEmpty) _cargarNombres(todas);
 
+        final canPop = ModalRoute.of(context)?.isFirst == false;
         return Scaffold(
           backgroundColor: const Color(0xFFF8FAFC),
-          appBar: FluixAppBar(
+          appBar: canPop ? FluixAppBar(
             titulo: 'Tareas',
+            showLeading: true,
             extraActions: [
               IconButton(
                 onPressed: _nuevaTarea,
@@ -161,7 +163,7 @@ class _ModuloTareasScreenState extends State<ModuloTareasScreen> {
                 tooltip: 'Nueva tarea',
               ),
             ],
-          ),
+          ) : null,
           body: Column(children: [
             _buildFilterBar(),
             _buildViewBar(todas),

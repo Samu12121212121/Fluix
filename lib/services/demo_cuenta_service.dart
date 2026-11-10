@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../domain/modelos/nomina.dart';
+import 'convenio_firestore_service.dart';
+import 'nominas_service.dart';
 
 /// Servicio para la cuenta demo de Fluix CRM.
 /// Crea la cuenta demoFluix2026@gmail.com / FlFluix26 si no existe
@@ -16,6 +18,11 @@ class DemoCuentaService {
   static const String demoPassword  = 'FlFluix26';
   static const String demoEmpresaId = 'demo_empresa_fluix2026';
 
+  // ── Credenciales staff demo ───────────────────────────────────────────────
+  static const String demoStaff1Email    = 'elena.sysday@fluix.test';
+  static const String demoStaff2Email    = 'roberto.sysday@fluix.test';
+  static const String demoStaffPassword  = 'Sysday2026';
+
   final _db = FirebaseFirestore.instance;
   final _random = Random();
 
@@ -28,6 +35,7 @@ class DemoCuentaService {
   ///  - Configura empresa + usuario en Firestore si es la primera vez.
   ///  - Devuelve el UID del usuario demo.
   Future<String> loginComoDemo() async {
+    if (kReleaseMode) throw StateError('loginComoDemo no debe ejecutarse en producción');
     User? user;
 
     try {
@@ -102,40 +110,44 @@ class DemoCuentaService {
     // ── 1. USUARIO PRIMERO — las reglas de suscripción/configuración necesitan
     //    que usuarios/{uid} exista con empresa_id y rol correcto. ───────────
     await _db.collection('usuarios').doc(uid).set({
-      'nombre':         'Usuario Demo',
+      'nombre':         'Coordinador Demo',
       'correo':         demoEmail,
-      'telefono':       '',
+      'telefono':       '+34 949 000 000',
       'rol':            'admin',
       'empresa_id':     demoEmpresaId,
       'activo':         true,
       'permisos':       [],
       'fecha_creacion': now.toIso8601String(),
       'es_demo':        true,
+      'puesto':         'Coordinador de Operaciones',
+      'departamento':   'Administración',
       'datos_nomina': {
-        'salario_bruto_anual':  24000.0,
+        'salario_bruto_anual':  28000.0,
         'tipo_contrato':        'indefinido',
         'num_pagas':            14,
         'horas_semanales':      40.0,
         'complemento_fijo':     0.0,
         'nif':                  '00000000T',
-        'nss':                  '280000000000',
-        'situacion_familiar':   'soltero',
-        'num_hijos':            0,
+        'nss':                  '190000000000',
+        'situacion_familiar':   'casado',
+        'num_hijos':            1,
         'num_hijos_menores_3':  0,
         'discapacidad':         false,
-        'sector_empresa':       'hosteleria',
+        'sector_empresa':       'ambulancia',
         'pagas_prorrateadas':   false,
       },
     }, SetOptions(merge: true));
 
     // ── 2. Empresa ──────────────────────────────────────────────────
     await empresaRef.set({
-      'nombre':                'Empresa Demo Fluix',
+      'nombre':                'Sysday Emergencias — Demo',
       'correo':                demoEmail,
-      'telefono':              '+34 900 000 000',
-      'direccion':             'Calle Demo 1, Madrid',
-      'descripcion':           'Cuenta de demostración de Fluix CRM',
-      'categoria':             'Demostración',
+      'telefono':              '+34 949 220 000',
+      'direccion':             'Polígono El Balconcillo, Guadalajara',
+      'descripcion':           'Gestión integral de servicios de emergencias sanitarias',
+      'categoria':             'Transporte Sanitario',
+      'sector':                'ambulancia',
+      'cif':                   'B00000000',
       'onboarding_completado': true,
       'activa':                true,
       'fecha_creacion':        Timestamp.fromDate(now),
@@ -183,16 +195,17 @@ class DemoCuentaService {
       {'ultimo_numero_factura': 0}, SetOptions(merge: true));
 
 
-    // ── Empleados demo en la coleccion usuarios (para generarNominasMasivas) ──
-    // generarNominasMasivas lee de usuarios/{uid} donde empresa_id == demoEmpresaId
-    // Solo los creamos si no existen para no duplicar
-    const empleado1Id = 'demo_empleado_001';
-    const empleado2Id = 'demo_empleado_002';
-    final emp1Doc = await _db.collection('usuarios').doc(empleado1Id).get();
-    if (!emp1Doc.exists) {
-      await _db.collection('usuarios').doc(empleado1Id).set({
-        'nombre': 'Elena Martin Sanz',
-        'correo': 'elena.demo@fluixcrm.test',
+    // ── Empleados demo — cuentas Firebase Auth + Firestore ──────────────────
+    // Creamos cuentas Auth reales para que puedan iniciar sesión en el portal.
+    // Sus UIDs se usan como doc ID en usuarios/, garantizando que MisNominas
+    // y el portal del empleado funcionen con sus datos.
+    final elena1Uid = await _crearOObtenerStaffUid(demoStaff1Email);
+    final roberto2Uid = await _crearOObtenerStaffUid(demoStaff2Email);
+
+    if (elena1Uid != null) {
+      await _db.collection('usuarios').doc(elena1Uid).set({
+        'nombre': 'Elena Martín Sanz',
+        'correo': demoStaff1Email,
         'telefono': '+34 611 111 111',
         'rol': 'staff',
         'empresa_id': demoEmpresaId,
@@ -200,29 +213,31 @@ class DemoCuentaService {
         'permisos': [],
         'fecha_creacion': now.toIso8601String(),
         'es_demo': true,
+        'puesto': 'TES — Técnico en Emergencias Sanitarias',
+        'departamento': 'Operaciones',
         'datos_nomina': {
-          'salario_bruto_anual': 19950.0,
+          'salario_bruto_anual': 22000.0,
           'tipo_contrato': 'indefinido',
           'num_pagas': 14,
           'horas_semanales': 40.0,
-          'complemento_fijo': 0.0,
+          'complemento_fijo': 150.0,
           'nif': '11111111H',
-          'nss': '280000000001',
+          'nss': '190000000001',
           'situacion_familiar': 'casado',
           'num_hijos': 2,
           'num_hijos_menores_3': 0,
           'discapacidad': false,
-          'sector_empresa': 'peluqueria',
+          'sector_empresa': 'ambulancia',
           'pagas_prorrateadas': false,
         },
-      });
-      debugPrint('Demo: empleado1 creado');
+      }, SetOptions(merge: true));
+      debugPrint('Demo: Elena configurada (uid=$elena1Uid)');
     }
-    final emp2Doc = await _db.collection('usuarios').doc(empleado2Id).get();
-    if (!emp2Doc.exists) {
-      await _db.collection('usuarios').doc(empleado2Id).set({
-        'nombre': 'Roberto Lopez Vega',
-        'correo': 'roberto.demo@fluixcrm.test',
+
+    if (roberto2Uid != null) {
+      await _db.collection('usuarios').doc(roberto2Uid).set({
+        'nombre': 'Roberto López Vega',
+        'correo': demoStaff2Email,
         'telefono': '+34 622 222 222',
         'rol': 'staff',
         'empresa_id': demoEmpresaId,
@@ -230,30 +245,87 @@ class DemoCuentaService {
         'permisos': [],
         'fecha_creacion': now.toIso8601String(),
         'es_demo': true,
+        'puesto': 'Conductor de Ambulancia',
+        'departamento': 'Operaciones',
         'datos_nomina': {
-          'salario_bruto_anual': 17500.0,
+          'salario_bruto_anual': 20000.0,
           'tipo_contrato': 'indefinido',
           'num_pagas': 14,
           'horas_semanales': 40.0,
-          'complemento_fijo': 0.0,
+          'complemento_fijo': 100.0,
           'nif': '22222222J',
-          'nss': '280000000002',
+          'nss': '190000000002',
           'situacion_familiar': 'soltero',
           'num_hijos': 0,
           'num_hijos_menores_3': 0,
           'discapacidad': false,
-          'sector_empresa': 'peluqueria',
+          'sector_empresa': 'ambulancia',
           'pagas_prorrateadas': false,
         },
-      });
-      debugPrint('Demo: empleado2 creado');
+      }, SetOptions(merge: true));
+      debugPrint('Demo: Roberto configurado (uid=$roberto2Uid)');
     }
 
     // ── Configurar TPV con datos de muestra ─────────────────────────────────
     await configurarDemoTpv(demoEmpresaId);
 
+    // ── Nóminas del mes actual — solo para los 3 empleados demo ─────────────
+    // Pasamos los UIDs concretos para no generar nóminas a los otros empleados
+    // de la cuenta (pueden ser >50 de setups anteriores).
+    await _generarNominasDemoSiNoExisten();
+
     debugPrint('Demo Firestore configurado para $uid / $demoEmpresaId');
   } // _configurarFirestoreDemo
+
+  /// Crea (o recupera) la cuenta Firebase Auth de un staff demo.
+  /// Siempre vuelve a iniciar sesión como admin al terminar.
+  /// Devuelve el UID del staff, o null si falla.
+  Future<String?> _crearOObtenerStaffUid(String staffEmail) async {
+    String? uid;
+    try {
+      final cred = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+              email: staffEmail, password: demoStaffPassword);
+      uid = cred.user?.uid;
+      debugPrint('Demo staff creado: $staffEmail → $uid');
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'email-already-in-use') {
+        final cred = await FirebaseAuth.instance
+            .signInWithEmailAndPassword(
+                email: staffEmail, password: demoStaffPassword);
+        uid = cred.user?.uid;
+        debugPrint('Demo staff existente: $staffEmail → $uid');
+      } else {
+        debugPrint('Demo staff error ($staffEmail): $e');
+      }
+    } catch (e) {
+      debugPrint('Demo staff error ($staffEmail): $e');
+    } finally {
+      // Siempre volver como admin
+      try {
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+            email: demoEmail, password: demoPassword);
+      } catch (_) {}
+    }
+    return uid;
+  }
+
+  /// Genera nóminas del mes actual para todos los empleados activos de la demo.
+  /// Silencioso si ya existen para este mes.
+  Future<void> _generarNominasDemoSiNoExisten() async {
+    final now  = DateTime.now();
+    final mes  = now.month;
+    final anio = now.year;
+    try {
+      await ConvenioFirestoreService()
+          .seedConvenioAmbulanciasCastillaLaMancha();
+      final n = await NominasService()
+          .generarNominasMasivas(demoEmpresaId, mes, anio);
+      debugPrint('Demo: $n nómina(s) generada(s) para $mes/$anio');
+    } on Exception catch (e) {
+      debugPrint('Demo nóminas (omitido): $e');
+    }
+  }
 
   /// Genera datos de prueba completos para la empresa del usuario demo.
   Future<void> generarDatosPrueba(String empresaId) async {

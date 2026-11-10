@@ -56,9 +56,10 @@ class _State extends State<ModuloSoporteScreen> {
   Widget build(BuildContext context) {
     final w = MediaQuery.of(context).size.width;
     final isWide = w >= 800;
+    final canPop = ModalRoute.of(context)?.isFirst == false;
     return Scaffold(
       backgroundColor: _bg,
-      appBar: FluixAppBar(titulo: 'Soporte y Ayuda'),
+      appBar: canPop ? const FluixAppBar(titulo: 'Soporte y Ayuda', showLeading: true) : null,
       body: SingleChildScrollView(
         padding: EdgeInsets.all(isWide ? 24 : 16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

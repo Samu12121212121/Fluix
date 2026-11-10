@@ -110,11 +110,36 @@ class NominaPdfService {
     String? grupoProfesional,
     String? grupoCotizacion,
     Uint8List? firmaImageBytes,
+    /// Si false, omite la página 2 (bases SS empresa / coste total).
+    /// Usado cuando el empleado ve su nómina y la empresa no quiere revelar costes.
+    bool mostrarReverso = true,
   }) async {
-    final pdf = pw.Document(
-      title: 'Nómina ${nomina.empleadoNombre} — ${nomina.periodo}',
-      author: nombreEmpresa,
-    );
+    // TrueType fonts needed for € and Spanish characters.
+    // If network/cache fails we fall back to built-in Helvetica (€ → 'EUR').
+    pw.Font? fontBase;
+    pw.Font? fontBold;
+    try {
+      fontBase = await PdfGoogleFonts.notoSansRegular();
+      fontBold = await PdfGoogleFonts.notoSansBold();
+    } catch (_) {
+      // Offline or font CDN unavailable — Helvetica is embedded in every PDF viewer.
+      fontBase = null;
+      fontBold = null;
+    }
+
+    final pw.Document pdf;
+    if (fontBase != null && fontBold != null) {
+      pdf = pw.Document(
+        title: 'Nómina ${nomina.empleadoNombre} — ${nomina.periodo}',
+        author: nombreEmpresa,
+        theme: pw.ThemeData.withFont(base: fontBase, bold: fontBold),
+      );
+    } else {
+      pdf = pw.Document(
+        title: 'Nómina ${nomina.empleadoNombre} — ${nomina.periodo}',
+        author: nombreEmpresa,
+      );
+    }
 
     final pageFormat = PdfPageFormat.a4.copyWith(
       marginLeft: _marginH,
@@ -129,39 +154,37 @@ class NominaPdfService {
     pdf.addPage(pw.Page(
       pageFormat: pageFormat,
       build: (ctx) => pw.Stack(children: [
-        _buildCveLateral(),
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            _buildAnverso(ctx, nomina,
-              nombreEmpresa: nombreEmpresa,
-              cifEmpresa: cifEmpresa,
-              direccionEmpresa: direccionEmpresa,
-              cccEmpresa: cccEmpresa,
-              grupoProfesional: grupoProfesional,
-              grupoCotizacion: grupoCotizacion,
-              firmaImageBytes: firmaImageBytes,
-            ),
-          ],
+        // Positioned.fill da constraints finitos al anverso; necesario para pw.Expanded y width:infinity.
+        pw.Positioned.fill(
+          child: _buildAnverso(ctx, nomina,
+            nombreEmpresa: nombreEmpresa,
+            cifEmpresa: cifEmpresa,
+            direccionEmpresa: direccionEmpresa,
+            cccEmpresa: cccEmpresa,
+            grupoProfesional: grupoProfesional,
+            grupoCotizacion: grupoCotizacion,
+            firmaImageBytes: firmaImageBytes,
+          ),
         ),
+        _buildCveLateral(),
       ]),
     ));
 
     // ══════════════════════════════════════════════════════════════════════
-    // PÁGINA 2 — REVERSO
+    // PÁGINA 2 — REVERSO (bases SS empresa / coste total)
+    // Omitida cuando mostrarReverso = false (vista empleado con config oculta)
     // ══════════════════════════════════════════════════════════════════════
-    pdf.addPage(pw.Page(
-      pageFormat: pageFormat,
-      build: (ctx) => pw.Stack(children: [
-        _buildCveLateral(),
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            _buildReverso(ctx, nomina, nombreEmpresa: nombreEmpresa),
-          ],
-        ),
-      ]),
-    ));
+    if (mostrarReverso) {
+      pdf.addPage(pw.Page(
+        pageFormat: pageFormat,
+        build: (ctx) => pw.Stack(children: [
+          pw.Positioned.fill(
+            child: _buildReverso(ctx, nomina, nombreEmpresa: nombreEmpresa),
+          ),
+          _buildCveLateral(),
+        ]),
+      ));
+    }
 
     return pdf.save();
   }
@@ -323,43 +346,43 @@ class NominaPdfService {
           bottom: const pw.BorderSide(color: _negro, width: _bordeLinea),
           horizontalInside: pw.BorderSide(color: PdfColor.fromHex('#CCCCCC'), width: 0.3),
         ),
+        // Solo mostramos filas con valor — evita el desbordamiento de página
+        // que deja el anverso en blanco cuando hay 10+ filas vacías obligatorias BOE.
         children: [
           _filaSubtitulo('1. Percepciones salariales'),
           _filaConcepto('Salario base', importe: n.salarioBrutoMensual, indent: 2),
-          _filaConcepto('Complementos salariales', importe: n.complementos > 0 ? n.complementos : null, indent: 2),
-          _filaVacia(),
-          _filaVacia(),
-          _filaVacia(),
-          _filaConcepto('Horas extraordinarias',
-            importe: n.importeHorasExtra > 0 ? n.importeHorasExtra : null, indent: 2),
-          _filaConcepto('Horas complementarias', indent: 2),
-          _filaConcepto('Gratificaciones extraordinarias',
-            importe: n.pagaExtra > 0 ? n.pagaExtra : null, indent: 2),
-          _filaConcepto('Salario en especie',
-            importe: n.retribucionesEspecie > 0 ? n.retribucionesEspecie : null, indent: 2),
-          // ── Complementos detallados ────────────────────────────────────
-          if (n.complementosDetallados.isNotEmpty)
-            _filaSubtitulo('Complementos salariales variables'),
-          ...n.complementosDetallados.map((c) =>
-            _filaConcepto('  ${c['descripcion'] ?? ''}', importe: (c['importe'] as num?)?.toDouble(), indent: 2)),
-          _filaSubtitulo('2. Percepciones no salariales'),
-          _filaConcepto('Indemnizaciones o suplidos', indent: 2),
-          // ── Incapacidad Temporal (IT) ──────────────────────────────────
-          if (n.diasIT > 0) ...[
-            _filaConcepto(
-              'Prestación IT (${n.diasIT} días) — ${n.tipoContingenciaIT ?? ""}',
-              importe: n.importeIT, indent: 2),
-            if (n.descuentoSalarioPorIT > 0)
-              _filaConcepto('Descuento salario por IT',
-                importe: -n.descuentoSalarioPorIT, indent: 2),
-          ] else ...[
-            _filaVacia(),
+          if (n.complementos > 0)
+            _filaConcepto('Complementos salariales', importe: n.complementos, indent: 2),
+          if (n.complementosDetallados.isNotEmpty) ...[
+            _filaSubtitulo('Complementos variables'),
+            ...n.complementosDetallados.map((c) =>
+              _filaConcepto('  ${c['descripcion'] ?? ''}',
+                  importe: (c['importe'] as num?)?.toDouble(), indent: 2)),
           ],
-          _filaVacia(),
-          _filaConcepto('Prestaciones e indemnizaciones de la Seguridad Social', indent: 2),
-          _filaConcepto('Indemnizaciones por traslados, suspensiones o despidos', indent: 2),
-          _filaConcepto('Otras percepciones no salariales',
-            importe: n.pagaExtraProrrata > 0 ? n.pagaExtraProrrata : null, indent: 2),
+          if (n.importeHorasExtra > 0)
+            _filaConcepto('Horas extraordinarias', importe: n.importeHorasExtra, indent: 2),
+          if (n.pagaExtra > 0)
+            _filaConcepto('Gratificaciones extraordinarias', importe: n.pagaExtra, indent: 2),
+          if (n.retribucionesEspecie > 0)
+            _filaConcepto('Salario en especie', importe: n.retribucionesEspecie, indent: 2),
+          if (n.plusAntiguedad > 0)
+            _filaConcepto(
+              'Plus antigüedad${n.aniosAntiguedad > 0 ? " (${n.aniosAntiguedad} años)" : ""}',
+              importe: n.plusAntiguedad, indent: 2),
+          if (n.diasIT > 0 || n.pagaExtraProrrata > 0) ...[
+            _filaSubtitulo('2. Percepciones no salariales'),
+            if (n.diasIT > 0) ...[
+              _filaConcepto(
+                'Prestación IT (${n.diasIT} días) — ${n.tipoContingenciaIT ?? ""}',
+                importe: n.importeIT, indent: 2),
+              if (n.descuentoSalarioPorIT > 0)
+                _filaConcepto('Descuento salario por IT',
+                  importe: -n.descuentoSalarioPorIT, indent: 2),
+            ],
+            if (n.pagaExtraProrrata > 0)
+              _filaConcepto('Otras percepciones no salariales',
+                importe: n.pagaExtraProrrata, indent: 2),
+          ],
         ],
       ),
       _filaTotalSeccion('A. TOTAL DEVENGADO', n.totalDevengos),
@@ -392,40 +415,35 @@ class NominaPdfService {
           _filaConceptoPct('MEI', 0.15, n.ssMeiTrabajador),
           if (n.ssSolidaridadTrabajador > 0)
             _filaConceptoPct('Cotización solidaridad', 0, n.ssSolidaridadTrabajador),
-          _filaConcepto('Horas extraordinarias', indent: 2),
+          if (n.ssHorasExtraTrabajador > 0)
+            _filaConceptoPct(
+              'H. extra ${n.tipoHoraExtra == TipoHoraExtra.fuerzaMayor ? "(fuerza mayor)" : "(estructurales/no estruct.)"}',
+              n.tipoHoraExtra.tipoTrabajador,
+              n.ssHorasExtraTrabajador,
+            ),
           _filaConcepto('TOTAL APORTACIONES',
             total: n.totalSSTrabajador, indent: 2, bold: true),
           _filaSubtitulo('2. Impuesto sobre la Renta de las Personas Físicas'),
           _filaConceptoPct('Retención IRPF', n.porcentajeIrpf, n.retencionIrpf),
-          if (n.regularizacionIrpf != 0) ...[
+          if (n.regularizacionIrpf != 0)
             _filaConcepto(
               'Regularización IRPF ${n.regularizacionIrpf > 0 ? "(a retener)" : "(a devolver)"}',
               importe: n.regularizacionIrpf, indent: 2),
+          // Secciones 3-5 solo si tienen contenido (evita filas vacías que desbordan la página)
+          if (n.retribucionesEspecie > 0) ...[
+            _filaSubtitulo('4. Valor de los productos recibidos en especie'),
+            _filaConcepto('Retribución en especie', importe: n.retribucionesEspecie, indent: 2),
           ],
-          _filaSubtitulo('3. Anticipos'),
-          _filaVacia(),
-          _filaSubtitulo('4. Valor de los productos recibidos en especie'),
-          _filaConcepto('', importe: n.retribucionesEspecie > 0 ? n.retribucionesEspecie : null, indent: 2),
-          _filaSubtitulo('5. Otras deducciones'),
-          if (n.embargoJudicial > 0)
-            _filaConcepto(
-              'Embargo judicial (art. 607 LEC)',
-              importe: n.embargoJudicial,
-              indent: 2,
-            )
-          else
-            _filaVacia(),
-          // ── 6. Descuentos por ausencias ─────────────────────────────────
+          if (n.embargoJudicial > 0) ...[
+            _filaSubtitulo('5. Otras deducciones'),
+            _filaConcepto('Embargo judicial (art. 607 LEC)', importe: n.embargoJudicial, indent: 2),
+          ],
           if (n.descuentoAusencias > 0) ...[
             _filaSubtitulo('6. Ausencias y permisos'),
             ...n.lineasAusencias.map((l) {
               final concepto = l['concepto'] as String? ?? '';
               final importe = (l['importe'] as num?)?.toDouble() ?? 0;
-              return _filaConcepto(
-                concepto,
-                importe: importe.abs(),
-                indent: 2,
-              );
+              return _filaConcepto(concepto, importe: importe.abs(), indent: 2);
             }),
           ],
         ],
@@ -857,6 +875,7 @@ class NominaPdfService {
     ]);
   }
 
+  // ignore: unused_element — mantenido para compatibilidad futura con secciones BOE opcionales
   static pw.TableRow _filaVacia() {
     return pw.TableRow(children: [
       _celdaFila(''),
@@ -965,43 +984,133 @@ class NominaPdfService {
   static Future<Map<String, dynamic>> _cargarDatosEmpresa(String empresaId) async {
     String nombreEmpresa = 'Mi Empresa';
     String? cif, direccion, ccc;
+    bool mostrarCosteEmpresa = false;
     try {
       final doc = await _db.collection('empresas').doc(empresaId).get();
       final data = doc.data();
       if (data != null) {
+        // Algunas empresas usan subdoc 'perfil'; otras guardan en la raíz del documento.
         final perfil = data['perfil'] as Map<String, dynamic>? ?? {};
-        nombreEmpresa = perfil['nombre'] as String? ?? 'Mi Empresa';
-        cif = perfil['cif'] as String?;
-        direccion = perfil['direccion'] as String?;
-        ccc = perfil['ccc_ss'] as String?;
+        final rootName = data['nombre'] as String?;
+        nombreEmpresa = (perfil['nombre'] as String?)?.isNotEmpty == true
+            ? perfil['nombre'] as String
+            : (rootName?.isNotEmpty == true ? rootName! : 'Mi Empresa');
+        cif      = (perfil['cif']       as String?)?.isNotEmpty == true
+            ? perfil['cif']       as String : (data['cif']       as String?);
+        direccion = (perfil['direccion'] as String?)?.isNotEmpty == true
+            ? perfil['direccion'] as String : (data['direccion'] as String?);
+        // Leer CCC: primero raíz del doc (guardado por EmpresaConfigService), luego perfil (legado)
+        ccc      = (data['ccc_ss'] as String?)?.isNotEmpty == true
+            ? data['ccc_ss'] as String : perfil['ccc_ss'] as String?;
+        // Config nóminas: visibilidad del reverso para empleados
+        final configNominas = data['config_nominas'] as Map<String, dynamic>? ?? {};
+        mostrarCosteEmpresa = configNominas['mostrar_coste_empresa'] as bool? ?? false;
       }
     } catch (_) {}
-    return {'nombre': nombreEmpresa, 'cif': cif, 'direccion': direccion, 'ccc': ccc};
+    return {
+      'nombre': nombreEmpresa, 'cif': cif, 'direccion': direccion, 'ccc': ccc,
+      'mostrar_coste_empresa': mostrarCosteEmpresa,
+    };
   }
 
-  static Future<Uint8List> _generarBytes(Nomina nomina, String empresaId) async {
+  static Future<Map<String, String?>> _cargarGruposEmpleado(String empleadoId) async {
+    try {
+      final doc = await _db.collection('usuarios').doc(empleadoId).get();
+      final datos = (doc.data()?['datos_nomina'] as Map<String, dynamic>?) ?? {};
+      final grupoCotRaw = datos['grupo_cotizacion'] as String?;
+      String? grupoCotLabel;
+      if (grupoCotRaw != null) {
+        try {
+          final g = GrupoCotizacion.values.firstWhere((g) => g.name == grupoCotRaw);
+          grupoCotLabel = g.etiqueta;
+        } catch (_) {
+          grupoCotLabel = grupoCotRaw;
+        }
+      }
+      final grupoProf = datos['categoria_convenio'] as String? ??
+                        datos['convenio_codigo_cat'] as String?;
+      return {'grupoCotizacion': grupoCotLabel, 'grupoProfesional': grupoProf};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Future<Uint8List> _generarBytes(
+    Nomina nomina,
+    String empresaId, {
+    bool modoEmpleado = false,
+  }) async {
     final datos = await _cargarDatosEmpresa(empresaId);
+    final grupos = await _cargarGruposEmpleado(nomina.empleadoId);
+    final mostrarCosteEmpresa = datos['mostrar_coste_empresa'] as bool? ?? false;
     return generarNominaPdf(
       nomina,
       nombreEmpresa: datos['nombre'],
       cifEmpresa: datos['cif'],
       direccionEmpresa: datos['direccion'],
       cccEmpresa: datos['ccc'],
+      grupoProfesional: grupos['grupoProfesional'],
+      grupoCotizacion: grupos['grupoCotizacion'],
+      // Admin siempre ve el reverso. Empleado solo si la empresa lo activa.
+      mostrarReverso: !modoEmpleado || mostrarCosteEmpresa,
     );
   }
 
-  /// Abre una pantalla dedicada con vista previa del PDF y botón de retroceso.
+  /// Abre el PDF de la nómina.
+  /// - Desktop (Windows/macOS/Linux): guarda en temp y abre con el visor del SO.
+  /// - Web: descarga directamente.
+  /// - Móvil: pantalla de vista previa en la app.
   static Future<void> verNominaPdf(
     BuildContext context,
     Nomina nomina,
-    String empresaId,
-  ) async {
+    String empresaId, {
+    bool modoEmpleado = false,
+  }) async {
+    final isDesktop = !kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+
+    if (isDesktop || kIsWeb) {
+      // Desktop/Web: generar bytes y abrir/descargar directamente
+      try {
+        final bytes = await _generarBytes(nomina, empresaId, modoEmpleado: modoEmpleado);
+        if (kIsWeb) {
+          final nombre = 'Nomina_${nomina.empleadoNombre.replaceAll(' ', '_')}_${nomina.periodo}.pdf';
+          await Printing.sharePdf(bytes: bytes, filename: nombre);
+          return;
+        }
+        // Desktop: guardar en temp y abrir con el visor del SO
+        final dir  = await getTemporaryDirectory();
+        final nombre = 'Nomina_${nomina.empleadoNombre.replaceAll(' ', '_')}_${nomina.periodo.replaceAll(' ', '_')}.pdf';
+        final file = File('${dir.path}/$nombre');
+        await file.writeAsBytes(bytes);
+        final uri = Uri.file(file.path);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri);
+        } else if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('PDF guardado en: ${file.path}')),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error al generar PDF: $e'),
+                backgroundColor: Colors.red),
+          );
+        }
+      }
+      return;
+    }
+
+    // Móvil: pantalla de vista previa en la app
+    if (!context.mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => _NominaPdfPreviewScreen(
           nomina: nomina,
           empresaId: empresaId,
+          modoEmpleado: modoEmpleado,
         ),
       ),
     );
@@ -1025,11 +1134,22 @@ class NominaPdfService {
   }
 
   /// Muestra un diálogo para elegir cómo enviar: correo directo o compartir.
+  /// En Desktop (Windows/macOS/Linux) guarda el PDF en disco y abre el visor.
   static Future<void> enviarNominaPorCorreo(
     BuildContext context,
     Nomina nomina,
-    String empresaId,
-  ) async {
+    String empresaId, {
+    bool modoEmpleado = false,
+  }) async {
+    final isDesktop = !kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+
+    if (isDesktop) {
+      // En desktop: guardar y abrir directamente, sin diálogo de share
+      await verNominaPdf(context, nomina, empresaId, modoEmpleado: modoEmpleado);
+      return;
+    }
+
     final opcion = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1045,7 +1165,7 @@ class NominaPdfService {
               onTap: () => Navigator.pop(ctx, 'email'),
             ),
             ListTile(
-              leading: const Icon(Icons.share, color: Color(0xFF0D47A1)),
+              leading: const Icon(Icons.share, color: Color(0xFF4F46E5)),
               title: const Text('Compartir PDF'),
               subtitle: const Text('WhatsApp, Telegram, etc.'),
               onTap: () => Navigator.pop(ctx, 'share'),
@@ -1064,7 +1184,7 @@ class NominaPdfService {
     if (opcion == null || !context.mounted) return;
 
     try {
-      final bytes = await _generarBytes(nomina, empresaId);
+      final bytes = await _generarBytes(nomina, empresaId, modoEmpleado: modoEmpleado);
 
       // En Web no existe dart:io — compartir directamente con Printing
       if (kIsWeb) {
@@ -1140,10 +1260,12 @@ class NominaPdfService {
 class _NominaPdfPreviewScreen extends StatelessWidget {
   final Nomina nomina;
   final String empresaId;
+  final bool modoEmpleado;
 
   const _NominaPdfPreviewScreen({
     required this.nomina,
     required this.empresaId,
+    this.modoEmpleado = false,
   });
 
   @override
@@ -1151,7 +1273,7 @@ class _NominaPdfPreviewScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('PDF — ${nomina.empleadoNombre}'),
-        backgroundColor: const Color(0xFF0D47A1),
+        backgroundColor: const Color(0xFF4F46E5),
         foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -1162,13 +1284,13 @@ class _NominaPdfPreviewScreen extends StatelessWidget {
             icon: const Icon(Icons.share),
             tooltip: 'Compartir',
             onPressed: () => NominaPdfService.enviarNominaPorCorreo(
-              context, nomina, empresaId,
+              context, nomina, empresaId, modoEmpleado: modoEmpleado,
             ),
           ),
         ],
       ),
       body: PdfPreview(
-        build: (_) => NominaPdfService._generarBytes(nomina, empresaId),
+        build: (_) => NominaPdfService._generarBytes(nomina, empresaId, modoEmpleado: modoEmpleado),
         canChangePageFormat: false,
         canChangeOrientation: false,
         canDebug: false,
