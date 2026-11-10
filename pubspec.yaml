@@ -23,17 +23,19 @@ dependencies:
     # Use with the CupertinoIcons class for iOS style icons.
     cupertino_icons: ^1.0.8
 
-    # Firebase — v5.x/v7.x parche seguridad TLS (eMudhra CA, oct 2026)
-    firebase_core: ^5.1.0
-    cloud_firestore: ^7.1.0
-    firebase_auth: ^7.0.1
-    firebase_messaging: ^17.0.1
-    firebase_analytics: ^13.0.1
-    firebase_storage: ^14.0.1
-    cloud_functions: ^7.0.1
-    firebase_crashlytics: ^6.0.1
-    firebase_performance: ^0.12.1
-    firebase_app_check: ^0.5.1
+    # Firebase — backport parche seguridad TLS (eMudhra CA, oct 2026)
+    # Track 4.x/6.x: usa Firebase iOS SDK 12.19.0 (disponible en CocoaPods)
+    # Track 5.x/7.x descartado: iOS SDK 12.19.3 no publicado en CocoaPods aún
+    firebase_core: ^4.15.2
+    cloud_firestore: ^6.10.2
+    firebase_auth: ^6.7.1
+    firebase_messaging: ^16.7.1
+    firebase_analytics: ^12.6.1
+    firebase_storage: ^13.6.1
+    cloud_functions: ^6.5.1
+    firebase_crashlytics: ^5.4.1
+    firebase_performance: ^0.11.7
+    firebase_app_check: ^0.4.9
 
     # State Management
     provider: ^6.1.2
@@ -177,7 +179,7 @@ dev_dependencies:
         sdk: flutter
     mockito: ^5.4.4
     build_runner: ^2.4.12
-    fake_cloud_firestore: ^4.5.0
+    fake_cloud_firestore: ^4.4.0
     flutter_launcher_icons: ^0.14.3
 
     # The "flutter_lints" package below contains a set of recommended lints to
