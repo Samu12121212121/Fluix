@@ -31,6 +31,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Clear Gradle caches
+        run: rm -rf ~/.gradle/caches ~/.gradle/wrapper/dists
+
       - name: Set up Android keystore
         run: |
           echo "${{ secrets.CM_KEYSTORE }}" | base64 --decode > $RUNNER_TEMP/keystore.jks

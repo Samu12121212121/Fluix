@@ -5,6 +5,17 @@ allprojects {
     }
 }
 
+// Permitir compilar con dependencias compiladas con Kotlin más nuevo (Firebase/GMS)
+subprojects {
+    afterEvaluate {
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
+            kotlinOptions {
+                freeCompilerArgs = freeCompilerArgs + listOf("-Xskip-metadata-version-check")
+            }
+        }
+    }
+}
+
 // Fix para plugins legacy sin namespace (ej: blue_thermal_printer) con AGP 8.x
 subprojects {
     afterEvaluate {
