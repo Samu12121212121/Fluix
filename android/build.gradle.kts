@@ -5,12 +5,12 @@ allprojects {
     }
 }
 
-// Permitir compilar con dependencias compiladas con Kotlin más nuevo (Firebase/GMS)
+// Permitir compilar con dependencias compiladas con distinta versión de Kotlin metadata (Firebase/GMS)
 subprojects {
     afterEvaluate {
         tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
-            kotlinOptions {
-                freeCompilerArgs = freeCompilerArgs + listOf("-Xskip-metadata-version-check")
+            compilerOptions {
+                freeCompilerArgs.addAll(listOf("-Xskip-metadata-version-check"))
             }
         }
     }
