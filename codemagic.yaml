@@ -24,7 +24,7 @@ workflows:
           flutter pub get
       - name: Install CocoaPods
         script: |
-          cd ios && pod install
+          cd ios && pod install --repo-update
       - name: Set up code signing
         script: |
           keychain initialize
