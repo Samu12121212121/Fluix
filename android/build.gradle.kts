@@ -24,7 +24,6 @@ allprojects {
     plugins.withId("org.jetbrains.kotlin.android") {
         tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
             compilerOptions {
-                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
                 freeCompilerArgs.addAll(listOf("-Xskip-metadata-version-check"))
             }
         }
