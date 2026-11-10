@@ -34,6 +34,25 @@ jobs:
       - name: Clear Gradle caches
         run: rm -rf ~/.gradle/caches ~/.gradle/wrapper/dists
 
+      - name: Inject Kotlin metadata compat init script
+        run: |
+          mkdir -p $HOME/.gradle/init.d
+          cat > $HOME/.gradle/init.d/kotlin-compat.gradle << 'INITEOF'
+          // Permite leer librerías (Firebase/GMS) compiladas con Kotlin más nuevo que el compiler del proyecto
+          allprojects {
+              afterEvaluate { proj ->
+                  proj.tasks.matching { it.name.startsWith("compile") && it.name.endsWith("Kotlin") }.each { task ->
+                      try {
+                          def current = task.kotlinOptions.getFreeCompilerArgs() ?: []
+                          if (!current.contains("-Xskip-metadata-version-check")) {
+                              task.kotlinOptions.setFreeCompilerArgs(current + ["-Xskip-metadata-version-check"])
+                          }
+                      } catch (Exception ignored) {}
+                  }
+              }
+          }
+          INITEOF
+
       - name: Set up Android keystore
         run: |
           echo "${{ secrets.CM_KEYSTORE }}" | base64 --decode > $RUNNER_TEMP/keystore.jks
