@@ -1,3 +1,17 @@
+// Fuerza KGP 2.4.0 en el classpath del buildscript principal, overrideando el 2.2.x que Flutter
+// bundlea en su composite build (flutter_tools/gradle). Sin esto, Gradle usa el KGP de Flutter
+// y el compiler version es 2.2.x, incompatible con Firebase/GMS compilado con Kotlin 2.4.0.
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.0")
+    }
+}
+
 allprojects {
     repositories {
         google()
@@ -5,9 +19,9 @@ allprojects {
     }
 }
 
-// Permitir compilar con dependencias compiladas con distinta versión de Kotlin metadata (Firebase/GMS)
-subprojects {
-    afterEvaluate {
+// Garantiza -Xskip-metadata-version-check en todos los subproyectos con Kotlin Android plugin
+allprojects {
+    plugins.withId("org.jetbrains.kotlin.android") {
         tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
             compilerOptions {
                 freeCompilerArgs.addAll(listOf("-Xskip-metadata-version-check"))
