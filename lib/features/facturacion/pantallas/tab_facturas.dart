@@ -1015,9 +1015,11 @@ class _TabFacturasState extends State<TabFacturas> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: SizedBox(
-            height: 160,
-            child: Center(child: slides[idx]),
+          child: ClipRect(
+            child: SizedBox(
+              height: 180,
+              child: Center(child: slides[idx]),
+            ),
           ),
         ),
       ]),

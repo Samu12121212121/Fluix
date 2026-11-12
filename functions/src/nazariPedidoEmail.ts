@@ -57,7 +57,7 @@ function _buildHtml(pedidoId: string, data: Record<string, unknown>): string {
   const nombre   = String(data.nombre      || "—");
   const email    = String(data.email       || "—");
   const metodo   = String(data.metodo_pago || "—");
-  const telefono = String((data.direccion_envio as any)?.telefono || "—");
+  const telefono = String((data.direccion_envio as any)?.telefono || data.telefono || "—");
   const subtotal = typeof data.subtotal === "number" ? data.subtotal.toFixed(2) : null;
   const envio    = typeof data.envio    === "number" ? data.envio.toFixed(2)    : null;
   const total    = typeof data.total    === "number" ? data.total.toFixed(2)    : "—";

@@ -6,7 +6,7 @@ import '../../../services/stock_service.dart';
 import '../pantallas/configurar_google_reviews_screen.dart';
 import '../../tpv/pantallas/gestionar_catalogo_screen.dart';
 
-// ── Widget de KPIs Rápidos ────────────────────────────────────────────────────
+// ── Widget de Actividad de Hoy ───────────────────────────────────────────────
 
 class WidgetKpisRapidos extends StatelessWidget {
   final String empresaId;
@@ -23,49 +23,77 @@ class WidgetKpisRapidos extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'KPIs Rápidos',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Row(
+              children: [
+                const Icon(Icons.today_rounded, color: Color(0xFF1976D2), size: 18),
+                const SizedBox(width: 6),
+                const Text(
+                  'Actividad de Hoy',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             FutureBuilder<Map<String, dynamic>>(
-              future: _obtenerKpisRapidos(),
+              future: _obtenerKpisHoy(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const SizedBox(
-                    height: 60,
+                    height: 90,
                     child: Center(child: CircularProgressIndicator()),
                   );
                 }
 
                 final data = snapshot.data ?? {};
-                final ratingPromedio =
-                    (data['rating_promedio'] ?? 0.0) as double;
-                return Row(
+                final ventasTpv = (data['ventas_tpv_hoy'] as double?) ?? 0.0;
+
+                return Column(
                   children: [
-                    Expanded(
-                        child: _buildKpiItem(
-                      'Hoy',
-                      '${data['reservas_hoy'] ?? 0}',
-                      Icons.calendar_today,
-                      Colors.blue,
-                    )),
-                    Expanded(
-                        child: _buildKpiItem(
-                      'Semana',
-                      '€${data['ingresos_semana'] ?? 0}',
-                      Icons.euro,
-                      Colors.green,
-                    )),
-                    Expanded(
-                        child: _buildKpiItem(
-                      'Rating',
-                      ratingPromedio > 0
-                          ? '${ratingPromedio.toStringAsFixed(1)} ⭐'
-                          : '- ⭐',
-                      Icons.star,
-                      Colors.orange,
-                    )),
+                    Row(
+                      children: [
+                        Expanded(child: _buildKpiItem(
+                          'Reservas',
+                          '${data['reservas_hoy'] ?? 0}',
+                          Icons.calendar_today_rounded,
+                          const Color(0xFF1976D2),
+                        )),
+                        Expanded(child: _buildKpiItem(
+                          'Fichados',
+                          '${data['fichados_hoy'] ?? 0}',
+                          Icons.schedule_rounded,
+                          const Color(0xFF388E3C),
+                        )),
+                        Expanded(child: _buildKpiItem(
+                          'Activos',
+                          '${data['activos_ahora'] ?? 0}',
+                          Icons.person_pin_rounded,
+                          const Color(0xFF00796B),
+                        )),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(child: _buildKpiItem(
+                          'Pedidos',
+                          '${data['pedidos_hoy'] ?? 0}',
+                          Icons.inventory_2_rounded,
+                          const Color(0xFFEC4899),
+                        )),
+                        Expanded(child: _buildKpiItem(
+                          'TPV',
+                          ventasTpv > 0 ? '€${ventasTpv.round()}' : '—',
+                          Icons.point_of_sale_rounded,
+                          const Color(0xFFF59E0B),
+                        )),
+                        Expanded(child: _buildKpiItem(
+                          'Tareas',
+                          '${data['tareas_activas'] ?? 0}',
+                          Icons.task_alt_rounded,
+                          const Color(0xFF14B8A6),
+                        )),
+                      ],
+                    ),
                   ],
                 );
               },
@@ -76,90 +104,102 @@ class WidgetKpisRapidos extends StatelessWidget {
     );
   }
 
-  Widget _buildKpiItem(
-      String label, String valor, IconData icono, Color color) {
+  Widget _buildKpiItem(String label, String valor, IconData icono, Color color) {
     return Column(
       children: [
         Icon(icono, color: color, size: 20),
         const SizedBox(height: 4),
-        Text(valor,
-            style: TextStyle(
-                fontSize: 18, fontWeight: FontWeight.bold, color: color)),
-        Text(label,
-            style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+        Text(
+          valor,
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: color),
+        ),
+        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
       ],
     );
   }
 
-  Future<Map<String, dynamic>> _obtenerKpisRapidos() async {
+  Future<Map<String, dynamic>> _obtenerKpisHoy() async {
     try {
       final hoy = DateTime.now();
       final inicioHoy = DateTime(hoy.year, hoy.month, hoy.day);
       final finHoy = inicioHoy.add(const Duration(days: 1));
-      final inicioSemana =
-          inicioHoy.subtract(Duration(days: hoy.weekday - 1));
+      final hoyStr =
+          '${hoy.year.toString().padLeft(4, '0')}-${hoy.month.toString().padLeft(2, '0')}-${hoy.day.toString().padLeft(2, '0')}';
 
       final db = FirebaseFirestore.instance;
       final base = db.collection('empresas').doc(empresaId);
 
-      // Reservas de hoy (colección reservas + citas)
+      // ── Reservas de hoy (reservas + citas) ──────────────────────────────────
       final reservasSnap = await base
           .collection('reservas')
-          .where('fecha_hora',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(inicioHoy))
+          .where('fecha_hora', isGreaterThanOrEqualTo: Timestamp.fromDate(inicioHoy))
           .where('fecha_hora', isLessThan: Timestamp.fromDate(finHoy))
           .count()
           .get();
       final citasSnap = await base
           .collection('citas')
-          .where('fecha_hora',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(inicioHoy))
+          .where('fecha_hora', isGreaterThanOrEqualTo: Timestamp.fromDate(inicioHoy))
           .where('fecha_hora', isLessThan: Timestamp.fromDate(finHoy))
           .count()
           .get();
-      final reservasHoy =
-          (reservasSnap.count ?? 0) + (citasSnap.count ?? 0);
+      final reservasHoy = (reservasSnap.count ?? 0) + (citasSnap.count ?? 0);
 
-      // Ingresos de la semana (facturas pagadas)
-      final facturasSnap = await base
-          .collection('facturas')
-          .where('fecha_emision',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(inicioSemana))
-          .where('estado', isEqualTo: 'pagada')
+      // ── Fichajes de hoy: empleados únicos fichados + activos ahora ───────────
+      final fichajesSnap = await base
+          .collection('fichajes')
+          .where('fecha', isEqualTo: hoyStr)
           .get();
-      final ingresosSemana = facturasSnap.docs.fold<double>(
+      final empleadoIds = fichajesSnap.docs
+          .map((d) => d.data()['empleado_id'] as String? ?? d.id)
+          .toSet();
+      final fichados = empleadoIds.length;
+      final activosAhora =
+          fichajesSnap.docs.where((d) => d.data()['salida'] == null).length;
+
+      // ── Pedidos de hoy ───────────────────────────────────────────────────────
+      final pedidosSnap = await base
+          .collection('pedidos')
+          .where('fecha_creacion', isGreaterThanOrEqualTo: Timestamp.fromDate(inicioHoy))
+          .where('fecha_creacion', isLessThan: Timestamp.fromDate(finHoy))
+          .count()
+          .get();
+      final pedidosHoy = pedidosSnap.count ?? 0;
+
+      // ── Ventas TPV de hoy (colección ventas, legacy) ─────────────────────────
+      final ventasTpvSnap = await base
+          .collection('ventas')
+          .where('fecha_hora', isGreaterThanOrEqualTo: Timestamp.fromDate(inicioHoy))
+          .where('fecha_hora', isLessThan: Timestamp.fromDate(finHoy))
+          .get();
+      final ventasTpvHoy = ventasTpvSnap.docs.fold<double>(
         0,
-        (sum, d) => sum + ((d.data()['total'] as num?)?.toDouble() ?? 0),
+        (acc, d) => acc + ((d.data()['total'] as num?)?.toDouble() ?? 0),
       );
 
-      // Rating promedio (últimas 50 valoraciones)
-      final valoracionesSnap = await base
-          .collection('valoraciones')
-          .orderBy('fecha', descending: true)
-          .limit(50)
+      // ── Tareas activas (no completadas ni canceladas) ────────────────────────
+      final tareasSnap = await base
+          .collection('tareas')
+          .where('estado', whereIn: ['pendiente', 'enProgreso', 'enRevision'])
+          .count()
           .get();
-      double totalRating = 0;
-      int countRating = 0;
-      for (final doc in valoracionesSnap.docs) {
-        final r = (doc.data()['rating'] as num?)?.toDouble();
-        if (r != null) {
-          totalRating += r;
-          countRating++;
-        }
-      }
-      final ratingPromedio =
-          countRating > 0 ? totalRating / countRating : 0.0;
+      final tareasActivas = tareasSnap.count ?? 0;
 
       return {
         'reservas_hoy': reservasHoy,
-        'ingresos_semana': ingresosSemana.round(),
-        'rating_promedio': ratingPromedio,
+        'fichados_hoy': fichados,
+        'activos_ahora': activosAhora,
+        'pedidos_hoy': pedidosHoy,
+        'ventas_tpv_hoy': ventasTpvHoy,
+        'tareas_activas': tareasActivas,
       };
     } catch (_) {
       return {
         'reservas_hoy': 0,
-        'ingresos_semana': 0,
-        'rating_promedio': 0.0,
+        'fichados_hoy': 0,
+        'activos_ahora': 0,
+        'pedidos_hoy': 0,
+        'ventas_tpv_hoy': 0.0,
+        'tareas_activas': 0,
       };
     }
   }
@@ -185,6 +225,7 @@ class WidgetReservasHoy extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
@@ -198,7 +239,8 @@ class WidgetReservasHoy extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Expanded(
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 260),
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('empresas')

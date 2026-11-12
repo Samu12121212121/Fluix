@@ -23,7 +23,7 @@ import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import Stripe from "stripe";
-import { enviarDescargaEbook } from "./resend_service";
+import { enviarDescargaEbook, enviarPdfGenerico } from "./resend_service";
 import { enviarNotificacionEmpresa } from "./utils/notificaciones";
 
 const db = admin.firestore();
@@ -137,6 +137,81 @@ async function _entregarEbooks(opts: {
     }
   }
   return { entregados, omitidos };
+}
+
+// ── Helper: email de confirmación al cliente ──────────────────────────────────
+async function _enviarConfirmacionPedido(opts: {
+  email: string;
+  nombre: string;
+  pedidoId: string;
+  items: Array<{ titulo?: string; cantidad?: number; precio?: number; es_ebook?: boolean }>;
+  total?: number;
+  subtotal?: number;
+  envio?: number;
+}): Promise<void> {
+  const { email, nombre, pedidoId, items, total, subtotal, envio } = opts;
+  const ref = pedidoId.slice(0, 8).toUpperCase();
+
+  const lineasHtml = (items || []).map(i => {
+    const titulo = i.titulo || "—";
+    const qty    = i.cantidad || 1;
+    const precio = typeof i.precio === "number" ? i.precio : 0;
+    const tipoTag = i.es_ebook ? ' <em style="color:#6b7280;font-size:11px;">(ebook)</em>' : "";
+    return `<tr>
+      <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${titulo}${tipoTag}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:center;">${qty}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:right;">${precio.toFixed(2)} €</td>
+    </tr>`;
+  }).join("");
+
+  const subtotalRow = subtotal != null ? `<tr><td colspan="2" style="padding:4px 10px;color:#6b7280;font-size:13px;">Subtotal</td><td style="padding:4px 10px;text-align:right;font-size:13px;">${subtotal.toFixed(2)} €</td></tr>` : "";
+  const envioRow    = envio    != null ? `<tr><td colspan="2" style="padding:4px 10px;color:#6b7280;font-size:13px;">Gastos de envío</td><td style="padding:4px 10px;text-align:right;font-size:13px;">${envio > 0 ? envio.toFixed(2) + " €" : "Gratis"}</td></tr>` : "";
+  const totalRow    = total    != null ? `<tr><td colspan="2" style="padding:8px 10px;font-weight:bold;border-top:2px solid #e5e7eb;font-size:14px;">TOTAL</td><td style="padding:8px 10px;text-align:right;font-weight:bold;color:#059669;border-top:2px solid #e5e7eb;font-size:14px;">${total.toFixed(2)} €</td></tr>` : "";
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><title>Pedido confirmado #${ref}</title></head>
+<body style="font-family:Arial,sans-serif;background:#f3f4f6;margin:0;padding:32px 16px;">
+  <table width="600" cellpadding="0" cellspacing="0"
+         style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08);">
+    <tr><td style="background:#6b1e2a;padding:22px 32px;">
+      <span style="color:#fff;font-size:18px;font-weight:bold;">✅ Pedido confirmado — Editorial Nazarí</span>
+    </td></tr>
+    <tr><td style="padding:28px 32px;">
+      <p style="margin:0 0 6px;font-size:20px;font-weight:bold;color:#111827;">Gracias, ${nombre || "lector/a"}.</p>
+      <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">Hemos recibido tu pedido. Referencia: <strong>#${ref}</strong></p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:20px;font-size:14px;">
+        <thead><tr style="background:#f9fafb;">
+          <th style="padding:8px 10px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;">Libro</th>
+          <th style="padding:8px 10px;text-align:center;font-size:12px;color:#6b7280;font-weight:600;">Cant.</th>
+          <th style="padding:8px 10px;text-align:right;font-size:12px;color:#6b7280;font-weight:600;">Precio</th>
+        </tr></thead>
+        <tbody>${lineasHtml}</tbody>
+        <tfoot>${subtotalRow}${envioRow}${totalRow}</tfoot>
+      </table>
+      <div style="background:#f0faf4;border:1px solid #bbf7d0;border-radius:6px;padding:16px 20px;margin-bottom:20px;">
+        <p style="margin:0;font-size:14px;color:#166534;line-height:1.6;">
+          Preparamos tu pedido con cuidado y te avisaremos cuando esté de camino.
+        </p>
+      </div>
+      <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.6;">
+        ¿Alguna duda? Escríbenos a
+        <a href="mailto:info@editorialnazari.com" style="color:#6b1e2a;">info@editorialnazari.com</a>
+      </p>
+    </td></tr>
+    <tr><td style="background:#f9fafb;padding:14px 32px;text-align:center;border-top:1px solid #e5e7eb;">
+      <p style="margin:0;font-size:11px;color:#9ca3af;">Editorial Nazarí · Granada, España</p>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await enviarPdfGenerico({
+    from: "Editorial Nazarí <noreply@fluixtech.com>",
+    to: email,
+    subject: `✅ Pedido confirmado #${ref} — Editorial Nazarí`,
+    html,
+  });
 }
 
 // ── 1. CREAR CHECKOUT EBOOK (sustituye al Cloud Run para ebooks) ───────────────
@@ -495,6 +570,7 @@ export const crearCheckoutNazari = onRequest(
       await ordenRef.set({
         email,
         nombre: nombre || "",
+        ...(telefono ? { telefono } : {}),
         zona: zona || "ES",
         metodo_pago: "stripe",
         estado: "pendiente_pago",
@@ -675,6 +751,23 @@ export const stripeWebhookNazari = onRequest(
           items: orden.items || [],
           referencia: session.id,
         });
+
+        // Email de confirmación al cliente (libros físicos — ebooks ya tienen su propio email)
+        const tieneLibroFisico = ((orden.items || []) as Array<{ es_ebook?: boolean }>).some(i => !i.es_ebook);
+        if (tieneLibroFisico) {
+          try {
+            await _enviarConfirmacionPedido({
+              email, nombre,
+              pedidoId: ordenId,
+              items: orden.items || [],
+              total:    totalPagado    ?? (orden.total    as number | undefined),
+              subtotal: subtotalPagado ?? (orden.subtotal as number | undefined),
+              envio:    envioPagado    ?? (orden.envio    as number | undefined),
+            });
+          } catch (confErr) {
+            console.warn("[Nazarí] Email confirmación cliente fallido (no crítico):", confErr);
+          }
+        }
 
         // ── Mirror a `pedidos` para que aparezca en Fluix ─────────────────────
         // Los pedidos web viven en pedidos_web_nazari; Fluix lee de pedidos.
@@ -866,6 +959,23 @@ export const onPedidoNazariPagado = onDocumentUpdated(
       items,
       referencia: `transferencia_${event.params.pedidoId}`,
     });
+
+    // Email de confirmación al cliente (libros físicos)
+    const tieneLibroFisicoTrans = (items as Array<{ es_ebook?: boolean }>).some(i => !i.es_ebook);
+    if (tieneLibroFisicoTrans) {
+      try {
+        await _enviarConfirmacionPedido({
+          email, nombre,
+          pedidoId: event.params.pedidoId,
+          items,
+          total:    despues.total    as number | undefined,
+          subtotal: despues.subtotal as number | undefined,
+          envio:    despues.envio    as number | undefined,
+        });
+      } catch (confErr) {
+        console.warn("[Nazarí] Email confirmación cliente (transferencia) fallido:", confErr);
+      }
+    }
 
     // Mirror a `pedidos` para que aparezca en Fluix (mismo patrón que Stripe)
     if (!despues.pedido_fluix_id) {

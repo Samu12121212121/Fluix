@@ -51,12 +51,14 @@ class _ModuloOperacionesScreenState extends State<ModuloOperacionesScreen> {
       return CADOperacionesScreen(empresaId: widget.empresaId);
     }
 
-    // Staff → pantalla de alertas con tab bar siempre visible (funciona en modo embebido y pushed)
+    // Staff → pantalla de alertas (funciona en modo embebido y pushed)
     final canPop = ModalRoute.of(context)?.isFirst == false;
     return Scaffold(
       backgroundColor: _kBg,
       appBar: canPop ? FluixAppBar(titulo: 'Operaciones', showLeading: true) : null,
       body: Column(children: [
+        // Cabecera inline solo cuando no hay AppBar del dashboard
+        if (!canPop) _buildHeaderStaff(),
         Container(
           color: _kSurf,
           child: Row(children: [
@@ -70,6 +72,53 @@ class _ModuloOperacionesScreenState extends State<ModuloOperacionesScreen> {
             _ListaAlertas(empresaId: widget.empresaId, soloActivas: true),
             _ListaAlertas(empresaId: widget.empresaId, soloActivas: false),
           ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildHeaderStaff() {
+    return Container(
+      color: _kSurf,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: _kBorder)),
+      ),
+      child: Row(children: [
+        Container(
+          width: 36, height: 36,
+          decoration: BoxDecoration(
+            color: _kRed.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(Icons.emergency_share_rounded, color: _kRed, size: 20),
+        ),
+        const SizedBox(width: 12),
+        const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Operaciones',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+          Text('Alertas de despacho',
+              style: TextStyle(fontSize: 12, color: _kSub)),
+        ])),
+        // Badge de alertas activas en tiempo real
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('empresas').doc(widget.empresaId)
+              .collection('alertas_despacho')
+              .where('estado', whereIn: ['pendiente', 'aceptada'])
+              .snapshots(),
+          builder: (ctx, snap) {
+            final count = snap.data?.docs.length ?? 0;
+            if (count == 0) return const SizedBox.shrink();
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: _kRed, borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text('$count activa${count == 1 ? '' : 's'}',
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+            );
+          },
         ),
       ]),
     );

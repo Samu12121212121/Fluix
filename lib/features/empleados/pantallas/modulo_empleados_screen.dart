@@ -1558,24 +1558,6 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
       if (_esPropietario)
         (Icons.tune_rounded, 'Configurar módulos', const Color(0xFF7C3AED),
             () { onBeforeNavigate?.call(); _abrirModulos(id, nombre); }),
-      if (_esPropietario)
-        (Icons.person_pin_outlined, 'Portal del empleado (admin)', _kBlue,
-            () {
-              onBeforeNavigate?.call();
-              if (wide) {
-                _mostrarSubPantalla(
-                  PortalEmpleadoScreen(
-                    empresaId: widget.empresaId,
-                    empleadoUid: id,
-                    modoAdmin: true,
-                    isDark: _isDark,
-                  ),
-                  'Portal · $nombre',
-                );
-              } else {
-                _abrirPortalEmpleado(context, id, nombre);
-              }
-            }),
     ];
 
     return items.map((item) => InkWell(
@@ -2292,7 +2274,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
       builder: (_) => Scaffold(
         backgroundColor: _bg,
         appBar: FluixAppBar(
-          titulo: 'Portal · $nombre',
+          titulo: 'Mi portal',
           showLeading: true,
         ),
         body: ColoredBox(
@@ -2300,7 +2282,7 @@ class _ModuloEmpleadosScreenState extends State<ModuloEmpleadosScreen>
           child: PortalEmpleadoScreen(
             empresaId: widget.empresaId,
             empleadoUid: uid,
-            modoAdmin: true,
+            modoAdmin: false,
             isDark: _isDark,
           ),
         ),

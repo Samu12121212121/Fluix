@@ -243,7 +243,26 @@ class _State extends State<PantallaAlertaDespacho>
     if (!isWide) {
       return Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
-        body: SafeArea(child: contenido),
+        body: SafeArea(child: Column(children: [
+          // Barra de navegación móvil (cerrar / título)
+          Container(
+            height: 44,
+            color: col,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(children: [
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                padding: EdgeInsets.zero,
+                tooltip: 'Cerrar',
+              ),
+              const SizedBox(width: 4),
+              Text('Alerta de despacho',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+            ]),
+          ),
+          Expanded(child: contenido),
+        ])),
       );
     }
 

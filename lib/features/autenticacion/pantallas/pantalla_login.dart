@@ -17,7 +17,6 @@ import 'pantalla_verificacion_2fa.dart';
 
 class PantallaLogin extends StatefulWidget {
   const PantallaLogin({super.key});
-
   @override
   State<PantallaLogin> createState() => _PantallaLoginState();
 }
@@ -39,173 +38,266 @@ class _PantallaLoginState extends State<PantallaLogin> {
 
   bool get _ocupado => _cargando || _cargandoDemo;
 
+  // ── COLORES ───────────────────────────────────────────────────────────────
+
+  static const _darkBg    = Color(0xFF070B14);
+  static const _green     = Color(0xFF4ADE80);
+  static const _greenDark = Color(0xFF15703A);
+  static const _textDark  = Color(0xFF0E1626);
+  static const _textMuted = Color(0xFF566072);
+  static const _textHint  = Color(0xFF6B7485);
+  static const _borderNormal = Color(0xFFC3C9D4);
+
+  OutlineInputBorder _borde([Color? c]) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: BorderSide(color: c ?? _borderNormal),
+  );
+
+  InputDecoration _decoCampo({required String hint, required Widget prefix, Widget? suffix}) => InputDecoration(
+    hintText: hint,
+    hintStyle: const TextStyle(color: _textHint),
+    prefixIcon: prefix,
+    suffixIcon: suffix,
+    border: _borde(), enabledBorder: _borde(),
+    focusedBorder: _borde(_greenDark),
+    errorBorder: _borde(Colors.red), focusedErrorBorder: _borde(Colors.red),
+    filled: true, fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+  );
+
+  // ── BUILD ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0F23),
-      resizeToAvoidBottomInset: false,
+      backgroundColor: _darkBg,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Spacer(flex: 1),
-                  _buildLogo(),
-                  const SizedBox(height: 48),
-                  _buildLoginForm(),
-                  const SizedBox(height: 32),
-                  _buildFooterLinks(),
-                  const Spacer(flex: 1),
-                ],
-              ),
-            );
-          },
+          builder: (_, c) => c.maxWidth >= 800 ? _buildWide() : _buildMobile(),
         ),
       ),
     );
   }
 
-  Widget _buildLogo() {
-    return Column(
-      children: [
-        Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF00FFC8), Color(0xFFFF3296)], // Cian a magenta
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF00FFC8).withValues(alpha: 0.4),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+  // ── LAYOUT WIDE (desktop / tablet) ────────────────────────────────────────
+
+  Widget _buildWide() => Row(children: [
+    Expanded(flex: 55, child: _buildPanelIzquierdo()),
+    Expanded(flex: 45, child: _buildPanelDerecho()),
+  ]);
+
+  Widget _buildPanelIzquierdo() {
+    return Container(
+      color: _darkBg,
+      padding: const EdgeInsets.all(56),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildMarca(),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(width: 72, height: 6, color: _green),
+              const SizedBox(height: 28),
+              RichText(
+                text: const TextSpan(
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 52,
+                    height: 1.02,
+                    letterSpacing: -1.5,
+                    color: Color(0xFFEAF0FA),
+                  ),
+                  children: [
+                    TextSpan(text: 'Tu negocio,\n'),
+                    TextSpan(
+                      text: 'en una sola\npantalla.',
+                      style: TextStyle(color: _green),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
+              Wrap(
+                spacing: 24, runSpacing: 14,
+                children: ['Reservas', 'TPV', 'Fichajes', 'Facturación']
+                    .map((f) => Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.check, color: _green, size: 20),
+                            const SizedBox(width: 10),
+                            Text(f, style: const TextStyle(color: Color(0xFFEAF0FA), fontSize: 16, fontWeight: FontWeight.w500)),
+                          ],
+                        ))
+                    .toList(),
               ),
             ],
           ),
-          child: const Icon(
-            Icons.business_center_rounded,
-            color: Color(0xFF0A0F23),
-            size: 60,
+          const Text(
+            'Para hostelería, peluquería y comercio.',
+            style: TextStyle(fontSize: 13, color: Color(0xFF9AA7BF)),
           ),
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'Fluix',
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF00FFC8), // Cian brillante
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Descubre y planea en tu ciudad',
-          style: TextStyle(fontSize: 16, color: Color(0xFFB0B3C1)), // Gris claro
-          textAlign: TextAlign.center,
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildLoginForm() {
+  Widget _buildPanelDerecho() {
+    return Container(
+      color: Colors.white,
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 56),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: _buildContenidoFormulario(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── LAYOUT MOBILE ─────────────────────────────────────────────────────────
+
+  Widget _buildMobile() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 48, 24, 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(child: _buildMarca()),
+          const SizedBox(height: 40),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            padding: const EdgeInsets.all(28),
+            child: _buildContenidoFormulario(compact: true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── WIDGETS COMUNES ───────────────────────────────────────────────────────
+
+  Widget _buildMarca() => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(color: _green, borderRadius: BorderRadius.circular(10)),
+        child: const Center(
+          child: Text('F', style: TextStyle(color: Color(0xFF052E16), fontSize: 24, fontWeight: FontWeight.w800)),
+        ),
+      ),
+      const SizedBox(width: 12),
+      const Text('Fluix', style: TextStyle(color: Color(0xFFEAF0FA), fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+    ],
+  );
+
+  Widget _buildContenidoFormulario({bool compact = false}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        'Iniciar sesión',
+        style: TextStyle(color: _textDark, fontSize: compact ? 24 : 30, fontWeight: FontWeight.w700, letterSpacing: -0.5),
+      ),
+      const SizedBox(height: 6),
+      const Text('Introduce tus datos para acceder.', style: TextStyle(color: _textMuted, fontSize: 14)),
+      SizedBox(height: compact ? 20 : 28),
+      _buildFormulario(),
+      SizedBox(height: compact ? 16 : 20),
+      _buildDivisor(),
+      SizedBox(height: compact ? 16 : 20),
+      _buildEnlacesInferiores(),
+    ],
+  );
+
+  Widget _buildFormulario() {
     return Form(
       key: _formKey,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text('Correo electrónico', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: _textDark)),
+          const SizedBox(height: 8),
           TextFormField(
             controller: _correoController,
             keyboardType: TextInputType.emailAddress,
             enabled: !_ocupado,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              labelText: 'Correo electrónico',
-              labelStyle: const TextStyle(color: Color(0xFFB0B3C1)),
-              prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF00FFC8)),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF2A2E45)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF2A2E45)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF00FFC8), width: 2),
-              ),
-              filled: true,
-              fillColor: const Color(0xFF1E2139),
+            style: const TextStyle(color: _textDark, fontSize: 15),
+            decoration: _decoCampo(
+              hint: 'tu@correo.es',
+              prefix: const Icon(Icons.email_outlined, color: _textMuted, size: 18),
             ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) return 'Por favor ingresa tu correo';
-              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
-                return 'Ingresa un correo válido';
-              }
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'Por favor ingresa tu correo';
+              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v.trim())) return 'Correo inválido';
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Contraseña', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: _textDark)),
+              TextButton(
+                onPressed: _ocupado ? null : _restablecerPassword,
+                style: TextButton.styleFrom(
+                  foregroundColor: _greenDark,
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('¿La has olvidado?', style: TextStyle(fontSize: 13)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           TextFormField(
             controller: _passwordController,
             obscureText: _obscurePassword,
             enabled: !_ocupado,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              labelText: 'Contraseña',
-              labelStyle: const TextStyle(color: Color(0xFFB0B3C1)),
-              prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF00FFC8)),
-              suffixIcon: IconButton(
-                icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off, color: Color(0xFFB0B3C1)),
+            style: const TextStyle(color: _textDark, fontSize: 15),
+            decoration: _decoCampo(
+              hint: 'Tu contraseña',
+              prefix: const Icon(Icons.lock_outline, color: _textMuted, size: 18),
+              suffix: IconButton(
+                icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: _textMuted, size: 18),
                 onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
               ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF2A2E45)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF2A2E45)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF00FFC8), width: 2),
-              ),
-              filled: true,
-              fillColor: const Color(0xFF1E2139),
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) return 'Por favor ingresa tu contraseña';
-              return null;
-            },
+            validator: (v) => (v == null || v.isEmpty) ? 'Por favor ingresa tu contraseña' : null,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
-            height: 56,
+            height: 52,
             child: ElevatedButton(
               onPressed: _ocupado ? null : _iniciarSesion,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00FFC8), // Cian brillante
-                foregroundColor: const Color(0xFF0A0F23), // Texto oscuro
+                backgroundColor: _darkBg,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: const Color(0xFFCBCFD8),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 elevation: 0,
               ),
               child: _cargando
-                  ? const SizedBox(
-                height: 20, width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0A0F23)),
-              )
-                  : const Text(
-                'Iniciar Sesión',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Iniciar sesión', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        SizedBox(width: 10),
+                        Icon(Icons.arrow_forward, size: 18, color: _green),
+                      ],
+                    ),
             ),
           ),
         ],
@@ -213,65 +305,48 @@ class _PantallaLoginState extends State<PantallaLogin> {
     );
   }
 
-  Widget _buildFooterLinks() {
-    return Column(
-      children: [
-        TextButton(
-          onPressed: _ocupado ? null : _restablecerPassword,
+  Widget _buildDivisor() => const Row(children: [
+    Expanded(child: Divider(color: Color(0xFFE3E6EB))),
+    Padding(
+      padding: EdgeInsets.symmetric(horizontal: 12),
+      child: Text('¿Aún no tienes cuenta?', style: TextStyle(fontSize: 13, color: _textMuted)),
+    ),
+    Expanded(child: Divider(color: Color(0xFFE3E6EB))),
+  ]);
+
+  Widget _buildEnlacesInferiores() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      SizedBox(
+        height: 48,
+        child: OutlinedButton(
+          onPressed: _ocupado ? null : () => mostrarFormRegistro(context),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _greenDark,
+            side: const BorderSide(color: _greenDark),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: const Text('Regístrate', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        ),
+      ),
+      const SizedBox(height: 16),
+      Center(
+        child: TextButton(
+          onPressed: _ocupado ? null : () => mostrarFormContactoInteres(context),
+          style: TextButton.styleFrom(foregroundColor: _textMuted),
           child: const Text(
-            '¿Olvidaste tu contraseña?',
-            style: TextStyle(color: Color(0xFF6B6E82), fontSize: 14), // Gris muted
+            'Trabaja con nosotros',
+            style: TextStyle(fontSize: 14, decoration: TextDecoration.underline, decorationColor: _textMuted),
           ),
         ),
-        const SizedBox(height: 24),
-        // ── Botones pequeños de registro ────────────────────────────────
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextButton(
-              onPressed: _ocupado
-                  ? null
-                  : () => mostrarFormRegistro(context),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFFF3296),
-                side: const BorderSide(color: Color(0xFFFF3296)),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text(
-                'Regístrate',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              ),
-            ),
-            Container(
-              width: 1, height: 16,
-              color: const Color(0xFF2A2E45),
-              margin: const EdgeInsets.symmetric(horizontal: 8),
-            ),
-            TextButton(
-              onPressed: _ocupado ? null : () => mostrarFormContactoInteres(context),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF00FFC8),
-                side: const BorderSide(color: Color(0xFF00FFC8)),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text(
-                'Trabaja con nosotros',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
 
-  // ── FIX: método _restablecerPassword que faltaba ──────────────────────────
+  // ── RESTABLECER CONTRASEÑA ────────────────────────────────────────────────
+
   Future<void> _restablecerPassword() async {
     final correo = _correoController.text.trim();
-
-    // Si el campo está vacío pedimos el correo en un diálogo
     if (correo.isEmpty) {
       final ctrl = TextEditingController();
       final ingresado = await showDialog<String>(
@@ -281,20 +356,11 @@ class _PantallaLoginState extends State<PantallaLogin> {
           content: TextField(
             controller: ctrl,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Tu correo electrónico',
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(labelText: 'Tu correo electrónico', border: OutlineInputBorder()),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-              child: const Text('Enviar'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Enviar')),
           ],
         ),
       );
@@ -311,10 +377,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
       await FirebaseAuth.instance.sendPasswordResetEmail(email: correo);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Correo de restablecimiento enviado a $correo'),
-          backgroundColor: Colors.green[700],
-        ),
+        SnackBar(content: Text('Correo de restablecimiento enviado a $correo'), backgroundColor: Colors.green[700]),
       );
     } on FirebaseAuthException catch (e) {
       _mostrarError(_mapearErrorFirebase(e));
@@ -323,9 +386,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // AUTENTICACIÓN
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── AUTENTICACIÓN ─────────────────────────────────────────────────────────
 
   Future<void> _iniciarSesion() async {
     if (!_formKey.currentState!.validate()) return;
@@ -346,8 +407,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
       await AdminInitializer.crearUsuarioAdmin();
 
       final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: correo,
-        password: password,
+        email: correo, password: password,
       );
       final user = cred.user!;
 
@@ -376,11 +436,9 @@ class _PantallaLoginState extends State<PantallaLogin> {
       await _postLoginExitoso(user, MetodoAuth.email);
 
     } on FirebaseAuthException catch (e) {
-      // internal-error: limpiar sesión caducada/revocada y reintentar
       if (e.code == 'internal-error' || e.code == 'user-token-expired') {
         try {
           await FirebaseAuth.instance.signOut();
-          // Pequeña pausa y reintento automático limpio
           await Future.delayed(const Duration(milliseconds: 800));
           final cred2 = await FirebaseAuth.instance.signInWithEmailAndPassword(
             email: correo, password: password,
@@ -427,17 +485,10 @@ class _PantallaLoginState extends State<PantallaLogin> {
     }
 
     if (!mounted) return;
-    // Redirigir según rol
     if (sesion?.rol == RolApp.clienteFinal) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const PantallaExplorar()),
-      );
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PantallaExplorar()));
     } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const PantallaDashboard()),
-      );
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PantallaDashboard()));
     }
   }
 
@@ -450,10 +501,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
         NotificacionesService().guardarTokenTrasLogin(),
       ]);
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const PantallaDashboard()),
-      );
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PantallaDashboard()));
     } catch (e) {
       _mostrarError('No se pudo iniciar la demo: $e');
     } finally {
@@ -466,20 +514,14 @@ class _PantallaLoginState extends State<PantallaLogin> {
     if (!soporta || !mounted) return;
 
     final label = await BiometriaService().labelBoton();
-
     final acepta = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         title: const Text('Acceso rápido'),
-        content: Text(
-          '¿Quieres usar $label para entrar la próxima vez sin escribir tu contraseña?',
-        ),
+        content: Text('¿Quieres usar $label para entrar la próxima vez sin escribir tu contraseña?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Ahora no'),
-          ),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Ahora no')),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF43A047)),
@@ -490,10 +532,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
     );
 
     if (acepta == true) {
-      await BiometriaService().activar(
-        uid: user.uid,
-        email: user.email ?? '',
-      );
+      await BiometriaService().activar(uid: user.uid, email: user.email ?? '');
     }
   }
 
@@ -527,24 +566,15 @@ class _PantallaLoginState extends State<PantallaLogin> {
     return '${telefono.substring(0, 3)} *** *** $visible';
   }
 
-  /// Verifica si el usuario actual (si está logueado) es propietario de plataforma.
-  /// Retorna true si tiene el rol 'propietario' o el campo 'es_plataforma_admin: true'.
   Future<bool> _esUsuarioPropietarioPlataforma() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return false;
-
-      final doc = await FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(user.uid)
-          .get();
-
+      final doc = await FirebaseFirestore.instance.collection('usuarios').doc(user.uid).get();
       if (!doc.exists) return false;
-
       final data = doc.data()!;
       final rol = data['rol'] as String?;
       final esPlataformaAdmin = data['es_plataforma_admin'] as bool? ?? false;
-
       return rol == 'propietario' || esPlataformaAdmin;
     } catch (e) {
       debugPrint('❌ Error al verificar rol propietario: $e');

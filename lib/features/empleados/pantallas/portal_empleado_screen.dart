@@ -394,6 +394,20 @@ class _PortalEmpleadoScreenState extends State<PortalEmpleadoScreen> {
                       ]),
                   const SizedBox(height: 14),
 
+                  // ── Canal de comunicación — visible nada más abrir ─────────
+                  if (!widget.standalone) ...[
+                    Text('Mensajes',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _text)),
+                    const SizedBox(height: 10),
+                    CanalComunicacionWidget(
+                      empresaId: empresaId,
+                      empleadoUid: _uid,
+                      empleadoNombre: nombre,
+                      modoAdmin: modoAdmin,
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+
                   // ── Fila media: Asistencia semana | Horario ───────────────
                   wide
                     ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -438,20 +452,6 @@ class _PortalEmpleadoScreenState extends State<PortalEmpleadoScreen> {
                       esPropietario: true,
                     )),
                   ],
-
-                  // ── Canal de comunicación (solo en modo embebido) ─────────
-                  if (!widget.standalone) ...[
-                    const SizedBox(height: 24),
-                    Text('Mensajes',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _text)),
-                    const SizedBox(height: 10),
-                    CanalComunicacionWidget(
-                      empresaId: empresaId,
-                      empleadoUid: _uid,
-                      empleadoNombre: nombre,
-                      modoAdmin: modoAdmin,
-                    ),
-                  ],
                 ],
               ),
             );
@@ -478,8 +478,12 @@ class _PortalEmpleadoScreenState extends State<PortalEmpleadoScreen> {
         final docs = snap.data?.docs ?? [];
         // Ordenar en memoria: más reciente primero
         docs.sort((a, b) {
-          final fa = (a.data() as Map)['fecha_inicio'] as String? ?? '';
-          final fb = (b.data() as Map)['fecha_inicio'] as String? ?? '';
+          dynamic rawA = (a.data() as Map)['fecha_inicio'];
+          dynamic rawB = (b.data() as Map)['fecha_inicio'];
+          final fa = rawA is Timestamp ? rawA.toDate().toIso8601String()
+              : rawA is String ? rawA : '';
+          final fb = rawB is Timestamp ? rawB.toDate().toIso8601String()
+              : rawB is String ? rawB : '';
           return fb.compareTo(fa);
         });
         final solicitudes = docs
@@ -537,8 +541,12 @@ class _PortalEmpleadoScreenState extends State<PortalEmpleadoScreen> {
               ...solicitudes.take(5).map((s) {
                 final estado   = s['estado'] as String? ?? 'solicitado';
                 final tipo     = s['tipo'] as String? ?? 'vacaciones';
-                final inicio   = s['fecha_inicio'] as String? ?? '';
-                final fin      = s['fecha_fin']    as String? ?? '';
+                final _ri = s['fecha_inicio'];
+                final inicio = _ri is Timestamp ? _ri.toDate().toIso8601String().substring(0, 10)
+                    : _ri as String? ?? '';
+                final _rf = s['fecha_fin'];
+                final fin = _rf is Timestamp ? _rf.toDate().toIso8601String().substring(0, 10)
+                    : _rf as String? ?? '';
                 final dias     = (s['dias_naturales'] as num?)?.toInt() ?? 0;
                 final esPend   = estado == 'solicitado';
                 final esApro   = estado == 'aprobado';
@@ -1009,7 +1017,10 @@ class _PortalEmpleadoScreenState extends State<PortalEmpleadoScreen> {
         final byDate = <String, Map<String, dynamic>>{};
         for (final d in snap.data?.docs ?? []) {
           final m = d.data() as Map<String, dynamic>;
-          byDate[m['fecha'] as String? ?? ''] = m;
+          final _rf = m['fecha'];
+          final fechaKey = _rf is Timestamp ? _rf.toDate().toIso8601String().substring(0, 10)
+              : _rf as String? ?? '';
+          if (fechaKey.isNotEmpty) byDate[fechaKey] = m;
         }
 
         // Total neto = bruto – pausas de cada día
