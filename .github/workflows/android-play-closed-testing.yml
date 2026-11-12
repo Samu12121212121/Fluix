@@ -1,0 +1,84 @@
+name: Android — Google Play Closed Testing (14 días)
+
+# Sube el AAB a Google Play internal track.
+# Desde Play Console → promociona a "Closed testing (alpha)"
+# → comparte el enlace con los 20 testers → empieza los 14 días.
+#
+# Secrets necesarios (GitHub → Settings → Secrets → Actions):
+#   GCLOUD_SERVICE_ACCOUNT_CREDENTIALS  — JSON de la cuenta de servicio de Google Play
+#   CM_KEYSTORE                         — Keystore en base64
+#   CM_KEYSTORE_PASSWORD
+#   CM_KEY_ALIAS
+#   CM_KEY_PASSWORD
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: 'Notas de versión (máx 500 chars)'
+        required: false
+        default: 'Portal del empleado, módulo fichajes rediseñado, despacho de operaciones y correcciones generales.'
+      track:
+        description: 'Track de publicación'
+        required: true
+        default: 'internal'
+        type: choice
+        options:
+          - internal
+          - alpha
+
+jobs:
+  play-store:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.3'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Set up Android keystore
+        run: |
+          echo "${{ secrets.CM_KEYSTORE }}" | base64 --decode > $RUNNER_TEMP/keystore.jks
+          cat >> android/key.properties <<EOF
+          storePassword=${{ secrets.CM_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.CM_KEY_PASSWORD }}
+          keyAlias=${{ secrets.CM_KEY_ALIAS }}
+          storeFile=$RUNNER_TEMP/keystore.jks
+          EOF
+
+      - name: Build release AAB
+        run: flutter build appbundle --release
+
+      - name: Upload AAB to Google Play
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GCLOUD_SERVICE_ACCOUNT_CREDENTIALS }}
+          packageName: com.fluixtech.crm
+          releaseFiles: build/app/outputs/bundle/release/*.aab
+          track: ${{ github.event.inputs.track }}
+          status: completed
+          releaseName: Fluix ${{ github.run_number }}
+          changesNotSentForReview: false
+          inAppUpdatePriority: 2
+          whatsNewDirectory: .github/play-whatsnew
+
+      - name: Save AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fluix-release-aab
+          path: build/app/outputs/bundle/release/*.aab
+          retention-days: 30

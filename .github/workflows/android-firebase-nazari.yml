@@ -1,0 +1,64 @@
+name: Android — Firebase (3 Testers Nazarí)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: 'Notas para los testers Nazarí'
+        required: false
+        default: 'Nueva versión de Fluix para revisión interna — Portal empleado, fichajes y operaciones.'
+
+jobs:
+  distribute:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.3'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Set up Android keystore
+        run: |
+          echo "${{ secrets.CM_KEYSTORE }}" | base64 --decode > $RUNNER_TEMP/keystore.jks
+          cat >> android/key.properties <<EOF
+          storePassword=${{ secrets.CM_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.CM_KEY_PASSWORD }}
+          keyAlias=${{ secrets.CM_KEY_ALIAS }}
+          storeFile=$RUNNER_TEMP/keystore.jks
+          EOF
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload to Firebase App Distribution (Nazarí x3)
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: 1:1085482191658:android:e514126ea27731a3d62c53
+          token: ${{ secrets.FIREBASE_TOKEN }}
+          testers: editorialnazari@gmail.com,eventos@editorialnazari.com,editorialacentuarte@gmail.com
+          releaseNotes: |
+            ${{ github.event.inputs.release_notes }}
+
+            ─── CÓMO INSTALAR EN ANDROID ─────────────
+            1. Abre este correo desde el móvil y pulsa "Download"
+            2. Si es la primera vez, instala "Firebase App Tester" — acéptalo
+            3. Dentro de Firebase App Tester pulsa "Download" sobre Fluix
+            4. Si el móvil pide "instalar apps de fuentes desconocidas", acepta
+            5. Abre Fluix e inicia sesión con tu usuario habitual
+
+            Si ya tenías Fluix instalado se actualizará automáticamente.
+          file: build/app/outputs/flutter-apk/app-release.apk
