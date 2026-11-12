@@ -49,7 +49,7 @@ jobs:
         with:
           appId: 1:1085482191658:android:e514126ea27731a3d62c53
           token: ${{ secrets.FIREBASE_TOKEN }}
-          testers: sacoor80@gmail.com,editorialnazari@gmail.com,eventos@editorialnazari.com,editorialacentuarte@gmail.com,alvarolanga1@gmail.com,datl@gmail.com,judastadeo1@hotmail.com,luciarodriguezsobrinoclase@gmail.com,damajuanaguadalajara@gmail.com,aguedesamado@gmail.com,anasofiasota82@gmail.com,bryanmagro19@gmail.com,sandra.cerezo.montes@gmail.com,mrr300042@gmail.com,diegoms214@gmail.com
+          testers: editorialnazari@gmail.com,eventos@editorialnazari.com,editorialacentuarte@gmail.com
           releaseNotes: |
             ─── NOVEDADES EN FLUIX v1.0.20 ─────────────
             • Portal del empleado: consulta turnos, fichajes y mensajes desde el móvil
