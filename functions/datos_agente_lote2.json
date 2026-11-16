@@ -1,0 +1,250 @@
+[
+  {
+    "id": "dark_comics",
+    "nombre": "Dark Cómics",
+    "telefono": "+34949228999",
+    "direccion": "Cuesta del Matadero, 13, 19001 Guadalajara",
+    "web": "https://www.darkcomics.es",
+    "ratingGoogle": 4.5
+  },
+  {
+    "id": "diamond_crew_tattoo",
+    "nombre": "Diamond Crew Tattoo",
+    "telefono": "+34635078779",
+    "direccion": "Av. de Castilla, 23A, 19002 Guadalajara",
+    "web": "https://diamondcrewtattoo.es"
+  },
+  {
+    "id": "dioses_del_carton",
+    "nombre": "Dioses del Cartón"
+  },
+  {
+    "id": "dom_henrique",
+    "nombre": "Dom Henrique",
+    "telefono": "+34610430703",
+    "direccion": "Plaza Virgen de la Antigua, 11, 19001 Guadalajara",
+    "web": "https://domhenriquecm.com"
+  },
+  {
+    "id": "donde_julieta",
+    "nombre": "Donde Julieta",
+    "telefono": "+34949210711",
+    "direccion": "Calle Juan Bautista Topete, 8, 19001 Guadalajara"
+  },
+  {
+    "id": "el_gusto_cocina_de_autor",
+    "nombre": "El Gusto - Cocina de Autor",
+    "telefono": "+34682283927",
+    "direccion": "Plaza de España, 19001 Guadalajara"
+  },
+  {
+    "id": "el_obrador",
+    "nombre": "El Obrador",
+    "telefono": "+34623765087",
+    "direccion": "C/ Rufino Blanco, 8, 19002 Guadalajara",
+    "web": "https://elobradorgu.es"
+  },
+  {
+    "id": "el_octavo_arte_de_la_carne",
+    "nombre": "El Octavo Arte de la Carne",
+    "telefono": "+34949874626",
+    "direccion": "Calle Zaragoza, 2, 19005 Guadalajara",
+    "web": "http://www.eloctavoartedelacarne.es"
+  },
+  {
+    "id": "el_pasadizo",
+    "nombre": "El Pasadizo"
+  },
+  {
+    "id": "el_perdigacho",
+    "nombre": "El Perdigacho",
+    "telefono": "+34949255899",
+    "direccion": "Calle Bardales, 6, 19001 Guadalajara",
+    "web": "https://elperdigacho.es"
+  },
+  {
+    "id": "el_vacio_tattoo",
+    "nombre": "El Vacío Tattoo",
+    "telefono": "+34626871478",
+    "direccion": "C. Antonio Buero Vallejo, 21, 19004 Guadalajara",
+    "web": "https://www.elvaciotattoo.com"
+  },
+  {
+    "id": "elige3d",
+    "nombre": "Elige3D",
+    "telefono": "+34622931061",
+    "web": "https://www.elige3d.com"
+  },
+  {
+    "id": "estudio_checa",
+    "nombre": "Estudio Checa",
+    "telefono": "+34949214517",
+    "direccion": "C. del Ferial, 13, 19002 Guadalajara",
+    "ratingGoogle": 4.7
+  },
+  {
+    "id": "estudio_erzulie",
+    "nombre": "Estudio Erzulie",
+    "telefono": "+34658823697",
+    "direccion": "Calle Alonso Núñez de Reinoso, 18, 19002 Guadalajara",
+    "web": "https://estudioerzulie.es",
+    "ratingGoogle": 4.9
+  },
+  {
+    "id": "fara_tattoo",
+    "nombre": "Fara-Tattoo",
+    "telefono": "+34630849469",
+    "direccion": "C. Prado Taracena, 9, 19005 Guadalajara"
+  },
+  {
+    "id": "fashion_outlet",
+    "nombre": "Fashion Outlet",
+    "telefono": "+34949491165",
+    "direccion": "C. Francisco Medina, 12, 19002 Guadalajara"
+  },
+  {
+    "id": "ferman",
+    "nombre": "Ferman",
+    "telefono": "+34949220585",
+    "direccion": "C/ Mayor, 37, 19001 Guadalajara"
+  },
+  {
+    "id": "festin_mascotas",
+    "nombre": "Festín Mascotas",
+    "telefono": "+34691037537",
+    "direccion": "Avenida del Atance, 13, local 2, 19005 Guadalajara",
+    "web": "https://festinmascotas.es"
+  },
+  {
+    "id": "flores_jazmin",
+    "nombre": "Flores Jazmín",
+    "telefono": "+34677651149",
+    "direccion": "Calle Dr. Layna Serrano, 20C, 19002 Guadalajara"
+  },
+  {
+    "id": "flores_susan",
+    "nombre": "Flores Susan",
+    "telefono": "+34949229580",
+    "direccion": "C. de la Virgen de la Soledad, 26, 19003 Guadalajara"
+  },
+  {
+    "id": "floristeria_amapola",
+    "nombre": "Floristería Amapola",
+    "telefono": "+34949220439",
+    "direccion": "C. del Cardenal González de Mendoza, 31, 19004 Guadalajara",
+    "ratingGoogle": 4.6
+  },
+  {
+    "id": "floristeria_floristas_clara",
+    "nombre": "Floristería Floristas Clara",
+    "telefono": "+34627403191",
+    "direccion": "C/ Hnos. Fernández Galiano, 3, 19001 Guadalajara"
+  },
+  {
+    "id": "floristeria_hedu",
+    "nombre": "Floristería Hedu",
+    "telefono": "+34949215032",
+    "direccion": "C. Donante de Sangre, 7, 19002 Guadalajara",
+    "web": "https://www.floristeriahedu.es",
+    "ratingGoogle": 4.2
+  },
+  {
+    "id": "floristeria_verdenace",
+    "nombre": "Floristería Verdenace",
+    "telefono": "+34949219703",
+    "direccion": "Calle Antonio Lozano Viñes, 4, 19001 Guadalajara",
+    "web": "https://floristeriaverdenace.com"
+  },
+  {
+    "id": "goiko",
+    "nombre": "GOIKO",
+    "telefono": "+34949314780",
+    "direccion": "Av. Eduardo Guitián, 13-19, C.C. Ferial Plaza, 19002 Guadalajara",
+    "web": "https://www.goiko.com"
+  },
+  {
+    "id": "golden_estilistas",
+    "nombre": "Golden Estilistas",
+    "telefono": "+34949872161",
+    "direccion": "C. de Pastrana, 5, 19002 Guadalajara",
+    "ratingGoogle": 4.8
+  },
+  {
+    "id": "grand_elegant",
+    "nombre": "Grand Elegant"
+  },
+  {
+    "id": "gustos_de_antes",
+    "nombre": "Gustos de Antes",
+    "telefono": "+34638733725",
+    "direccion": "Plaza Virgen de la Antigua, 23, Mercado de Abastos, 19001 Guadalajara"
+  },
+  {
+    "id": "halo_nail",
+    "nombre": "Halo Nail",
+    "direccion": "Calle Mayor, 16, 19001 Guadalajara",
+    "ratingGoogle": 4.9
+  },
+  {
+    "id": "hammam_spa_luxury",
+    "nombre": "Hammam Spa Luxury",
+    "telefono": "+34949411603",
+    "direccion": "Av. del Ejército, 13, 19004 Guadalajara"
+  },
+  {
+    "id": "haunails",
+    "nombre": "HauNails"
+  },
+  {
+    "id": "hello_nails_guadalajara",
+    "nombre": "Hello Nails Guadalajara"
+  },
+  {
+    "id": "hierba_de_nacar",
+    "nombre": "Hierba de Nácar",
+    "telefono": "+34949217063",
+    "direccion": "C. de Sigüenza, 3, 19003 Guadalajara",
+    "web": "https://hierbadenacar.com"
+  },
+  {
+    "id": "ic_belleza_pro",
+    "nombre": "IC Belleza Pro",
+    "telefono": "+34949256135",
+    "direccion": "Calle Dr. Layna Serrano, 28, 19002 Guadalajara",
+    "web": "https://icbellezapro.sedinfo.es"
+  },
+  {
+    "id": "ikebana_floristeria",
+    "nombre": "Ikebana Floristería",
+    "telefono": "+34949492728",
+    "direccion": "C/ Pedro Pascual, 15, 19001 Guadalajara"
+  },
+  {
+    "id": "imperfect_brunch",
+    "nombre": "Imperfect Brunch",
+    "telefono": "+34627639403",
+    "direccion": "C. Mayor, 16, 19001 Guadalajara"
+  },
+  {
+    "id": "impresiones_3d_guadalajara",
+    "nombre": "Impresiones 3D Guadalajara"
+  },
+  {
+    "id": "jose_carniceria_salchicheria",
+    "nombre": "Jose Carnicería Salchichería",
+    "telefono": "+34949230103",
+    "direccion": "C. Alcalá de Henares, 5, 19003 Guadalajara"
+  },
+  {
+    "id": "juanita_taberna",
+    "nombre": "Juanita Taberna",
+    "telefono": "+34949382919",
+    "direccion": "Calle Marqués de Santillana, 9, 19002 Guadalajara"
+  },
+  {
+    "id": "juegakens_toy_games",
+    "nombre": "JuegaKens (Toy Games)",
+    "telefono": "+34616060659",
+    "direccion": "C. de Francisco Aritio, 164, Oficina 214, 19004 Guadalajara"
+  }
+]

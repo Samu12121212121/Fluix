@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reporte — Módulo de Operaciones (Ambulancias)</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d2e;
+      --surface2: #242740;
+      --border: #2e3250;
+      --accent: #6366f1;
+      --accent2: #22d3ee;
+      --success: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --code-bg: #0d1117;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.65;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 2.5rem 3rem;
+    }
+
+    header .badge {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 999px;
+      margin-bottom: 0.75rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.4rem;
+    }
+
+    header p.subtitle {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .meta {
+      display: flex;
+      gap: 2rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .meta span {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .meta strong { color: var(--text); }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.5rem 2rem;
+    }
+
+    /* ── TOC ── */
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .toc h2 {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .toc ol {
+      list-style: decimal;
+      padding-left: 1.25rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.35rem 2rem;
+    }
+
+    .toc a {
+      color: var(--accent2);
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    .toc a:hover { text-decoration: underline; }
+
+    /* ── Sections ── */
+    section {
+      margin-bottom: 3rem;
+    }
+
+    section h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #fff;
+      border-left: 3px solid var(--accent);
+      padding-left: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    section h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--accent2);
+      margin: 1.5rem 0 0.75rem;
+    }
+
+    p { color: var(--text); margin-bottom: 0.75rem; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .card.warn { border-left: 3px solid var(--warn); }
+    .card.danger { border-left: 3px solid var(--danger); }
+    .card.success { border-left: 3px solid var(--success); }
+    .card.info { border-left: 3px solid var(--accent2); }
+
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .pill {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .pill-danger { background: rgba(239,68,68,.2); color: #fca5a5; }
+    .pill-warn   { background: rgba(245,158,11,.2); color: #fcd34d; }
+    .pill-success{ background: rgba(34,197,94,.2);  color: #86efac; }
+    .pill-info   { background: rgba(34,211,238,.2); color: #67e8f9; }
+    .pill-muted  { background: rgba(148,163,184,.15); color: var(--muted); }
+
+    /* ── Code blocks ── */
+    pre {
+      background: var(--code-bg);
+      border: 1px solid #1e2a3a;
+      border-radius: 8px;
+      padding: 1.25rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+
+    code {
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: #cdd9e5;
+    }
+
+    p code, li code {
+      background: rgba(99,102,241,.15);
+      color: #a5b4fc;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 0.85em;
+    }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 1rem 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    thead tr { background: var(--surface2); }
+    th {
+      text-align: left;
+      padding: 10px 14px;
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,.025); }
+
+    /* ── Flow diagram ── */
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      flex-wrap: wrap;
+      margin: 1.5rem 0;
+      row-gap: 0.5rem;
+    }
+
+    .flow-step {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .flow-arrow {
+      color: var(--muted);
+      padding: 0 0.4rem;
+      font-size: 1.1rem;
+    }
+
+    /* ── Improvement list ── */
+    .improve-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    @media (max-width: 700px) {
+      .improve-grid { grid-template-columns: 1fr; }
+      .toc ol { grid-template-columns: 1fr; }
+      header { padding: 1.5rem; }
+      main { padding: 1.5rem 1rem; }
+    }
+
+    .improve-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+    }
+
+    .improve-card .num {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--border);
+      line-height: 1;
+      margin-bottom: 0.5rem;
+    }
+
+    .improve-card h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.4rem;
+    }
+
+    .improve-card p {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .improve-card .effort {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    ul.list {
+      padding-left: 1.25rem;
+      margin-bottom: 0.75rem;
+    }
+
+    ul.list li {
+      margin-bottom: 0.4rem;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2.5rem 0;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="badge">Análisis técnico</div>
+  <h1>Módulo de Operaciones — Ambulancias</h1>
+  <p class="subtitle">Análisis del cálculo de rutas, fiabilidad del sistema de mapas y propuestas de mejora</p>
+  <div class="meta">
+    <span><strong>Proyecto:</strong> Fluix / PlaneaG</span>
+    <span><strong>Fecha:</strong> 6 de noviembre de 2026</span>
+    <span><strong>Archivos analizados:</strong> osrm_service.dart · vehiculos_service.dart · cad_simulation.dart · vehiculo_cad.dart</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── TOC ── -->
+  <div class="toc">
+    <h2>Índice</h2>
+    <ol>
+      <li><a href="#s1">Arquitectura actual del módulo</a></li>
+      <li><a href="#s2">Cómo se calcula la distancia</a></li>
+      <li><a href="#s3">Qué es OSRM y qué fiabilidad tiene</a></li>
+      <li><a href="#s4">El problema del fallback Haversine</a></li>
+      <li><a href="#s5">Flujo completo de despacho</a></li>
+      <li><a href="#s6">Problemas identificados</a></li>
+      <li><a href="#s7">Mejoras propuestas</a></li>
+      <li><a href="#s8">Comparativa de alternativas de routing</a></li>
+    </ol>
+  </div>
+
+
+  <!-- ── SECTION 1 ── -->
+  <section id="s1">
+    <h2>1. Arquitectura actual del módulo</h2>
+
+    <p>El módulo de operaciones está en <code>lib/features/operaciones/</code> y se apoya en cuatro componentes principales:</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Archivo</th>
+            <th>Responsabilidad</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>servicios/osrm_service.dart</code></td><td>Llama a la API de OSRM, parsea la ruta real, calcula ETA. Tiene fallback Haversine.</td></tr>
+          <tr><td><code>servicios/vehiculos_service.dart</code></td><td>Gestiona ambulancias en Firestore. Contiene el <strong>AlgoritmoDespacho</strong> que ordena ambulancias por ETA.</td></tr>
+          <tr><td><code>servicios/cad_simulation.dart</code></td><td>Simula el movimiento GPS de ambulancias en Guadalajara (modo demo). Tick cada 2,5 s.</td></tr>
+          <tr><td><code>modelos/vehiculo_cad.dart</code></td><td>Modelo de datos del vehículo: coordenadas, estado, tipo (SVB/SVA), tripulación, rumbo.</td></tr>
+          <tr><td><code>pantallas/cad_operaciones_screen.dart</code></td><td>UI del Centro de Coordinación de Ambulancias. Mapa flutter_map + OpenStreetMap tiles.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card info">
+      <div class="card-title"><span class="pill pill-info">Librería de mapas</span> flutter_map v7.0.2 + latlong2 v0.9.1</div>
+      <p style="margin:0;font-size:0.88rem;">Las baldosas del mapa provienen de <code>tile.openstreetmap.org</code>. Las rutas se dibujan como polilíneas con la geometría real devuelta por OSRM (o 3 puntos si hay fallback).</p>
+    </div>
+  </section>
+
+
+  <!-- ── SECTION 2 ── -->
+  <section id="s2">
+    <h2>2. Cómo se calcula la distancia hoy</h2>
+
+    <p>Cuando hay que despachar una ambulancia a un aviso, el sistema hace lo siguiente:</p>
+
+    <div class="flow">
+      <div class="flow-step">Aviso creado (lat/lng)</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">Lista de ambulancias disponibles</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">Llamada OSRM × N (en paralelo)</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">Ordenar por ETA</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">Priorizar SVA para PCR/IAM</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">Recomendación al operador</div>
+    </div>
+
+    <h3>Paso 1 — Llamada a OSRM</h3>
+    <p>Para cada ambulancia disponible se construye esta URL:</p>
+
+    <pre><code>GET https://router.project-osrm.org/route/v1/driving/
+    {longitud_ambulancia},{latitud_ambulancia};
+    {longitud_aviso},{latitud_aviso}
+    ?overview=full&amp;geometries=geojson&amp;steps=false</code></pre>
+
+    <p>OSRM devuelve tres datos clave:</p>
+    <ul class="list">
+      <li><strong>distance</strong> — metros por carretera real (sí respeta sentidos y vías)</li>
+      <li><strong>duration</strong> — segundos estimados según el perfil de velocidad del grafo OSM</li>
+      <li><strong>geometry</strong> — array de coordenadas GeoJSON con la polilínea exacta de la ruta</li>
+    </ul>
+
+    <h3>Paso 2 — Transformación interna</h3>
+    <pre><code class="language-dart">// osrm_service.dart · líneas 52-66
+final distanceKm  = distanceM / 1000;    // metros → km
+final etaMinutes  = durationS / 60;      // segundos → minutos
+// Los waypoints (100-300 puntos) se pasan directamente al PolylineLayer del mapa</code></pre>
+
+    <h3>Paso 3 — Ordenación por ETA</h3>
+    <pre><code class="language-dart">// vehiculos_service.dart · líneas 141-146
+resultados.sort((a, b) {
+  if (a.compatibleTipo != b.compatibleTipo) {
+    return a.compatibleTipo ? -1 : 1;  // SVA sube si es PCR/IAM
+  }
+  return a.ruta.etaMinutes.compareTo(b.ruta.etaMinutes);
+});</code></pre>
+
+    <div class="card success">
+      <div class="card-title"><span class="pill pill-success">Lo que SÍ funciona bien</span></div>
+      <p style="margin:0;font-size:0.88rem;">Cuando OSRM responde correctamente, la ruta <strong>sí respeta calles, sentidos únicos y el trazado real de la carretera</strong>. El mapa muestra la polilínea exacta. La ordenación por ETA es correcta.</p>
+    </div>
+  </section>
+
+
+  <!-- ── SECTION 3 ── -->
+  <section id="s3">
+    <h2>3. Qué es OSRM y cuál es su fiabilidad real</h2>
+
+    <p>OSRM (OpenStreetMap Routing Machine) es un motor de rutas de código abierto que usa el grafo de carreteras de OpenStreetMap. El proyecto usa el servidor público gratuito:</p>
+
+    <pre><code>https://router.project-osrm.org  ← demo server de los creadores de OSRM</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Aspecto</th><th>Valoración</th><th>Detalle</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Sentido de circulación</td>
+            <td><span class="pill pill-success">Sí respeta</span></td>
+            <td>Usa el atributo <code>oneway</code> de OpenStreetMap. Nunca calculará una ruta contramano.</td>
+          </tr>
+          <tr>
+            <td>Calles reales</td>
+            <td><span class="pill pill-success">Sí respeta</span></td>
+            <td>El motor sólo navega por vías existentes en el grafo OSM de España.</td>
+          </tr>
+          <tr>
+            <td>Señales de dirección</td>
+            <td><span class="pill pill-warn">Parcialmente</span></td>
+            <td>Respeta restricciones de giro y prohibiciones codificadas en OSM. Si faltan en el mapa, no las aplica.</td>
+          </tr>
+          <tr>
+            <td>Tráfico en tiempo real</td>
+            <td><span class="pill pill-danger">No</span></td>
+            <td>OSRM usa velocidades estáticas del perfil "driving". No hay datos de tráfico en vivo.</td>
+          </tr>
+          <tr>
+            <td>Uptime del servidor público</td>
+            <td><span class="pill pill-danger">Sin garantía</span></td>
+            <td>Es un servidor demo. No hay SLA, puede tener cortes o rate limiting sin aviso.</td>
+          </tr>
+          <tr>
+            <td>Latencia media</td>
+            <td><span class="pill pill-warn">~200-800 ms</span></td>
+            <td>Varía según carga del servidor. Con 5 ambulancias en paralelo puede saturarse.</td>
+          </tr>
+          <tr>
+            <td>Calidad datos España</td>
+            <td><span class="pill pill-success">Alta</span></td>
+            <td>OpenStreetMap España tiene muy buena cobertura urbana. Guadalajara concretamente está bien mapeada.</td>
+          </tr>
+          <tr>
+            <td>Coste</td>
+            <td><span class="pill pill-success">Gratis</span></td>
+            <td>El servidor público es gratuito pero no apto para producción crítica.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card warn">
+      <div class="card-title"><span class="pill pill-warn">Conclusión sobre OSRM público</span></div>
+      <p style="margin:0;font-size:0.88rem;">
+        OSRM como tecnología es sólido y fiable. El problema no es el motor, sino que se usa el <strong>servidor demo público</strong>, que no está pensado para aplicaciones en producción. Para un servicio de emergencias, esto es un riesgo real.
+      </p>
+    </div>
+  </section>
+
+
+  <!-- ── SECTION 4 ── -->
+  <section id="s4">
+    <h2>4. El problema del fallback Haversine — el origen del "no respeta carreteras"</h2>
+
+    <p>Cuando OSRM falla (timeout de 8 s, error de red, rate limiting), el sistema cae en este fallback:</p>
+
+    <pre><code class="language-dart">// osrm_service.dart · líneas 74-90
+static RouteResult _fallback(LatLng origen, LatLng destino) {
+  final straight = _haversineKm(origen, destino);  // distancia en línea recta
+  final roadDist = straight * 1.38;                // × 1.38 para simular carretera
+  final eta = (roadDist / 55) * 60;                // 55 km/h de media
+
+  // ⚠️ Punto intermedio ALEATORIO — cada cálculo da un resultado distinto
+  final mid = LatLng(
+    (origen.latitude  + destino.latitude)  / 2 + (Random().nextDouble() - 0.5) * 0.003,
+    (origen.longitude + destino.longitude) / 2 + (Random().nextDouble() - 0.5) * 0.003,
+  );
+  return RouteResult(
+    distanceKm:  roadDist,
+    etaMinutes:  eta,
+    waypoints:   [origen, mid, destino],  // ← sólo 3 puntos = línea recta diagonal
+    isFallback:  true,
+  );
+}</code></pre>
+
+    <div class="card danger">
+      <div class="card-title"><span class="pill pill-danger">Problema crítico</span> La línea recta en el mapa es señal de fallback activo</div>
+      <p style="margin:0.5rem 0 0;font-size:0.88rem;">
+        Cuando el operador ve una línea diagonal ignorando calles, significa que OSRM no respondió a tiempo y se usó Haversine.
+        Esto ocurre con más frecuencia de lo deseable porque el servidor público puede tardar o fallar bajo carga.
+      </p>
+    </div>
+
+    <h3>Otros problemas del fallback</h3>
+    <ul class="list">
+      <li>El punto intermedio es <strong>aleatorio en cada llamada</strong> — si se recalcula, la ruta en pantalla salta a una posición diferente aunque la ambulancia no se haya movido.</li>
+      <li>El factor <strong>× 1.38</strong> es una estimación genérica. Para ciudades con mucho viario irregular (casco antiguo de Guadalajara), el factor real puede ser 1.5-1.7.</li>
+      <li>Los <strong>55 km/h de media</strong> para emergencias en ciudad es razonable, pero no tiene en cuenta que en el centro histórico la velocidad máxima legal es 30 km/h.</li>
+      <li>El <code>isFallback: true</code> existe en el modelo pero la UI <strong>no muestra ningún aviso al operador</strong> de que la ruta mostrada es una estimación.</li>
+    </ul>
+  </section>
+
+
+  <!-- ── SECTION 5 ── -->
+  <section id="s5">
+    <h2>5. Flujo completo de despacho (cómo encajan las piezas)</h2>
+
+    <div class="flow" style="flex-direction:column; align-items:flex-start;">
+      <div style="display:flex;align-items:center;gap:0;">
+        <div class="flow-step">1. Operador crea aviso en CAD</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step">Coordenadas del aviso (lat/lng en Firestore)</div>
+      </div>
+      <span class="flow-arrow" style="padding-left:0.5rem;">↓</span>
+      <div style="display:flex;align-items:center;gap:0;">
+        <div class="flow-step">2. AlgoritmoDespacho.calcular()</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step">Filtra ambulancias con estado=disponible</div>
+      </div>
+      <span class="flow-arrow" style="padding-left:0.5rem;">↓</span>
+      <div style="display:flex;align-items:center;gap:0;">
+        <div class="flow-step">3. OsrmService.calcularRuta() × N</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step">Future.wait() — llamadas paralelas al servidor OSRM</div>
+      </div>
+      <span class="flow-arrow" style="padding-left:0.5rem;">↓</span>
+      <div style="display:flex;align-items:center;gap:0;">
+        <div class="flow-step">4. Ordenar: SVA primero si PCR/IAM</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step">Luego por ETA más corto</div>
+      </div>
+      <span class="flow-arrow" style="padding-left:0.5rem;">↓</span>
+      <div style="display:flex;align-items:center;gap:0;">
+        <div class="flow-step">5. Operador elige ambulancia</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step">FCM push al TES → PantallaAlertaDespacho</div>
+      </div>
+      <span class="flow-arrow" style="padding-left:0.5rem;">↓</span>
+      <div style="display:flex;align-items:center;gap:0;">
+        <div class="flow-step">6. TES acepta</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step">Estado → en_route · GPS se actualiza cada 5 s</div>
+      </div>
+    </div>
+
+    <h3>Estados posibles de una ambulancia</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Estado</th><th>Significado</th></tr></thead>
+        <tbody>
+          <tr><td><code>disponible</code></td><td>En patrulla, puede recibir avisos</td></tr>
+          <tr><td><code>en_route</code></td><td>Desplazándose al aviso (55-65 km/h simulados)</td></tr>
+          <tr><td><code>atendiendo</code></td><td>En escena, no se mueve</td></tr>
+          <tr><td><code>regresando</code></td><td>Volviendo a base (42-48 km/h simulados)</td></tr>
+          <tr><td><code>offline</code></td><td>Sin señal GPS. No aparece en candidatos de despacho</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+
+  <!-- ── SECTION 6 ── -->
+  <section id="s6">
+    <h2>6. Problemas identificados</h2>
+
+    <div class="card danger">
+      <div class="card-title">
+        <span class="pill pill-danger">P1 · Crítico</span>
+        Servidor OSRM público — no apto para producción
+      </div>
+      <p style="margin:0.5rem 0 0;font-size:0.88rem;">
+        <code>router.project-osrm.org</code> es un servidor demo sin SLA. Puede caer, aplicar rate limiting o
+        aumentar latencia sin previo aviso. Con 5 ambulancias calculando en paralelo (5 peticiones simultáneas),
+        la probabilidad de que al menos una caiga en fallback es alta.
+        <br/><br/>
+        <strong>Riesgo:</strong> En el momento de un despacho real, la ambulancia recomendada puede basarse en
+        distancias Haversine incorrectas → el operador podría enviar la ambulancia equivocada.
+      </p>
+    </div>
+
+    <div class="card danger">
+      <div class="card-title">
+        <span class="pill pill-danger">P2 · Crítico</span>
+        Fallback silencioso — el operador no sabe que la ruta es una estimación
+      </div>
+      <p style="margin:0.5rem 0 0;font-size:0.88rem;">
+        Cuando se usa Haversine, el campo <code>isFallback: true</code> está en el objeto
+        <code>RouteResult</code> pero la UI del CAD no muestra ningún aviso. El operador ve una
+        línea diagonal en el mapa y puede confundirla con una ruta real.
+      </p>
+    </div>
+
+    <div class="card warn">
+      <div class="card-title">
+        <span class="pill pill-warn">P3 · Medio</span>
+        Punto intermedio del fallback es aleatorio
+      </div>
+      <p style="margin:0.5rem 0 0;font-size:0.88rem;">
+        El midpoint usa <code>Random().nextDouble()</code>. Si la misma ruta se recalcula
+        (por cambio de estado del vehículo), la polilínea "salta" a una posición diferente en el mapa.
+        Esto es visualmente confuso y puede alarmar al operador innecesariamente.
+      </p>
+    </div>
+
+    <div class="card warn">
+      <div class="card-title">
+        <span class="pill pill-warn">P4 · Medio</span>
+        No hay datos de tráfico en tiempo real
+      </div>
+      <p style="margin:0.5rem 0 0;font-size:0.88rem;">
+        OSRM usa velocidades estáticas del perfil de conducción OSM. Un aviso en hora punta en
+        la Avenida del Ejército puede tener un ETA real muy diferente al calculado.
+        La diferencia puede ser de 2-4 minutos en ciudad, que en emergencias es significativa.
+      </p>
+    </div>
+
+    <div class="card warn">
+      <div class="card-title">
+        <span class="pill pill-warn">P5 · Medio</span>
+        Sin optimización multi-aviso simultáneo
+      </div>
+      <p style="margin:0.5rem 0 0;font-size:0.88rem;">
+        Si hay dos avisos activos a la vez, el algoritmo los procesa independientemente.
+        Es posible que asigne la misma ambulancia (la mejor en ETA) a ambos, dejando un aviso
+        sin cobertura. No hay lógica de asignación óptima global.
+      </p>
+    </div>
+
+    <div class="card info">
+      <div class="card-title">
+        <span class="pill pill-info">P6 · Menor</span>
+        GPS de simulación patrulla por waypoints hardcodeados
+      </div>
+      <p style="margin:0.5rem 0 0;font-size:0.88rem;">
+        Las rutas de patrulla del modo demo tienen waypoints fijos en <code>cad_simulation.dart</code>.
+        No son rutas OSRM, así que en la simulación los vehículos "teleportan" entre puntos en lugar
+        de seguir calles reales. No afecta a producción pero da una impresión visual incorrecta.
+      </p>
+    </div>
+  </section>
+
+
+  <!-- ── SECTION 7 ── -->
+  <section id="s7">
+    <h2>7. Mejoras propuestas</h2>
+
+    <div class="improve-grid">
+
+      <div class="improve-card">
+        <div class="num">01</div>
+        <h4>Autoalojar OSRM con datos de España</h4>
+        <p>Descargar el extract de España de Geofabrik y arrancar OSRM en un VPS o Docker. Latencia &lt;20 ms, sin límites de tasa, sin dependencia externa.</p>
+        <div class="effort">
+          <span class="pill pill-success">Impacto: Alto</span>
+          <span class="pill pill-warn">Esfuerzo: Medio</span>
+        </div>
+      </div>
+
+      <div class="improve-card">
+        <div class="num">02</div>
+        <h4>Mostrar aviso al operador cuando hay fallback</h4>
+        <p>Leer <code>isFallback</code> del <code>RouteResult</code> y mostrar un chip naranja "⚠️ ETA estimado" en la tarjeta de la ambulancia y un trazo discontinuo diferente en el mapa.</p>
+        <div class="effort">
+          <span class="pill pill-success">Impacto: Alto</span>
+          <span class="pill pill-success">Esfuerzo: Bajo</span>
+        </div>
+      </div>
+
+      <div class="improve-card">
+        <div class="num">03</div>
+        <h4>Eliminar el punto intermedio aleatorio del fallback</h4>
+        <p>Usar siempre el punto central exacto <code>(lat1+lat2)/2, (lng1+lng2)/2</code> sin desplazamiento aleatorio. La ruta será una línea recta pero consistente y predecible.</p>
+        <div class="effort">
+          <span class="pill pill-success">Impacto: Medio</span>
+          <span class="pill pill-success">Esfuerzo: Mínimo</span>
+        </div>
+      </div>
+
+      <div class="improve-card">
+        <div class="num">04</div>
+        <h4>Usar OSRM Table API para múltiples ambulancias</h4>
+        <p>En lugar de N peticiones en paralelo, usar <code>/table/v1/driving</code> que calcula distancias de N orígenes a 1 destino en una sola petición. Mucho más eficiente y menos probable de saturar el servidor.</p>
+        <div class="effort">
+          <span class="pill pill-success">Impacto: Alto</span>
+          <span class="pill pill-warn">Esfuerzo: Medio</span>
+        </div>
+      </div>
+
+      <div class="improve-card">
+        <div class="num">05</div>
+        <h4>Integrar datos de tráfico de la DGT</h4>
+        <p>La DGT tiene un API abierto de incidencias de tráfico (DATEX II). Cruzar el ETA de OSRM con el estado del tráfico en la ruta para ajustar el tiempo estimado en horas punta.</p>
+        <div class="effort">
+          <span class="pill pill-warn">Impacto: Medio</span>
+          <span class="pill pill-danger">Esfuerzo: Alto</span>
+        </div>
+      </div>
+
+      <div class="improve-card">
+        <div class="num">06</div>
+        <h4>Bloquear ambulancias ya asignadas en despacho múltiple</h4>
+        <p>Cuando hay varios avisos activos, excluir ambulancias que ya están en <code>en_route</code> de los candidatos de nuevos avisos. Implementar asignación óptima greedy por ETA considerando todos los avisos pendientes.</p>
+        <div class="effort">
+          <span class="pill pill-success">Impacto: Alto</span>
+          <span class="pill pill-warn">Esfuerzo: Medio</span>
+        </div>
+      </div>
+
+      <div class="improve-card">
+        <div class="num">07</div>
+        <h4>Rutas de patrulla generadas por OSRM (modo demo)</h4>
+        <p>En la simulación, en lugar de saltar entre waypoints hardcodeados, calcular rutas OSRM para las patrullas. Los vehículos seguirán calles reales en la demo, dando una imagen más realista al operador.</p>
+        <div class="effort">
+          <span class="pill pill-warn">Impacto: Bajo</span>
+          <span class="pill pill-warn">Esfuerzo: Medio</span>
+        </div>
+      </div>
+
+      <div class="improve-card">
+        <div class="num">08</div>
+        <h4>Historial de ETAs reales vs. estimados</h4>
+        <p>Guardar en Firestore el ETA calculado y la hora real de llegada al aviso. Con 20-30 registros se puede calibrar el factor de velocidad (actualmente fijo en 55 km/h) por zona, turno o tipo de vía.</p>
+        <div class="effort">
+          <span class="pill pill-success">Impacto: Medio</span>
+          <span class="pill pill-warn">Esfuerzo: Medio</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ── SECTION 8 ── -->
+  <section id="s8">
+    <h2>8. Comparativa de alternativas al servidor OSRM público</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Opción</th>
+            <th>Coste</th>
+            <th>Sentidos de circulación</th>
+            <th>Tráfico real</th>
+            <th>SLA</th>
+            <th>Recomendación</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>OSRM autohospedado</strong><br/><small>VPS + Docker + datos ES</small></td>
+            <td>~15-30€/mes VPS</td>
+            <td><span class="pill pill-success">Sí</span></td>
+            <td><span class="pill pill-danger">No</span></td>
+            <td>Tu propio uptime</td>
+            <td><span class="pill pill-success">Recomendado principal</span></td>
+          </tr>
+          <tr>
+            <td><strong>Valhalla autohospedado</strong><br/><small>OSM + Mapzen</small></td>
+            <td>~20-40€/mes VPS</td>
+            <td><span class="pill pill-success">Sí</span></td>
+            <td><span class="pill pill-warn">Parcial</span></td>
+            <td>Tu propio uptime</td>
+            <td><span class="pill pill-info">Alternativa sólida</span></td>
+          </tr>
+          <tr>
+            <td><strong>HERE Routing API</strong></td>
+            <td>Gratis hasta 30K req/mes<br/>luego ~0,006€/req</td>
+            <td><span class="pill pill-success">Sí</span></td>
+            <td><span class="pill pill-success">Sí (FlowTraffic)</span></td>
+            <td>99,9% SLA</td>
+            <td><span class="pill pill-warn">Si se necesita tráfico real</span></td>
+          </tr>
+          <tr>
+            <td><strong>Google Directions API</strong></td>
+            <td>~0,004€/req (caro en volumen)</td>
+            <td><span class="pill pill-success">Sí</span></td>
+            <td><span class="pill pill-success">Sí</span></td>
+            <td>Alta</td>
+            <td><span class="pill pill-muted">Caro para emergencias frecuentes</span></td>
+          </tr>
+          <tr>
+            <td><strong>OSRM público demo</strong><br/><small>router.project-osrm.org (actual)</small></td>
+            <td>Gratis</td>
+            <td><span class="pill pill-success">Sí</span></td>
+            <td><span class="pill pill-danger">No</span></td>
+            <td><span class="pill pill-danger">Sin SLA</span></td>
+            <td><span class="pill pill-danger">No apto para producción</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card info">
+      <div class="card-title"><span class="pill pill-info">Recomendación de migración</span></div>
+      <p style="margin:0.5rem 0 0;font-size:0.88rem;">
+        La ruta óptima a corto plazo es: <strong>mantener la lógica actual de OSRM pero apuntar a un servidor propio</strong>.
+        Solo hay que cambiar <code>static const String _baseUrl</code> en <code>osrm_service.dart</code> (línea 32).
+        El resto del código no necesita modificarse — toda la integración ya está correctamente implementada.
+      </p>
+    </div>
+  </section>
+
+
+  <hr class="divider" />
+
+  <!-- ── Summary ── -->
+  <section>
+    <h2>Resumen ejecutivo</h2>
+
+    <div class="card success">
+      <div class="card-title"><span class="pill pill-success">Qué está bien</span></div>
+      <ul class="list" style="margin:0.5rem 0 0;padding-left:1.25rem;">
+        <li>OSRM <strong>sí respeta calles y sentidos</strong> de circulación cuando funciona correctamente.</li>
+        <li>El algoritmo de despacho es sólido: paralelo, ordenado por ETA, con prioridad de tipo SVA.</li>
+        <li>El modelo de datos (VehiculoCAD) está bien estructurado y permite ampliar fácilmente.</li>
+        <li>El mapa muestra la geometría real de la ruta (no sólo origen-destino).</li>
+      </ul>
+    </div>
+
+    <div class="card danger" style="margin-top:1rem;">
+      <div class="card-title"><span class="pill pill-danger">Qué hay que cambiar ya</span></div>
+      <ul class="list" style="margin:0.5rem 0 0;padding-left:1.25rem;">
+        <li>Migrar de <code>router.project-osrm.org</code> a un servidor OSRM propio.</li>
+        <li>Mostrar en la UI el indicador <code>isFallback</code> para que el operador sepa cuando el ETA es estimado.</li>
+        <li>Eliminar el Random() del midpoint del fallback para que la ruta sea consistente.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  Generado el 6 de noviembre de 2026 · Análisis técnico del módulo de operaciones · Fluix / PlaneaG
+</footer>
+
+</body>
+</html>

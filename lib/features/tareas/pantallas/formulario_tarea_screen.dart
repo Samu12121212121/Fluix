@@ -5,9 +5,10 @@ import 'package:planeag_flutter/domain/modelos/tarea.dart';
 import 'package:planeag_flutter/domain/modelos/recurrencia_config.dart';
 import 'package:planeag_flutter/services/tareas_service.dart';
 import '../widgets/recurrencia_config_widget.dart';
-import '../widgets/cliente_vinculado_widget.dart';
+import '../widgets/cliente_vinculado_widget.dart' show SelectorClienteWidget, SelectorEmpleadoTareaWidget;
 import 'package:planeag_flutter/core/widgets/flux_toast.dart';
 import 'package:planeag_flutter/core/widgets/fluix_app_bar.dart';
+import 'package:planeag_flutter/core/utils/permisos_service.dart';
 
 class FormularioTareaScreen extends StatefulWidget {
   final String empresaId;
@@ -48,6 +49,7 @@ class _FormularioTareaScreenState extends State<FormularioTareaScreen> {
 
   // Nuevos campos
   String? _clienteId;
+  String? _usuarioAsignadoId;
   ConfiguracionRecurrencia? _configuracionRecurrencia;
   TipoRecordatorio _tipoRecordatorio = TipoRecordatorio.ninguno;
   DateTime? _fechaRecordatorioPersonalizada;
@@ -58,6 +60,11 @@ class _FormularioTareaScreenState extends State<FormularioTareaScreen> {
   void initState() {
     super.initState();
     _clienteId = widget.clienteIdPreseleccionado;
+    // Staff: auto-asignarse la tarea al crearla (agenda personal)
+    final sesion = PermisosService().sesion;
+    if (!_esEdicion && sesion?.esStaff == true) {
+      _usuarioAsignadoId = widget.usuarioId;
+    }
     if (_esEdicion) {
       final t = widget.tareaEditar!;
       _tituloCtrl.text = t.titulo;
@@ -70,6 +77,7 @@ class _FormularioTareaScreenState extends State<FormularioTareaScreen> {
       _subtareas = List.from(t.subtareas);
       _etiquetas = List.from(t.etiquetas);
       _clienteId = t.clienteId;
+      _usuarioAsignadoId = t.usuarioAsignadoId;
       _configuracionRecurrencia = t.configuracionRecurrencia;
       if (t.recordatorio != null) {
         _tipoRecordatorio = t.recordatorio!.tipo;
@@ -398,6 +406,18 @@ class _FormularioTareaScreenState extends State<FormularioTareaScreen> {
               ]),
               const SizedBox(height: 12),
 
+              // Asignar a empleado
+              _dsCard(children: [
+                _dsLabel('Asignar a empleado', Icons.badge_outlined, accent),
+                const SizedBox(height: 10),
+                SelectorEmpleadoTareaWidget(
+                  empresaId: widget.empresaId,
+                  empleadoIdSeleccionado: _usuarioAsignadoId,
+                  onChanged: (id) => setState(() => _usuarioAsignadoId = id),
+                ),
+              ]),
+              const SizedBox(height: 12),
+
               // Cliente vinculado
               _dsCard(children: [
                 _dsLabel('Cliente vinculado', Icons.person_outline_rounded, accent),
@@ -576,6 +596,7 @@ class _FormularioTareaScreenState extends State<FormularioTareaScreen> {
             'tiempo_estimado_min': _tiempoEstimado,
             'subtareas': _subtareas.map((s) => s.toMap()).toList(),
             'etiquetas': _etiquetas,
+            'usuario_asignado_id': _usuarioAsignadoId,
             'cliente_id': _clienteId,
             'configuracion_recurrencia':
                 _configuracionRecurrencia?.toMap(),
@@ -604,6 +625,7 @@ class _FormularioTareaScreenState extends State<FormularioTareaScreen> {
           tiempoEstimadoMin: _tiempoEstimado,
           subtareas: _subtareas,
           etiquetas: _etiquetas,
+          usuarioAsignadoId: _usuarioAsignadoId,
           clienteId: _clienteId,
           configuracionRecurrencia: _configuracionRecurrencia,
           esPlantillaRecurrencia: _configuracionRecurrencia != null,

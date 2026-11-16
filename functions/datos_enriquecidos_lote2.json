@@ -1,0 +1,373 @@
+[
+  {
+    "id": "dark_comics",
+    "nombre": "Dark Cómics",
+    "categoria": "tiendas",
+    "telefono": "+34949228999",
+    "direccion": "Cuesta del Matadero, 13, 19001 Guadalajara",
+    "web": "https://www.darkcomics.es",
+    "instagram": "https://www.instagram.com/dark.comics/",
+    "ratingGoogle": 4.5,
+    "descripcion": "Tienda de referencia en Guadalajara especializada en cómics, manga, figuras de colección, juegos de mesa y merchandising friki. Organiza torneos de Yu-Gi-Oh y otras actividades para la comunidad."
+  },
+  {
+    "id": "diamond_crew_tattoo",
+    "nombre": "Diamond Crew Tattoo",
+    "categoria": "tatuajes",
+    "telefono": "+34635078779",
+    "direccion": "Av. de Castilla, 23A, 19002 Guadalajara",
+    "web": "https://diamondcrewtattoo.es",
+    "instagram": "https://www.instagram.com/diamondcrewtattoo/",
+    "descripcion": "Estudio de tatuajes y piercings en Guadalajara con artistas especializados en fineline, realismo, blackwork, ornamental y japonés. Combina arte, confort y exclusividad en cada trabajo."
+  },
+  {
+    "id": "dioses_del_carton",
+    "nombre": "Dioses del Cartón",
+    "categoria": "tiendas",
+    "direccion": "C/ Virgen de la Soledad, 29, 19003 Guadalajara",
+    "web": "https://diosesdelcarton.com",
+    "instagram": "https://www.instagram.com/diosesdelcarton/",
+    "descripcion": "Club privado de ocio y hobbies en Guadalajara dedicado a juegos de cartas coleccionables (TCG), rol de mesa, wargames y otros juegos. Organiza torneos, talleres y eventos exclusivos para socios."
+  },
+  {
+    "id": "dom_henrique",
+    "nombre": "Dom Henrique",
+    "categoria": "restaurantes",
+    "telefono": "+34610430703",
+    "direccion": "Plaza Virgen de la Antigua, 11, 19001 Guadalajara",
+    "web": "https://domhenriquecm.com",
+    "instagram": "https://www.instagram.com/domhenrique.es/",
+    "ratingGoogle": 4.7,
+    "descripcion": "Hamburguesería y restaurante brasileño considerado uno de los mejores de Guadalajara. Conocido especialmente por sus hamburguesas artesanales, como la 'Supremo', elaboradas con ingredientes de calidad."
+  },
+  {
+    "id": "donde_julieta",
+    "nombre": "Donde Julieta",
+    "categoria": "tiendas",
+    "telefono": "+34949210711",
+    "direccion": "Calle Juan Bautista Topete, 8, 19001 Guadalajara",
+    "descripcion": "Boutique de moda femenina en el centro de Guadalajara con una selección de ropa, bolsos y complementos de carácter joven, divertido y original."
+  },
+  {
+    "id": "el_gusto_cocina_de_autor",
+    "nombre": "El Gusto - Cocina de Autor",
+    "categoria": "restaurantes",
+    "telefono": "+34682283927",
+    "direccion": "Plaza de España, 19001 Guadalajara",
+    "instagram": "https://www.instagram.com/elgustococinadeautor/",
+    "ratingGoogle": 4.0,
+    "descripcion": "Restaurante mediterráneo de cocina de autor situado frente al Museo de Guadalajara. Ofrece menú del día y platos especiales en rotación en un ambiente acogedor e informal."
+  },
+  {
+    "id": "el_obrador",
+    "nombre": "El Obrador",
+    "categoria": "cafeterias",
+    "telefono": "+34623765087",
+    "direccion": "C/ Rufino Blanco, 8, 19002 Guadalajara",
+    "web": "https://elobradorgu.es",
+    "descripcion": "Obrador de comida casera del restaurante Zúbar. Propone una cocina práctica y sabrosa para el día a día: menús diarios, recetas tradicionales y platos preparados para llevar o recoger."
+  },
+  {
+    "id": "el_octavo_arte_de_la_carne",
+    "nombre": "El Octavo Arte de la Carne",
+    "categoria": "carnicerias",
+    "telefono": "+34949874626",
+    "direccion": "Calle Zaragoza, 2, 19005 Guadalajara",
+    "web": "http://www.eloctavoartedelacarne.es",
+    "descripcion": "Carnicería artesanal en Guadalajara que combina tradición y visión moderna de la calidad cárnica. Ofrece ternera, cordero, cerdo ibérico y vacuno madurado, además de hamburguesas y albóndigas artesanales."
+  },
+  {
+    "id": "el_pasadizo",
+    "nombre": "El Pasadizo",
+    "categoria": "general",
+    "descripcion": "Negocio local en Guadalajara. No se han encontrado datos suficientes en fuentes públicas para confirmar categoría, dirección ni contacto."
+  },
+  {
+    "id": "el_perdigacho",
+    "nombre": "El Perdigacho",
+    "categoria": "restaurantes",
+    "telefono": "+34949255899",
+    "direccion": "Calle Bardales, 6, 19001 Guadalajara",
+    "web": "https://elperdigacho.es",
+    "instagram": "https://www.instagram.com/elperdigacho/",
+    "ratingGoogle": 4.5,
+    "descripcion": "Bar de tapas y restaurante con ambiente acogedor en el centro de Guadalajara. Destaca por su tapa de perdigacho (tosta de anchoa con alioli), croquetas caseras, cerveza artesanal propia y buena selección de vinos."
+  },
+  {
+    "id": "el_vacio_tattoo",
+    "nombre": "El Vacío Tattoo",
+    "categoria": "tatuajes",
+    "telefono": "+34626871478",
+    "direccion": "C. Antonio Buero Vallejo, 21, 19004 Guadalajara",
+    "web": "https://www.elvaciotattoo.com",
+    "descripcion": "Estudio de tatuajes conceptuales en Guadalajara donde el arte se vive como expresión profunda. Trabajan con estética sobria y simbólica, diseñando cada pieza a medida en diálogo con la historia del cliente."
+  },
+  {
+    "id": "elige3d",
+    "nombre": "Elige3D",
+    "categoria": "tiendas",
+    "telefono": "+34622931061",
+    "web": "https://www.elige3d.com",
+    "direccion": "C/ Francisco de Medina y Mendoza 30, Parcela 26, Cabanillas del Campo, Guadalajara",
+    "descripcion": "Empresa especializada en fabricación de figuras y estructuras publicitarias de gran formato mediante impresión 3D. Con más de siete años de experiencia, ofrece figuras de poliuretano, resina y trofeos personalizados."
+  },
+  {
+    "id": "estudio_checa",
+    "nombre": "Estudio Checa",
+    "categoria": "tatuajes",
+    "telefono": "+34949214517",
+    "direccion": "C. del Ferial, 13, 19002 Guadalajara",
+    "instagram": "https://www.instagram.com/estudiocheca_tatuajes/",
+    "ratingGoogle": 4.7,
+    "descripcion": "Estudio de tatuajes y piercings en Guadalajara con más de 20 años de trayectoria. Especializado en diseños personalizados, tatuaje tradicional, realismo y línea fina, con extensiones de pestañas y servicios estéticos."
+  },
+  {
+    "id": "estudio_erzulie",
+    "nombre": "Estudio Erzulie",
+    "categoria": "tatuajes",
+    "telefono": "+34658823697",
+    "direccion": "Calle Alonso Núñez de Reinoso, 18, 19002 Guadalajara",
+    "web": "https://estudioerzulie.es",
+    "instagram": "https://www.instagram.com/fredy_erzulie/",
+    "ratingGoogle": 4.9,
+    "descripcion": "Estudio de tatuajes y piercings de referencia en Guadalajara con más de 10 años de experiencia. Trabaja estilos variados como realismo, acuarela, geometría y minimalismo con estrictos protocolos de higiene."
+  },
+  {
+    "id": "fara_tattoo",
+    "nombre": "Fara-Tattoo",
+    "categoria": "tatuajes",
+    "telefono": "+34630849469",
+    "direccion": "C. Prado Taracena, 9, 19005 Guadalajara",
+    "ratingGoogle": 5.0,
+    "descripcion": "Estudio de tatuajes y piercings en Guadalajara con valoración perfecta de sus clientes. Ofrece un ambiente profesional, acogedor y de confianza, especializado en body piercing y tatuaje personalizado."
+  },
+  {
+    "id": "fashion_outlet",
+    "nombre": "Fashion Outlet",
+    "categoria": "tiendas",
+    "telefono": "+34949491165",
+    "direccion": "C. Francisco Medina, 12, 19002 Guadalajara",
+    "instagram": "https://www.instagram.com/fashionoutletguadalajara/",
+    "ratingGoogle": 4.5,
+    "descripcion": "Tienda de moda y complementos para mujer en Guadalajara que combina artículos outlet con nuevas colecciones. Ofrece un 50% de prendas de temporada pasada a precios reducidos."
+  },
+  {
+    "id": "ferman",
+    "nombre": "Ferman",
+    "categoria": "tiendas",
+    "telefono": "+34949220585",
+    "direccion": "C/ Mayor, 37, 19001 Guadalajara",
+    "descripcion": "Tienda de regalos, decoración y bisutería en la Calle Mayor de Guadalajara. Ofrece también artículos de moda y complementos para hombre y mujer."
+  },
+  {
+    "id": "festin_mascotas",
+    "nombre": "Festín Mascotas",
+    "categoria": "tiendas",
+    "telefono": "+34691037537",
+    "direccion": "Avenida del Atance, 13, local 2, 19005 Guadalajara",
+    "web": "https://festinmascotas.es",
+    "ratingGoogle": 4.6,
+    "descripcion": "Tienda especializada en alimentación natural y accesorios para mascotas en Guadalajara. Cuenta con marca propia de pienso natural para perros y gatos, y ofrece servicio de peluquería canina y felina."
+  },
+  {
+    "id": "flores_jazmin",
+    "nombre": "Flores Jazmín",
+    "categoria": "tiendas",
+    "telefono": "+34677651149",
+    "direccion": "Calle Dr. Layna Serrano, 20C, 19002 Guadalajara",
+    "ratingGoogle": 3.9,
+    "descripcion": "Floristería en Guadalajara con amplia experiencia en arte floral, ofreciendo arreglos originales y personalizados para todo tipo de ocasiones y servicios de entrega a domicilio."
+  },
+  {
+    "id": "flores_susan",
+    "nombre": "Flores Susan",
+    "categoria": "tiendas",
+    "telefono": "+34949229580",
+    "direccion": "C. de la Virgen de la Soledad, 26, 19003 Guadalajara",
+    "ratingGoogle": 4.4,
+    "descripcion": "Floristería en Guadalajara especializada en arte floral con servicio a domicilio, ramos de novia, decoración de iglesias y salones, arreglos funerarios y mantenimiento de jardines."
+  },
+  {
+    "id": "floristeria_amapola",
+    "nombre": "Floristería Amapola",
+    "categoria": "tiendas",
+    "telefono": "+34949220439",
+    "direccion": "C. del Cardenal González de Mendoza, 31, 19004 Guadalajara",
+    "instagram": "https://www.instagram.com/floristeriamapola/",
+    "ratingGoogle": 4.6,
+    "descripcion": "Floristería y servicio de diseño floral en Guadalajara especializada en composiciones personalizadas y decoración de eventos. Atiende tanto ocasiones cotidianas como celebraciones especiales."
+  },
+  {
+    "id": "floristeria_floristas_clara",
+    "nombre": "Floristería Floristas Clara",
+    "categoria": "tiendas",
+    "telefono": "+34627403191",
+    "direccion": "C/ Hnos. Fernández Galiano, 3, 19001 Guadalajara",
+    "instagram": "https://www.instagram.com/floristas.clara/",
+    "descripcion": "Floristería con floristería certificada desde 1986 por la Escuela Española de Arte Floral. Ofrece composiciones con plantas, ramos de rosas, arreglos funerarios y la firma 'Tomasitos' para escritorios y oficinas."
+  },
+  {
+    "id": "floristeria_hedu",
+    "nombre": "Floristería Hedu",
+    "categoria": "tiendas",
+    "telefono": "+34949215032",
+    "direccion": "C. Donante de Sangre, 7, 19002 Guadalajara",
+    "web": "https://www.floristeriahedu.es",
+    "instagram": "https://www.instagram.com/floristeriahedu/",
+    "ratingGoogle": 4.2,
+    "descripcion": "Floristería en Guadalajara disponible 365 días al año con servicio de entrega a domicilio. Especializada en ramos de novia, decoración de eventos e iglesias, y arreglos para ocasiones especiales."
+  },
+  {
+    "id": "floristeria_verdenace",
+    "nombre": "Floristería Verdenace",
+    "categoria": "tiendas",
+    "telefono": "+34949219703",
+    "direccion": "Calle Antonio Lozano Viñes, 4, 19001 Guadalajara",
+    "web": "https://floristeriaverdenace.com",
+    "instagram": "https://www.instagram.com/verdenace_floristeria/",
+    "ratingGoogle": 4.7,
+    "descripcion": "Floristería en Guadalajara con una propuesta floral para momentos cotidianos y trascendentes. Especializada en bodas, eventos y decoración floral personalizada, con servicio de lunes a sábado."
+  },
+  {
+    "id": "goiko",
+    "nombre": "GOIKO",
+    "categoria": "restaurantes",
+    "telefono": "+34949314780",
+    "direccion": "Av. Eduardo Guitián, 13-19, C.C. Ferial Plaza, 19002 Guadalajara",
+    "web": "https://www.goiko.com",
+    "instagram": "https://www.instagram.com/goiko/",
+    "descripcion": "Primera hamburguesería Goiko en Guadalajara, ubicada en el C.C. Ferial Plaza. Cadena gourmet nacida en Madrid en 2013, conocida por sus hamburguesas premium con ingredientes de calidad y recetas icónicas como la Kevin Bacon."
+  },
+  {
+    "id": "golden_estilistas",
+    "nombre": "Golden Estilistas",
+    "categoria": "peluquerias",
+    "telefono": "+34949872161",
+    "direccion": "C. de Pastrana, 5, 19002 Guadalajara",
+    "instagram": "https://www.instagram.com/golden.estilistas/",
+    "ratingGoogle": 4.8,
+    "descripcion": "Salón de peluquería y estética en Guadalajara especializado en cortes, coloraciones, tratamientos y peinados para ocasiones especiales. Ofrece también servicios de manicura y pedicura."
+  },
+  {
+    "id": "grand_elegant",
+    "nombre": "Grand Elegant",
+    "categoria": "general",
+    "descripcion": "Negocio local en Guadalajara. No se han encontrado datos suficientes en fuentes públicas para confirmar categoría, dirección ni contacto."
+  },
+  {
+    "id": "gustos_de_antes",
+    "nombre": "Gustos de Antes",
+    "categoria": "cafeterias",
+    "telefono": "+34638733725",
+    "direccion": "Plaza Virgen de la Antigua, 23, Mercado de Abastos, 19001 Guadalajara",
+    "web": "https://gustosdeantes.com",
+    "instagram": "https://www.instagram.com/gustosdeantes/",
+    "descripcion": "Panadería y pastelería artesana de cuarta generación en el Mercado de Abastos de Guadalajara. Elabora panes con masa madre, variedades de trigo antiguo y bollería artesanal. Premio a una de las 100 mejores panaderías de España."
+  },
+  {
+    "id": "halo_nail",
+    "nombre": "Halo Nail",
+    "categoria": "esteticas",
+    "direccion": "Calle Mayor, 16, 19001 Guadalajara",
+    "ratingGoogle": 4.9,
+    "descripcion": "Salón de uñas en plena Calle Mayor de Guadalajara con una de las valoraciones más altas de la ciudad. Ofrece manicura permanente, pedicura, lifting de pestañas y laminado de cejas."
+  },
+  {
+    "id": "hammam_spa_luxury",
+    "nombre": "Hammam Spa Luxury",
+    "categoria": "esteticas",
+    "telefono": "+34949411603",
+    "direccion": "Av. del Ejército, 13, 19004 Guadalajara",
+    "instagram": "https://www.instagram.com/hammam.luxury.spa/",
+    "ratingGoogle": 4.4,
+    "descripcion": "Centro de spa y baño árabe exclusivo para mujeres en Guadalajara. Ofrece experiencias hammam de 60 o 90 minutos con sauna, exfoliación corporal, mascarilla de arcilla y masaje capilar relajante."
+  },
+  {
+    "id": "haunails",
+    "nombre": "HauNails",
+    "categoria": "esteticas",
+    "instagram": "https://www.instagram.com/haunails/",
+    "descripcion": "Salón de uñas vietnamita con presencia en la provincia. Especializado en nail art, manicura y pedicura con técnicas asiáticas de alta precisión."
+  },
+  {
+    "id": "hello_nails_guadalajara",
+    "nombre": "Hello Nails Guadalajara",
+    "categoria": "esteticas",
+    "direccion": "C.C. Ferial Plaza (El Corte Inglés), Guadalajara",
+    "web": "https://hellonails.com/en/",
+    "descripcion": "Franquicia de nail bar especializada en manicura, pedicura y estética de uñas, con más de 80 centros en España. Su sede en Guadalajara se encuentra en el centro comercial Ferial Plaza."
+  },
+  {
+    "id": "hierba_de_nacar",
+    "nombre": "Hierba de Nácar",
+    "categoria": "tiendas",
+    "telefono": "+34949217063",
+    "direccion": "C. de Sigüenza, 3, 19003 Guadalajara",
+    "web": "https://hierbadenacar.com",
+    "ratingGoogle": 4.5,
+    "descripcion": "Floristería artesanal integrada en la red Interflora en Guadalajara. Especializada en ramos de novia, flores secas, plantas de interior y exterior, decoración de iglesias y entrega a domicilio el mismo día."
+  },
+  {
+    "id": "ic_belleza_pro",
+    "nombre": "IC Belleza Pro",
+    "categoria": "esteticas",
+    "telefono": "+34949256135",
+    "direccion": "Calle Dr. Layna Serrano, 28, 19002 Guadalajara",
+    "web": "https://icbellezapro.sedinfo.es",
+    "instagram": "https://www.instagram.com/icbelleza/",
+    "ratingGoogle": 4.8,
+    "descripcion": "Centro de estética avanzada en Guadalajara dirigido por Irune Cisneros. Ofrece depilación láser, microblading, manicura permanente, maderoterapia, reflexología y acupuntura, entre otros tratamientos."
+  },
+  {
+    "id": "ikebana_floristeria",
+    "nombre": "Ikebana Floristería",
+    "categoria": "tiendas",
+    "telefono": "+34949492728",
+    "direccion": "C/ Pedro Pascual, 15, 19001 Guadalajara",
+    "instagram": "https://www.instagram.com/ikebana.floristeria/",
+    "descripcion": "Floristería con inspiración en el arte floral japonés Ikebana, abierta desde 2014 en el centro de Guadalajara. Ofrece arreglos únicos con flores, plantas, musgo y piedras, y servicio de entrega a domicilio."
+  },
+  {
+    "id": "imperfect_brunch",
+    "nombre": "Imperfect Brunch",
+    "categoria": "cafeterias",
+    "telefono": "+34627639403",
+    "direccion": "C. Mayor, 16, 19001 Guadalajara",
+    "instagram": "https://www.instagram.com/imperfect.brunch/",
+    "ratingGoogle": 4.6,
+    "descripcion": "Cafetería de especialidad y brunch en plena Calle Mayor de Guadalajara. Destaca por su café de alta calidad, opciones saludables sin gluten, tostadas, huevos Benedict y banana bread de chocolate."
+  },
+  {
+    "id": "impresiones_3d_guadalajara",
+    "nombre": "Impresiones 3D Guadalajara",
+    "categoria": "general",
+    "web": "https://impresiones3dguadalajara.com/",
+    "descripcion": "Servicio de impresión y diseño en 3D en la provincia de Guadalajara, especializado en piezas personalizadas, prototipos, objetos decorativos y elementos para eventos. Trabaja tanto con particulares como empresas."
+  },
+  {
+    "id": "jose_carniceria_salchicheria",
+    "nombre": "Jose Carnicería Salchichería",
+    "categoria": "carnicerias",
+    "telefono": "+34949230103",
+    "direccion": "C. Alcalá de Henares, 5, 19003 Guadalajara",
+    "descripcion": "Carnicería y charcutería tradicional en Guadalajara con productos ibéricos de calidad. Negocio familiar con gran variedad de embutidos, carnes frescas y atención cercana y personalizada."
+  },
+  {
+    "id": "juanita_taberna",
+    "nombre": "Juanita Taberna",
+    "categoria": "restaurantes",
+    "telefono": "+34949382919",
+    "direccion": "Calle Marqués de Santillana, 9, 19002 Guadalajara",
+    "ratingGoogle": 4.8,
+    "descripcion": "Taberna y bar en el centro de Guadalajara conocida por su atún fresco, tapas artesanales y desayunos de calidad. Ambiente acogedor con menú del día y atención a intolerancias alimentarias."
+  },
+  {
+    "id": "juegakens_toy_games",
+    "nombre": "JuegaKens (Toy Games)",
+    "categoria": "tiendas",
+    "telefono": "+34616060659",
+    "direccion": "C. de Francisco Aritio, 164, Oficina 214, 19004 Guadalajara",
+    "ratingGoogle": 4.9,
+    "descripcion": "Tienda especializada en juegos de mesa y cartas coleccionables en Guadalajara con más de diez años de experiencia. Ofrece trato personalizado y una amplia selección tanto en tienda física como en plataforma online."
+  }
+]

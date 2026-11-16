@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Plantillas Fluix — Vista previa</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#E8EDF2;color:#1E293B;padding:32px 16px}
+h1{font-size:22px;font-weight:800;color:#1D4ED8;margin-bottom:4px}
+.subtitle{color:#64748B;font-size:13px;margin-bottom:36px}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:32px;align-items:start}
+.card-wrap{display:flex;flex-direction:column;gap:10px}
+.card-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748B;padding-left:4px}
+
+/* ── PAPER ── */
+.paper{background:white;border-radius:4px;box-shadow:0 2px 16px rgba(0,0,0,.12);overflow:hidden;font-size:11px;color:#1E293B}
+.paper *{line-height:1.4}
+
+/* header */
+.hdr{padding:16px 18px;color:white;display:flex;justify-content:space-between;align-items:flex-start}
+.hdr-logo{width:38px;height:38px;border-radius:6px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;margin-bottom:8px}
+.hdr-company strong{display:block;font-size:13px;font-weight:700}
+.hdr-company span{font-size:10px;opacity:.8}
+.hdr-right{text-align:right}
+.hdr-right .doc-type{font-size:18px;font-weight:800;letter-spacing:-0.5px}
+.hdr-right .doc-num{font-size:10px;opacity:.8;margin-top:2px}
+
+/* info band */
+.info-band{display:flex;gap:0;border-bottom:1px solid #F1F5F9}
+.info-cell{flex:1;padding:8px 14px;border-right:1px solid #F1F5F9}
+.info-cell:last-child{border-right:none}
+.info-cell .lbl{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#94A3B8;margin-bottom:2px}
+.info-cell .val{font-size:11px;font-weight:600}
+
+/* client block */
+.client-block{margin:10px 14px;background:#F5F9FF;border-radius:6px;padding:10px 12px}
+.client-block .client-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#1D4ED8;margin-bottom:6px}
+.client-block strong{font-size:12px;display:block}
+.client-block span{font-size:10px;color:#64748B}
+
+/* table */
+.tbl{width:100%;border-collapse:collapse;margin:10px 0 0}
+.tbl th{background:#0D47A1;color:white;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:6px 10px;text-align:left}
+.tbl th:last-child,.tbl td:last-child{text-align:right}
+.tbl td{padding:7px 10px;font-size:10px;border-bottom:1px solid #F8FAFC}
+.tbl tr:nth-child(even) td{background:#FAFBFC}
+.tbl .desc{color:#475569}
+.tbl .mono{font-weight:600}
+
+/* totals */
+.totals{display:flex;justify-content:flex-end;padding:0 14px 10px}
+.totals-box{width:200px}
+.totals-row{display:flex;justify-content:space-between;padding:4px 0;font-size:10px;border-top:1px solid #F1F5F9}
+.totals-row:first-child{border-top:none}
+.totals-row.final{font-size:13px;font-weight:800;color:#1D4ED8;border-top:2px solid #1D4ED8;padding-top:6px;margin-top:4px}
+
+/* payment */
+.pago{margin:0 14px 10px;background:#F5F9FF;border-radius:6px;padding:8px 12px;font-size:10px}
+.pago .plbl{font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#1D4ED8;font-weight:700;margin-bottom:4px}
+
+/* footer */
+.paper-footer{background:#0D47A1;padding:8px 14px;display:flex;justify-content:space-between;align-items:center}
+.paper-footer span{color:rgba(255,255,255,.7);font-size:9px}
+.qr-box{width:36px;height:36px;background:white;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:7px;color:#0D47A1;font-weight:700;text-align:center}
+
+/* pill */
+.pill{display:inline-flex;align-items:center;padding:1px 8px;border-radius:20px;font-size:9px;font-weight:700}
+.pill-green{background:#D1FAE5;color:#065F46}
+.pill-blue{background:#DBEAFE;color:#1D4ED8}
+.pill-amber{background:#FEF3C7;color:#92400E}
+.pill-red{background:#FEE2E2;color:#991B1B}
+
+/* nómina */
+.nomina-header{padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1565C0;background:white}
+.nomina-header .nh-left strong{font-size:14px;font-weight:800;color:#1565C0}
+.nomina-header .nh-left span{font-size:10px;color:#64748B}
+.nomina-section{padding:6px 14px 0;margin-bottom:4px}
+.nomina-section-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748B;padding:6px 0 4px;border-bottom:1px solid #F1F5F9;margin-bottom:4px}
+.nom-row{display:flex;justify-content:space-between;padding:3px 0;font-size:10px}
+.nom-row .nr-label{color:#475569}
+.nom-row .nr-val{font-weight:600}
+.nom-row.total{font-size:11px;font-weight:800;border-top:1px solid #CBD5E1;margin-top:4px;padding-top:6px}
+.nom-neto-box{margin:8px 14px;background:linear-gradient(135deg,#1565C0,#1D4ED8);color:white;border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center}
+.nom-neto-box .nn-label{font-size:11px;opacity:.85}
+.nom-neto-box .nn-val{font-size:20px;font-weight:800}
+
+/* fichajes */
+.fich-header{background:#0F172A;padding:14px 18px;color:white}
+.fich-header strong{display:block;font-size:13px;font-weight:700}
+.fich-header span{font-size:10px;opacity:.7}
+.fich-summary{display:grid;grid-template-columns:repeat(3,1fr);background:#1E293B;color:white}
+.fich-summary-cell{padding:10px 12px;text-align:center;border-right:1px solid rgba(255,255,255,.08)}
+.fich-summary-cell:last-child{border-right:none}
+.fich-summary-cell .fsc-val{font-size:16px;font-weight:800;color:#22D3EE}
+.fich-summary-cell .fsc-lbl{font-size:9px;opacity:.6;margin-top:2px}
+.fich-tbl{width:100%;border-collapse:collapse}
+.fich-tbl th{background:#F8FAFC;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#94A3B8;padding:7px 12px;text-align:left;border-bottom:1px solid #F1F5F9}
+.fich-tbl td{padding:8px 12px;font-size:10px;border-bottom:1px solid #F8FAFC}
+.fich-tbl tr:last-child td{border-bottom:none}
+.bar-mini{height:5px;background:#E2E8F0;border-radius:3px;margin-top:3px;overflow:hidden}
+.bar-mini-fill{height:100%;background:#3B82F6;border-radius:3px}
+
+/* firma */
+.firma-paper .fhdr{background:#1D4ED8;padding:14px 18px;color:white}
+.firma-paper .fhdr strong{display:block;font-size:13px;font-weight:700}
+.firma-paper .fhdr span{font-size:9px;opacity:.7}
+.firma-section{padding:10px 14px;border-bottom:1px solid #F1F5F9}
+.firma-section-t{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#1D4ED8;margin-bottom:6px}
+.firma-row{display:flex;font-size:10px;padding:2px 0}
+.firma-row .fl{width:110px;color:#64748B}
+.firma-row .fv{font-weight:600;flex:1}
+.firma-box{margin:10px 14px;border:2px solid #E5E7EB;border-radius:8px;height:70px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.firma-svg{position:absolute;bottom:8px;left:50%;transform:translateX(-50%)}
+.firma-verified{margin:8px 14px;background:#F0FDF4;border:1px solid #86EFAC;border-radius:6px;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:10px;color:#166534}
+.firma-verified svg{flex-shrink:0}
+.firma-footer-band{background:#1D4ED8;padding:8px 14px;font-size:8px;color:rgba(255,255,255,.7);text-align:center}
+</style>
+</head>
+<body>
+
+<h1>Plantillas Fluix</h1>
+<p class="subtitle">Vista previa de las 4 plantillas base · Los colores y logotipo se personalizan por empresa</p>
+
+<div class="gallery">
+
+  <!-- ══════════════════════════════════════════════════
+       PLANTILLA 1 — FACTURA / PRESUPUESTO
+  ═══════════════════════════════════════════════════ -->
+  <div class="card-wrap">
+    <div class="card-label">📄 Factura &amp; Presupuesto</div>
+    <div class="paper">
+      <!-- Header -->
+      <div class="hdr" style="background:#1565C0">
+        <div class="hdr-company">
+          <div class="hdr-logo">F</div>
+          <strong>Mi Empresa S.L.</strong>
+          <span>CIF B12345678 · info@miempresa.es<br>C/ Mayor 1, 28001 Madrid</span>
+        </div>
+        <div class="hdr-right">
+          <div class="doc-type">FACTURA</div>
+          <div class="doc-num">Nº F2026-0087</div>
+          <div style="margin-top:8px"><span class="pill pill-green">Pagada</span></div>
+        </div>
+      </div>
+      <!-- Info band -->
+      <div class="info-band">
+        <div class="info-cell"><div class="lbl">Fecha emisión</div><div class="val">14/11/2026</div></div>
+        <div class="info-cell"><div class="lbl">Vencimiento</div><div class="val">14/12/2026</div></div>
+        <div class="info-cell"><div class="lbl">Pago</div><div class="val">Transferencia</div></div>
+      </div>
+      <!-- Client -->
+      <div class="client-block">
+        <div class="client-title">Facturar a:</div>
+        <strong>Distribuciones García S.A.</strong>
+        <span>CIF A87654321 · pedidos@garcia.es · C/ Industria 42, 08030 Barcelona</span>
+      </div>
+      <!-- Table -->
+      <table class="tbl">
+        <thead><tr><th>Descripción</th><th>Cant.</th><th>Precio</th><th>IVA</th><th>Total</th></tr></thead>
+        <tbody>
+          <tr><td class="desc">Servicio de consultoría mensual</td><td>1</td><td>1.200,00 €</td><td>21%</td><td class="mono">1.452,00 €</td></tr>
+          <tr><td class="desc">Licencia software Fluix · Plan Pro</td><td>3</td><td>49,00 €</td><td>21%</td><td class="mono">177,87 €</td></tr>
+          <tr><td class="desc">Formación equipo (8h)</td><td>8</td><td>75,00 €</td><td>21%</td><td class="mono">726,00 €</td></tr>
+        </tbody>
+      </table>
+      <!-- Totals -->
+      <div class="totals">
+        <div class="totals-box" style="margin-top:10px">
+          <div class="totals-row"><span>Base imponible</span><span>1.947,00 €</span></div>
+          <div class="totals-row"><span>IVA 21%</span><span>408,87 €</span></div>
+          <div class="totals-row"><span>IRPF -15%</span><span style="color:#DC2626">–292,05 €</span></div>
+          <div class="totals-row final"><span>TOTAL</span><span>2.063,82 €</span></div>
+        </div>
+      </div>
+      <!-- Payment -->
+      <div class="pago">
+        <div class="plbl">Datos de pago</div>
+        <span>IBAN: ES91 2100 0418 4502 0005 1332 · Banco Santander</span>
+      </div>
+      <!-- Footer + QR -->
+      <div class="paper-footer">
+        <span>Fluix · Facturación electrónica TicketBAI/Verifactu<br>Este documento tiene validez legal</span>
+        <div class="qr-box">QR<br>Verif.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       PLANTILLA 2 — NÓMINA
+  ═══════════════════════════════════════════════════ -->
+  <div class="card-wrap">
+    <div class="card-label">💶 Nómina</div>
+    <div class="paper">
+      <div class="nomina-header">
+        <div class="nh-left">
+          <strong>Mi Empresa S.L.</strong>
+          <span>CIF B12345678 · C/ Mayor 1, 28001 Madrid</span>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:14px;font-weight:800;color:#1565C0">NÓMINA</div>
+          <div style="font-size:10px;color:#64748B">Octubre 2026</div>
+        </div>
+      </div>
+      <!-- Empleado -->
+      <div class="nomina-section">
+        <div class="nomina-section-title">Datos del empleado</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+          <div class="nom-row"><span class="nr-label">Nombre</span><span class="nr-val">Ana López Martínez</span></div>
+          <div class="nom-row"><span class="nr-label">NIF</span><span class="nr-val">12345678A</span></div>
+          <div class="nom-row"><span class="nr-label">Categoría</span><span class="nr-val">Técnico Grupo 2</span></div>
+          <div class="nom-row"><span class="nr-label">Contrato</span><span class="nr-val">Indefinido · 40h/sem</span></div>
+        </div>
+      </div>
+      <!-- Devengos -->
+      <div class="nomina-section">
+        <div class="nomina-section-title">Devengos</div>
+        <div class="nom-row"><span class="nr-label">Salario base</span><span class="nr-val" style="color:#059669">1.550,00 €</span></div>
+        <div class="nom-row"><span class="nr-label">Plus convenio</span><span class="nr-val" style="color:#059669">150,00 €</span></div>
+        <div class="nom-row"><span class="nr-label">Horas extra (4h)</span><span class="nr-val" style="color:#059669">72,00 €</span></div>
+        <div class="nom-row total"><span class="nr-label">Total devengos</span><span class="nr-val" style="color:#059669">1.772,00 €</span></div>
+      </div>
+      <!-- Deducciones -->
+      <div class="nomina-section">
+        <div class="nomina-section-title">Deducciones</div>
+        <div class="nom-row"><span class="nr-label">IRPF 14,5%</span><span class="nr-val" style="color:#DC2626">– 256,94 €</span></div>
+        <div class="nom-row"><span class="nr-label">SS empleado 6,35%</span><span class="nr-val" style="color:#DC2626">– 112,52 €</span></div>
+        <div class="nom-row total"><span class="nr-label">Total deducciones</span><span class="nr-val" style="color:#DC2626">– 369,46 €</span></div>
+      </div>
+      <!-- Neto -->
+      <div class="nom-neto-box">
+        <div>
+          <div class="nn-label">Líquido a percibir</div>
+          <div style="font-size:10px;opacity:.7;margin-top:2px">IBAN: ES91 2100 0418 ·· 1332</div>
+        </div>
+        <div class="nn-val">1.402,54 €</div>
+      </div>
+      <!-- SS empresa -->
+      <div class="nomina-section" style="padding-bottom:10px">
+        <div class="nomina-section-title">Coste empresa</div>
+        <div class="nom-row"><span class="nr-label">SS empresa 30,9%</span><span class="nr-val">547,55 €</span></div>
+        <div class="nom-row total"><span class="nr-label">Coste total empresa</span><span class="nr-val">2.319,55 €</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       PLANTILLA 3 — INFORME DE FICHAJES
+  ═══════════════════════════════════════════════════ -->
+  <div class="card-wrap">
+    <div class="card-label">🕐 Informe de fichajes</div>
+    <div class="paper">
+      <div class="fich-header">
+        <strong>Informe Control Horario — Octubre 2026</strong>
+        <span>Mi Empresa S.L. · Generado por Fluix · 01/11/2026</span>
+      </div>
+      <div class="fich-summary">
+        <div class="fich-summary-cell"><div class="fsc-val">12</div><div class="fsc-lbl">Empleados</div></div>
+        <div class="fich-summary-cell"><div class="fsc-val">1.840h</div><div class="fsc-lbl">Horas totales</div></div>
+        <div class="fich-summary-cell"><div class="fsc-val">98,2%</div><div class="fsc-lbl">Puntualidad</div></div>
+      </div>
+      <table class="fich-tbl">
+        <thead><tr><th>Empleado</th><th>Días</th><th>Horas</th><th>Puntual.</th><th>Estado</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Ana López</strong><br><span style="color:#94A3B8;font-size:9px">Turno mañana</span></td>
+            <td>22</td>
+            <td>176h<div class="bar-mini"><div class="bar-mini-fill" style="width:95%"></div></div></td>
+            <td style="color:#059669;font-weight:700">100%</td>
+            <td><span class="pill pill-green">OK</span></td>
+          </tr>
+          <tr>
+            <td><strong>Carlos Ruiz</strong><br><span style="color:#94A3B8;font-size:9px">Turno tarde</span></td>
+            <td>21</td>
+            <td>163h<div class="bar-mini"><div class="bar-mini-fill" style="width:88%"></div></div></td>
+            <td style="color:#D97706;font-weight:700">95%</td>
+            <td><span class="pill pill-amber">1 incid.</span></td>
+          </tr>
+          <tr>
+            <td><strong>María García</strong><br><span style="color:#94A3B8;font-size:9px">Turno mañana</span></td>
+            <td>20</td>
+            <td>152h<div class="bar-mini"><div class="bar-mini-fill" style="width:82%"></div></div></td>
+            <td style="color:#059669;font-weight:700">100%</td>
+            <td><span class="pill pill-blue">Baja 2d</span></td>
+          </tr>
+          <tr>
+            <td><strong>Pedro Sánchez</strong><br><span style="color:#94A3B8;font-size:9px">Turno noche</span></td>
+            <td>22</td>
+            <td>176h<div class="bar-mini"><div class="bar-mini-fill" style="width:95%"></div></div></td>
+            <td style="color:#DC2626;font-weight:700">91%</td>
+            <td><span class="pill pill-red">2 incid.</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="padding:8px 12px;background:#F8FAFC;font-size:9px;color:#94A3B8;border-top:1px solid #F1F5F9">
+        Conforme al RD-ley 8/2019 de control horario obligatorio · Firmado digitalmente por el responsable
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       PLANTILLA 4 — CERTIFICADO FIRMA ELECTRÓNICA
+  ═══════════════════════════════════════════════════ -->
+  <div class="card-wrap">
+    <div class="card-label">✍️ Certificado de firma electrónica</div>
+    <div class="paper firma-paper">
+      <div class="fhdr">
+        <strong>CERTIFICADO DE FIRMA ELECTRÓNICA AVANZADA</strong>
+        <span>Reglamento (UE) 910/2014 — eIDAS art. 26 · Ley 6/2020</span>
+      </div>
+      <!-- Documento -->
+      <div class="firma-section">
+        <div class="firma-section-t">Documento</div>
+        <div class="firma-row"><span class="fl">Nombre</span><span class="fv">Contrato de Trabajo Indefinido</span></div>
+        <div class="firma-row"><span class="fl">Categoría</span><span class="fv">Contrato laboral</span></div>
+        <div class="firma-row"><span class="fl">Hash SHA-256</span><span class="fv" style="font-family:monospace;font-size:9px">a3f1c2d4e5b6…ef123456</span></div>
+      </div>
+      <!-- Firmante -->
+      <div class="firma-section">
+        <div class="firma-section-t">Firmante</div>
+        <div class="firma-row"><span class="fl">Nombre</span><span class="fv">Ana López Martínez</span></div>
+        <div class="firma-row"><span class="fl">Email</span><span class="fv">ana.lopez@empresa.es</span></div>
+        <div class="firma-row"><span class="fl">Teléfono</span><span class="fv">****7980 (verificado)</span></div>
+      </div>
+      <!-- Firma dibujada -->
+      <div class="firma-section">
+        <div class="firma-section-t">Firma manuscrita digital</div>
+        <div class="firma-box">
+          <svg class="firma-svg" width="200" height="45" viewBox="0 0 200 45">
+            <path d="M20,35 Q40,10 55,25 Q70,38 85,20 Q100,5 115,22 Q130,38 148,18 Q162,5 180,28" stroke="#1D4ED8" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      <!-- Verificación -->
+      <div class="firma-section">
+        <div class="firma-section-t">Verificación</div>
+        <div class="firma-row"><span class="fl">Fecha y hora</span><span class="fv">14/11/2026 a las 10:11:43 UTC</span></div>
+        <div class="firma-row"><span class="fl">Método</span><span class="fv">SMS verificado · Firebase Phone Auth</span></div>
+      </div>
+      <div class="firma-verified">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#059669"/><path d="M7 13l3 3 7-7" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>VERIFICADO — Firma electrónica avanzada con plena validez jurídica</span>
+      </div>
+      <div class="firma-footer-band">
+        eIDAS Reglamento (UE) 910/2014 art. 26 · Ley 6/2020 · Generado por Fluix · fluix.es
+      </div>
+    </div>
+  </div>
+
+</div><!-- /gallery -->
+
+<p style="text-align:center;margin-top:40px;font-size:11px;color:#94A3B8">
+  Fluix · Plantillas PDF personalizables · Los colores, logo y campos se configuran por empresa desde Ajustes → Plantillas
+</p>
+
+</body>
+</html>

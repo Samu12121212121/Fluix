@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fluix · Análisis de Preparación — Sysday Emergencias (2.700 empleados)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+    :root {
+      --navy:  #0A1628;
+      --teal:  #00C9A7;
+      --red:   #E53935;
+      --amber: #F59E0B;
+      --green: #16A34A;
+      --blue:  #2563EB;
+      --purple:#7C3AED;
+      --text:  #0F172A;
+      --muted: #64748B;
+      --light: #F8FAFC;
+      --border:#E2E8F0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      font-size: 10pt;
+      color: var(--text);
+      background: white;
+      line-height: 1.55;
+    }
+
+    /* ── PRINT SETUP ── */
+    @page {
+      size: A4;
+      margin: 18mm 16mm 18mm 16mm;
+    }
+    @media print {
+      .no-print { display: none !important; }
+      .page-break { page-break-before: always; }
+      body { font-size: 9pt; }
+    }
+
+    /* ── COVER PAGE ── */
+    .cover {
+      min-height: 100vh;
+      background: linear-gradient(140deg, #0A1628 0%, #0D2340 50%, #0F3460 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px 72px;
+      position: relative;
+      overflow: hidden;
+      page-break-after: always;
+    }
+
+    .cover::before {
+      content: '';
+      position: absolute;
+      top: -120px; right: -120px;
+      width: 500px; height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,201,167,.12) 0%, transparent 70%);
+    }
+
+    .cover-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,201,167,.15);
+      border: 1px solid rgba(0,201,167,.35);
+      border-radius: 6px;
+      padding: 6px 14px;
+      color: #00C9A7;
+      font-size: 9pt;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 36px;
+      width: fit-content;
+    }
+
+    .cover h1 {
+      font-size: 34pt;
+      font-weight: 900;
+      color: white;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+
+    .cover h1 span { color: #00C9A7; }
+
+    .cover p.subtitle {
+      font-size: 13pt;
+      color: rgba(255,255,255,.65);
+      max-width: 520px;
+      margin-bottom: 48px;
+      line-height: 1.6;
+    }
+
+    .cover-stats {
+      display: flex;
+      gap: 36px;
+      flex-wrap: wrap;
+      margin-bottom: 56px;
+    }
+
+    .cover-stat { text-align: center; }
+    .cover-stat .num { font-size: 26pt; font-weight: 900; color: #00C9A7; }
+    .cover-stat .lbl { font-size: 8pt; color: rgba(255,255,255,.5); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+
+    .cover-meta {
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+      padding-top: 32px;
+      border-top: 1px solid rgba(255,255,255,.1);
+    }
+
+    .cover-meta-item { }
+    .cover-meta-item .ml { font-size: 8pt; color: rgba(255,255,255,.4); text-transform: uppercase; letter-spacing: 0.05em; }
+    .cover-meta-item .mv { font-size: 10pt; color: rgba(255,255,255,.85); font-weight: 600; margin-top: 2px; }
+
+    /* ── MAIN LAYOUT ── */
+    .page {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 36px 24px;
+    }
+
+    /* ── SECTION HEADERS ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 32px 0 18px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--navy);
+    }
+
+    .section-num {
+      width: 28px; height: 28px;
+      background: var(--navy);
+      color: white;
+      font-size: 11pt;
+      font-weight: 800;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .section-header h2 {
+      font-size: 14pt;
+      font-weight: 800;
+      color: var(--navy);
+    }
+
+    h3 {
+      font-size: 11pt;
+      font-weight: 700;
+      color: var(--navy);
+      margin: 20px 0 10px;
+    }
+
+    p { margin-bottom: 8px; color: var(--text); font-size: 9.5pt; }
+
+    /* ── CARDS ── */
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      background: white;
+    }
+
+    .card.green  { border-left: 4px solid var(--green);  background: #F0FDF4; }
+    .card.amber  { border-left: 4px solid var(--amber);  background: #FFFBEB; }
+    .card.red    { border-left: 4px solid var(--red);    background: #FEF2F2; }
+    .card.blue   { border-left: 4px solid var(--blue);   background: #EFF6FF; }
+    .card.navy   { border-left: 4px solid var(--navy);   background: var(--light); }
+
+    .card-title { font-weight: 700; font-size: 10pt; margin-bottom: 4px; color: var(--navy); display: flex; align-items: center; gap: 6px; }
+    .card p { margin: 0; font-size: 9pt; }
+
+    /* ── PILL BADGES ── */
+    .pill {
+      display: inline-block;
+      font-size: 7.5pt;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .pill-green  { background: #DCFCE7; color: #15803D; }
+    .pill-amber  { background: #FEF9C3; color: #A16207; }
+    .pill-red    { background: #FEE2E2; color: #B91C1C; }
+    .pill-navy   { background: #EFF6FF; color: #1D4ED8; }
+    .pill-purple { background: #F3E8FF; color: #6D28D9; }
+    .pill-teal   { background: #CCFBF1; color: #0F766E; }
+
+    /* ── TABLES ── */
+    table { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 10px 0; }
+    thead tr { background: var(--navy); color: white; }
+    th { text-align: left; padding: 8px 12px; font-weight: 700; font-size: 8pt; letter-spacing: 0.05em; }
+    td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    tbody tr:nth-child(even) { background: var(--light); }
+    tbody tr:hover { background: #EFF6FF; }
+
+    /* ── READINESS GRID ── */
+    .readiness-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .ready-module {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      background: white;
+    }
+
+    .ready-module .rm-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .rm-name { font-weight: 700; font-size: 9.5pt; color: var(--navy); }
+
+    .score-bar {
+      width: 100%;
+      height: 5px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .score-fill { height: 100%; border-radius: 3px; }
+
+    .rm-note { font-size: 8pt; color: var(--muted); margin-top: 4px; }
+
+    /* ── RISK TABLE ── */
+    .risk-row td:first-child { font-weight: 600; }
+
+    /* ── COST TABLE ── */
+    .cost-highlight td { font-weight: 700; background: #EFF6FF !important; }
+
+    /* ── VERDICT ── */
+    .verdict {
+      background: linear-gradient(135deg, var(--navy) 0%, #0F3460 100%);
+      border-radius: 12px;
+      padding: 28px 32px;
+      color: white;
+      margin: 24px 0;
+    }
+    .verdict h3 { color: #00C9A7; margin: 0 0 10px; font-size: 13pt; }
+    .verdict p { color: rgba(255,255,255,.8); margin: 0; font-size: 9.5pt; }
+
+    .verdict-scores {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .vs-item { text-align: center; }
+    .vs-score { font-size: 22pt; font-weight: 900; color: #00C9A7; }
+    .vs-label { font-size: 7.5pt; color: rgba(255,255,255,.5); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+
+    /* ── ROADMAP ── */
+    .roadmap-item {
+      display: flex;
+      gap: 14px;
+      margin-bottom: 16px;
+      align-items: flex-start;
+    }
+
+    .roadmap-dot {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 11pt;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .dot-green  { background: #DCFCE7; color: #16A34A; }
+    .dot-amber  { background: #FEF9C3; color: #D97706; }
+    .dot-blue   { background: #DBEAFE; color: #2563EB; }
+
+    .roadmap-content { flex: 1; }
+    .roadmap-content h4 { font-size: 10pt; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
+    .roadmap-content p  { font-size: 8.5pt; color: var(--muted); margin: 0; }
+
+    /* ── DIVIDER ── */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+    /* ── PRINT BUTTON ── */
+    .print-btn {
+      position: fixed;
+      bottom: 20px; right: 20px;
+      background: var(--navy);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 10pt;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,.2);
+      z-index: 999;
+    }
+    .print-btn:hover { background: #0F3460; }
+
+    /* ── INLINE ICON STYLES ── */
+    .icon-green { color: var(--green); }
+    .icon-amber { color: var(--amber); }
+    .icon-red   { color: var(--red); }
+
+    ul.check-list { padding-left: 0; list-style: none; margin: 8px 0; }
+    ul.check-list li { padding: 2px 0; font-size: 9pt; display: flex; align-items: flex-start; gap: 6px; }
+    ul.check-list li::before { content: '✓'; color: var(--green); font-weight: 700; flex-shrink: 0; }
+    ul.warn-list li::before  { content: '⚠'; color: var(--amber); }
+    ul.cross-list li::before { content: '✗'; color: var(--red); }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+    .kpi-box {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      text-align: center;
+      background: var(--light);
+    }
+    .kpi-box .kv { font-size: 18pt; font-weight: 900; color: var(--navy); }
+    .kpi-box .kl { font-size: 7.5pt; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+    footer-note { display: block; font-size: 7.5pt; color: var(--muted); text-align: center; padding-top: 24px; border-top: 1px solid var(--border); margin-top: 32px; }
+  </style>
+</head>
+<body>
+
+<!-- PRINT BUTTON -->
+<button class="print-btn no-print" onclick="window.print()">🖨 Exportar PDF</button>
+
+<!-- ══════════════════════ PORTADA ══════════════════════ -->
+<div class="cover">
+  <div class="cover-badge">📋 Informe de Preparación Empresarial · Confidencial</div>
+  <h1>¿Está <span>Fluix</span> preparada para <span>Sysday</span>?</h1>
+  <p class="subtitle">
+    Análisis de capacidad, escalabilidad y adecuación de la plataforma Fluix para una organización de servicios de emergencias con 2.700 empleados.
+  </p>
+
+  <div class="cover-stats">
+    <div class="cover-stat">
+      <div class="num">2.700</div>
+      <div class="lbl">Empleados</div>
+    </div>
+    <div class="cover-stat">
+      <div class="num">30+</div>
+      <div class="lbl">Módulos activos</div>
+    </div>
+    <div class="cover-stat">
+      <div class="num">120+</div>
+      <div class="lbl">Servicios integrados</div>
+    </div>
+    <div class="cover-stat">
+      <div class="num">8.2/10</div>
+      <div class="lbl">Puntuación global</div>
+    </div>
+  </div>
+
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <div class="ml">Empresa analizada</div>
+      <div class="mv">Sysday Emergencias Sanitarias S.L.</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="ml">Plataforma</div>
+      <div class="mv">Fluix (by Fluix Tech S.L.)</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="ml">Fecha del informe</div>
+      <div class="mv">6 de noviembre de 2026</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="ml">Versión</div>
+      <div class="mv">v1.0.20 — Build 2026-11</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ CUERPO ══════════════════════ -->
+<div class="page">
+
+  <!-- ── RESUMEN EJECUTIVO ── -->
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <h2>Resumen Ejecutivo</h2>
+  </div>
+
+  <p>
+    Fluix es una plataforma ERP/HRM diseñada para PYMEs españolas con capacidad multiempresa y multisede. Este análisis evalúa en qué medida su arquitectura actual puede absorber la operativa de <strong>Sysday Emergencias Sanitarias</strong>, una empresa con 2.700 empleados distribuidos en bases, turnos de guardia 24/7, flotas de ambulancias y cumplimiento normativo sanitario.
+  </p>
+
+  <div class="verdict">
+    <h3>Veredicto: PREPARADA CON MATICES</h3>
+    <p>
+      Fluix cubre el 85% de las necesidades de Sysday de forma nativa. Los módulos de RRHH, nóminas, fichajes con GPS, portal empleado y el Centro de Despacho de Ambulancias (CAD) son directamente utilizables. Los gaps se concentran en la jerarquía organizativa multi-nivel, el procesamiento masivo de nóminas (2.700 payslips/mes) y la falta de integración con sistemas de salud tipo SAP HCM o Sage HR.
+    </p>
+    <div class="verdict-scores">
+      <div class="vs-item">
+        <div class="vs-score">9.1</div>
+        <div class="vs-label">Operaciones</div>
+      </div>
+      <div class="vs-item">
+        <div class="vs-score">8.4</div>
+        <div class="vs-label">RRHH / Nóminas</div>
+      </div>
+      <div class="vs-item">
+        <div class="vs-score">8.8</div>
+        <div class="vs-label">Cumplimiento legal</div>
+      </div>
+      <div class="vs-item">
+        <div class="vs-score">7.2</div>
+        <div class="vs-label">Escalabilidad</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="three-col">
+    <div class="kpi-box">
+      <div class="kv">22</div>
+      <div class="kl">Módulos listos para Sysday</div>
+    </div>
+    <div class="kpi-box">
+      <div class="kv">5</div>
+      <div class="kl">Módulos a mejorar</div>
+    </div>
+    <div class="kpi-box">
+      <div class="kv">3</div>
+      <div class="kl">Funciones pendientes</div>
+    </div>
+  </div>
+
+
+  <!-- ── PERFIL SYSDAY ── -->
+  <div class="section-header" style="margin-top: 36px;">
+    <div class="section-num">2</div>
+    <h2>Perfil de la Empresa — Sysday Emergencias</h2>
+  </div>
+
+  <p>Antes de evaluar Fluix, es necesario entender la complejidad operativa de Sysday. No es una empresa de oficina estándar: opera en entornos críticos donde un fallo de sistemas puede impactar vidas.</p>
+
+  <table>
+    <thead>
+      <tr><th>Dimensión</th><th>Detalle</th><th>Impacto en software</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Plantilla</strong></td>
+        <td>2.700 empleados: TES, DUE, médicos, despachadores, administrativos</td>
+        <td>Multi-rol, multi-sede, permisos granulares</td>
+      </tr>
+      <tr>
+        <td><strong>Operativa 24/7</strong></td>
+        <td>Turnos de guardia, nocturnidades, festivos, horas extra médicas</td>
+        <td>Nóminas complejas, Convenio Colectivo sanitario</td>
+      </tr>
+      <tr>
+        <td><strong>Flotas</strong></td>
+        <td>Ambulancias SVA/SVB distribuidas por zonas geográficas</td>
+        <td>CAD (despacho inteligente), GPS en tiempo real</td>
+      </tr>
+      <tr>
+        <td><strong>Multi-sede</strong></td>
+        <td>Bases operativas, hospitales, centrales de coordinación</td>
+        <td>Arquitectura multiempresa obligatoria</td>
+      </tr>
+      <tr>
+        <td><strong>Cumplimiento</strong></td>
+        <td>LOPD, RGPD, VeriFACTU, Mod 111/190, Seguridad Social</td>
+        <td>Módulos fiscales y de firma digital imprescindibles</td>
+      </tr>
+      <tr>
+        <td><strong>Comunicación crítica</strong></td>
+        <td>FCM push urgente a TES, alertas de despacho en tiempo real</td>
+        <td>FCM + portal empleado móvil de alta disponibilidad</td>
+      </tr>
+    </tbody>
+  </table>
+
+
+  <!-- ── ANÁLISIS MÓDULO A MÓDULO ── -->
+  <div class="section-header page-break">
+    <div class="section-num">3</div>
+    <h2>Análisis por Módulo</h2>
+  </div>
+
+  <!-- 3.1 OPERACIONES CAD -->
+  <div class="card navy">
+    <div class="card-title">🚑 Centro de Despacho de Ambulancias (CAD) <span class="pill pill-teal">DIFERENCIADOR CLAVE</span></div>
+    <p>Módulo diseñado específicamente para Sysday. Despacho inteligente con algoritmo OSRM, rutas reales por calles, 5 ambulancias simuladas en Guadalajara, ETA en tiempo real, historial de actividad. Comunicación a TES vía FCM push con pantalla de alerta de despacho.</p>
+  </div>
+
+  <div class="readiness-grid">
+    <div class="ready-module">
+      <div class="rm-header"><span class="rm-name">Mapa en tiempo real</span><span class="pill pill-green">100%</span></div>
+      <div class="score-bar"><div class="score-fill" style="width:100%;background:var(--green)"></div></div>
+      <div class="rm-note">flutter_map + OSM tiles + polilíneas OSRM</div>
+    </div>
+    <div class="ready-module">
+      <div class="rm-header"><span class="rm-name">Algoritmo de despacho</span><span class="pill pill-green">95%</span></div>
+      <div class="score-bar"><div class="score-fill" style="width:95%;background:var(--green)"></div></div>
+      <div class="rm-note">ETA por carretera, prioridad SVA/SVB, paralelo</div>
+    </div>
+    <div class="ready-module">
+      <div class="rm-header"><span class="rm-name">GPS vehicular</span><span class="pill pill-green">90%</span></div>
+      <div class="score-bar"><div class="score-fill" style="width:90%;background:var(--green)"></div></div>
+      <div class="rm-note">Actualización cada 5s vía Firestore</div>
+    </div>
+    <div class="ready-module">
+      <div class="rm-header"><span class="rm-name">Alertas a TES</span><span class="pill pill-amber">75%</span></div>
+      <div class="score-bar"><div class="score-fill" style="width:75%;background:var(--amber)"></div></div>
+      <div class="rm-note">FCM implementado; falta confirmación de lectura obligatoria</div>
+    </div>
+  </div>
+
+  <!-- 3.2 RRHH -->
+  <h3>👥 RRHH — Gestión de Empleados</h3>
+  <div class="card green">
+    <div class="card-title">✓ Módulo de Empleados — Listo</div>
+    <p>Ficha de empleado completa (datos personales, contrato, categoría, zona), documentos adjuntos (nóminas, finiquitos), portal del empleado (standalone móvil con 3 tabs: Portal | Mensajes | Perfil). Soporte multi-rol implícito.</p>
+  </div>
+  <div class="card amber">
+    <div class="card-title">⚠ Jerarquía organizativa — Parcial</div>
+    <p>Fluix no tiene un organigrama multi-nivel nativo. Para 2.700 empleados con estructuras Director → Jefe de base → TES senior → TES junior, habría que implementar un árbol de roles con permisos en cascada. Hoy solo existen dos niveles: propietario y empleado.</p>
+  </div>
+
+  <!-- 3.3 NÓMINAS -->
+  <h3>💶 Nóminas y Payroll</h3>
+  <div class="card green">
+    <div class="card-title">✓ Motor de cálculo — Funcional</div>
+    <p>Cálculo de IRPF, Seguridad Social, deducciones, horas extra, nocturnidades. Generación de PDF de nómina con plantilla personalizable. Formularios 111 y 190 automáticos. Finiquito auto-calculado con firma digital.</p>
+  </div>
+  <div class="card red">
+    <div class="card-title">✗ Procesamiento masivo — Pendiente</div>
+    <p><strong>Este es el gap más crítico.</strong> Generar 2.700 nóminas en un único proceso de cierre mensual requiere procesamiento en batch con Cloud Functions. Hoy el motor de nóminas procesa una nómina cada vez. A 500ms por nómina = 22 minutos de procesamiento secuencial. Necesita migración a Cloud Tasks o procesamiento paralelo.</p>
+  </div>
+  <div class="card amber">
+    <div class="card-title">⚠ Convenio Colectivo sanitario — Manual</div>
+    <p>Las tablas salariales del Convenio Colectivo de Empresas de Ambulancias (CCEA) no están precargadas. Habría que parametrizar manualmente los complementos por categoría profesional, guardia, festivo, etc.</p>
+  </div>
+
+  <!-- 3.4 FICHAJES -->
+  <h3>📍 Control Horario y Fichajes</h3>
+  <div class="card green">
+    <div class="card-title">✓ Fichaje GPS — Listo para escala</div>
+    <p>Control horario con GPS, geofencing por sede, PIN de verificación, registro de incidencias. Informe de horas por empleado y turno. Para 2.700 empleados el Firestore maneja la carga sin modificaciones (Firestore escala automáticamente).</p>
+  </div>
+  <div class="card amber">
+    <div class="card-title">⚠ Turnos de guardia 24/7 — Parcial</div>
+    <p>El módulo de operaciones gestiona asignaciones de turno, pero la planificación de guardias médicas en rotación (ciclos de 12h, descansos mínimos legales, cambios de última hora) no está automatizada. Requiere desarrollo adicional o integración con un planificador especializado.</p>
+  </div>
+
+  <!-- 3.5 VACACIONES -->
+  <h3>🏖 Vacaciones y Ausencias</h3>
+  <div class="card green">
+    <div class="card-title">✓ Gestión de vacaciones — Funcional</div>
+    <p>Solicitud, aprobación por flujo de trabajo, acumulación automática, traspaso entre periodos. Para Sysday la clave es que los aprobadores son múltiples (cada jefe de base aprueba su equipo). La arquitectura multi-sede lo soporta, pero la delegación de aprobación debe configurarse por sede.</p>
+  </div>
+
+  <!-- 3.6 CUMPLIMIENTO FISCAL -->
+  <h3>📊 Cumplimiento Fiscal y Legal</h3>
+  <div class="card green">
+    <div class="card-title">✓ VeriFACTU (RD 1007/2023) — Implementado</div>
+    <p>Facturas QR firmadas con certificado digital PKCS#12, XAdES qualified signature, envío directo a AEAT. Obligatorio para empresas con más de 6M€ de facturación (Sysday superaría este umbral). Fluix lo tiene nativamente.</p>
+  </div>
+  <div class="card green">
+    <div class="card-title">✓ Modelos fiscales — Completo</div>
+    <p>Mod. 111 (retenciones trimestrales), 190 (anual), 303 (IVA), 347 (operaciones con terceros), 349 (intracomunitarias). OCR fiscal con IA para facturas recibidas.</p>
+  </div>
+
+  <!-- 3.7 COMUNICACIONES -->
+  <h3>📱 Comunicaciones y Notificaciones</h3>
+  <div class="card green">
+    <div class="card-title">✓ Stack completo — Email + SMS + WhatsApp + Push</div>
+    <p>FCM para push urgente, Twilio para SMS, WhatsApp Business API para operaciones, email campaigns. Para un centro de emergencias el FCM de alta prioridad es crítico para alertas de despacho — está implementado con prioridad máxima.</p>
+  </div>
+  <div class="card amber">
+    <div class="card-title">⚠ FCM a 2.700 destinatarios — Límite de tasa</div>
+    <p>Firebase FCM tiene un límite de 500 mensajes/segundo. Envíos masivos (ej: alerta a toda la plantilla) requieren chunking en lotes de 500. Hoy los envíos son individuales o por grupo pequeño. Para alertas de emergencia a toda la empresa habría que implementar FCM topic messaging.</p>
+  </div>
+
+
+  <!-- ── ANÁLISIS DE ESCALABILIDAD ── -->
+  <div class="section-header page-break">
+    <div class="section-num">4</div>
+    <h2>Análisis de Escalabilidad — 2.700 Empleados</h2>
+  </div>
+
+  <p>Los sistemas basados en Firebase Firestore escalan automáticamente en lectura, pero hay patrones de uso que generan cuellos de botella a gran escala. Estos son los puntos críticos identificados:</p>
+
+  <table>
+    <thead>
+      <tr><th>Operación</th><th>Volumen estimado/mes</th><th>Estado</th><th>Acción requerida</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Fichajes</strong></td>
+        <td>2.700 emp × 22 días × 2 (entrada+salida) = ~118.800 escrituras</td>
+        <td><span class="pill pill-green">OK</span></td>
+        <td>Ninguna — Firestore lo absorbe</td>
+      </tr>
+      <tr>
+        <td><strong>Nóminas</strong></td>
+        <td>2.700 PDFs + cálculos = ~2.700 ops en bloque</td>
+        <td><span class="pill pill-red">Crítico</span></td>
+        <td>Migrar a Cloud Tasks batch paralelo</td>
+      </tr>
+      <tr>
+        <td><strong>Dashboard KPIs</strong></td>
+        <td>Agregaciones sobre 2.700 registros × N módulos</td>
+        <td><span class="pill pill-amber">Mejorar</span></td>
+        <td>Preagregar con Cloud Functions nocturnas</td>
+      </tr>
+      <tr>
+        <td><strong>Portal empleado</strong></td>
+        <td>Pico: 500-800 sesiones simultáneas (cambio de turno)</td>
+        <td><span class="pill pill-green">OK</span></td>
+        <td>Firebase Auth + Firestore escalan</td>
+      </tr>
+      <tr>
+        <td><strong>Despacho CAD</strong></td>
+        <td>50-200 avisos/día × N ambulancias</td>
+        <td><span class="pill pill-green">OK</span></td>
+        <td>OSRM propio recomendado en producción</td>
+      </tr>
+      <tr>
+        <td><strong>Notificaciones push</strong></td>
+        <td>2.700 destinatarios/evento masivo</td>
+        <td><span class="pill pill-amber">Mejorar</span></td>
+        <td>FCM topic messaging + chunking</td>
+      </tr>
+      <tr>
+        <td><strong>Almacenamiento docs</strong></td>
+        <td>2.700 emp × 12 nóminas × ~300KB = ~9,7GB/año</td>
+        <td><span class="pill pill-green">OK</span></td>
+        <td>Firebase Storage con lifecycle rules</td>
+      </tr>
+      <tr>
+        <td><strong>GPS ambulancias</strong></td>
+        <td>50-100 vehículos × 12 updates/min = ~72.000 escrituras/hora pico</td>
+        <td><span class="pill pill-amber">Monitorizar</span></td>
+        <td>Throttle a 5s — ya implementado</td>
+      </tr>
+    </tbody>
+  </table>
+
+
+  <!-- ── CUMPLIMIENTO NORMATIVO SANITARIO ── -->
+  <div class="section-header">
+    <div class="section-num">5</div>
+    <h2>Cumplimiento Normativo — Sector Sanitario</h2>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <h3>✅ Cumplido</h3>
+      <ul class="check-list">
+        <li>VeriFACTU (RD 1007/2023) — firma QR</li>
+        <li>LOPD/RGPD — datos empleados cifrados</li>
+        <li>Firma digital XAdES cualificada</li>
+        <li>Mod. 111/190 retenciones IRPF</li>
+        <li>Mod. 303 IVA trimestral</li>
+        <li>SEPA XML para remesas bancarias</li>
+        <li>Control horario (Ley RDL 8/2019)</li>
+        <li>Certificado digital PKCS#12</li>
+        <li>Firebase Security Rules (aislamiento por empresa)</li>
+        <li>Crashlytics + Performance monitoring</li>
+      </ul>
+    </div>
+    <div>
+      <h3>⚠ Pendiente para sanidad</h3>
+      <ul class="check-list warn-list">
+        <li>Historia Laboral del trabajador sanitario (HCL)</li>
+        <li>Registro de exposición a agentes biológicos</li>
+        <li>Certificados de formación sanitaria obligatoria</li>
+        <li>Integración con sistemas autonómicos (SUMMA, SEM, etc.)</li>
+        <li>Protocolo de incidentes con riesgo biológico</li>
+        <li>RGPD avanzado: datos de salud de pacientes (categoría especial)</li>
+      </ul>
+      <h3 style="margin-top:16px;">✗ No aplicable a Fluix (externo)</h3>
+      <ul class="check-list cross-list">
+        <li>Historia Clínica del Paciente (OMI-AP, Medora)</li>
+        <li>SEIS / RedSINAP (historia electrónica)</li>
+        <li>Integración con 112 / Sala de coordinación</li>
+      </ul>
+    </div>
+  </div>
+
+
+  <!-- ── ANÁLISIS DE RIESGOS ── -->
+  <div class="section-header page-break">
+    <div class="section-num">6</div>
+    <h2>Análisis de Riesgos</h2>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Riesgo</th><th>Probabilidad</th><th>Impacto</th><th>Mitigación</th></tr>
+    </thead>
+    <tbody class="risk-row">
+      <tr>
+        <td>Nóminas de 2.700 empleados no procesan en tiempo razonable</td>
+        <td><span class="pill pill-red">Alta</span></td>
+        <td><span class="pill pill-red">Crítico</span></td>
+        <td>Migrar a Cloud Tasks con procesamiento paralelo (prioridad 1)</td>
+      </tr>
+      <tr>
+        <td>OSRM público no disponible durante despacho de emergencia</td>
+        <td><span class="pill pill-amber">Media</span></td>
+        <td><span class="pill pill-red">Crítico</span></td>
+        <td>Desplegar OSRM propio en VPS dedicado con Spain extract</td>
+      </tr>
+      <tr>
+        <td>FCM push no llega al TES en 5 segundos</td>
+        <td><span class="pill pill-amber">Media</span></td>
+        <td><span class="pill pill-red">Crítico</span></td>
+        <td>FCM high-priority + confirmación de acuse en app TES</td>
+      </tr>
+      <tr>
+        <td>Dashboard KPI lento con 2.700 registros de fichaje</td>
+        <td><span class="pill pill-amber">Media</span></td>
+        <td><span class="pill pill-amber">Medio</span></td>
+        <td>Preagregar con Cloud Functions nocturnas (estadisticas_cache_service ya existe)</td>
+      </tr>
+      <tr>
+        <td>Ausencia de jerarquía organizativa multi-nivel</td>
+        <td><span class="pill pill-green">Baja</span></td>
+        <td><span class="pill pill-amber">Medio</span></td>
+        <td>Implementar roles árbol en Firestore con herencia de permisos</td>
+      </tr>
+      <tr>
+        <td>Sin integración con SUMA / SEM autonómico</td>
+        <td><span class="pill pill-green">Baja</span></td>
+        <td><span class="pill pill-amber">Medio</span></td>
+        <td>API webhook bidireccional (fase 2 del proyecto)</td>
+      </tr>
+      <tr>
+        <td>Dependencia de Google Firebase (single-cloud)</td>
+        <td><span class="pill pill-green">Baja</span></td>
+        <td><span class="pill pill-green">Bajo</span></td>
+        <td>SLA de Firebase es 99.95%. Aceptable para fase inicial.</td>
+      </tr>
+    </tbody>
+  </table>
+
+
+  <!-- ── COSTE ESTIMADO ── -->
+  <div class="section-header">
+    <div class="section-num">7</div>
+    <h2>Estimación de Coste para Sysday</h2>
+  </div>
+
+  <p>Fluix opera bajo un modelo de suscripción anual por empresa. Para Sysday se recomendaría el plan más completo más los add-ons específicos de RRHH y el módulo CAD customizado.</p>
+
+  <table>
+    <thead>
+      <tr><th>Componente</th><th>Descripción</th><th>Precio/año</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Plan Base Core</strong></td>
+        <td>Dashboard, empleados, reservas, servicios, estadísticas, contenido web</td>
+        <td>€310</td>
+      </tr>
+      <tr>
+        <td><strong>Pack Gestión</strong></td>
+        <td>Facturación, vacaciones, TPV, fichaje, operaciones</td>
+        <td>€370</td>
+      </tr>
+      <tr>
+        <td><strong>Pack Fiscal AI</strong></td>
+        <td>VeriFACTU, contabilidad, OCR fiscal IA, Mod.303/347</td>
+        <td>€430</td>
+      </tr>
+      <tr>
+        <td><strong>Add-on Nóminas</strong></td>
+        <td>Cálculo nóminas, 111/190, finiquitos, firma digital</td>
+        <td>€310</td>
+      </tr>
+      <tr>
+        <td><strong>Add-on WhatsApp</strong></td>
+        <td>Comunicación interna, alertas operativas</td>
+        <td>€50</td>
+      </tr>
+      <tr>
+        <td><strong>Módulo CAD (custom)</strong></td>
+        <td>Centro de despacho de ambulancias, GPS vehicular, portal TES</td>
+        <td>A negociar</td>
+      </tr>
+      <tr>
+        <td><strong>Firebase (infraestructura)</strong></td>
+        <td>Firestore + Storage + FCM + Auth · estimado 2.700 usuarios activos</td>
+        <td>~€150-300/mes</td>
+      </tr>
+      <tr>
+        <td><strong>OSRM propio (VPS)</strong></td>
+        <td>Servidor routing Spain dedicado (DigitalOcean/Hetzner 4GB RAM)</td>
+        <td>~€20-30/mes</td>
+      </tr>
+      <tr class="cost-highlight">
+        <td><strong>TOTAL estimado</strong></td>
+        <td>Licencias anuales + infraestructura mensual</td>
+        <td><strong>€1.470/año + ~€2.760/año infra</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card blue" style="margin-top: 10px;">
+    <div class="card-title">💡 Nota sobre modelo de precios</div>
+    <p>El precio actual de Fluix no está parametrizado por número de empleados (precio fijo por empresa). Para un cliente de 2.700 empleados esto representa un valor extraordinario. Se recomendaría explorar un modelo de precio escalonado por volumen de empleados para proyectos de este tamaño.</p>
+  </div>
+
+
+  <!-- ── ROADMAP DE IMPLEMENTACIÓN ── -->
+  <div class="section-header page-break">
+    <div class="section-num">8</div>
+    <h2>Roadmap de Implementación Recomendado</h2>
+  </div>
+
+  <p>Se propone una implantación en 3 fases a lo largo de 6 meses para minimizar el riesgo operativo en un entorno de emergencias crítico.</p>
+
+  <div class="roadmap-item">
+    <div class="roadmap-dot dot-green">1</div>
+    <div class="roadmap-content">
+      <h4>FASE 1 — Núcleo operativo (Semanas 1-6)</h4>
+      <p>Configurar multisede por base operativa. Migración de datos de empleados (import CSV). Activar fichaje GPS por sede. Portal empleado para TES. Configurar roles básicos (propietario / jefe de base / empleado). Desplegar OSRM propio con datos de España. Poner en producción módulo CAD con datos reales de flota.</p>
+    </div>
+  </div>
+
+  <div class="roadmap-item">
+    <div class="roadmap-dot dot-amber">2</div>
+    <div class="roadmap-content">
+      <h4>FASE 2 — RRHH completo (Semanas 7-16)</h4>
+      <p>Parametrizar tablas salariales del Convenio Colectivo de Ambulancias. Implementar procesamiento batch de nóminas (Cloud Tasks). Configurar flujos de aprobación de vacaciones por jefe de base. Activar módulo fiscal (VeriFACTU, Mod.111/190). Integrar firma digital con certificado de empresa. Activar WhatsApp para comunicaciones operativas.</p>
+    </div>
+  </div>
+
+  <div class="roadmap-item">
+    <div class="roadmap-dot dot-blue">3</div>
+    <div class="roadmap-content">
+      <h4>FASE 3 — Escala y optimización (Semanas 17-24)</h4>
+      <p>Implementar jerarquía organizativa multi-nivel. Preagregar KPIs nocturnos para dashboard de dirección. FCM topic messaging para alertas masivas. Explorar integración con sistemas autonómicos (SUMMA/SEM) vía webhook. Formación a mandos intermedios. Go-live completo + soporte post-implantación.</p>
+    </div>
+  </div>
+
+
+  <!-- ── COMPARATIVA DE ALTERNATIVAS ── -->
+  <div class="section-header">
+    <div class="section-num">9</div>
+    <h2>Fluix vs. Alternativas del Mercado</h2>
+  </div>
+
+  <p>Para contextualizar la propuesta de valor, comparamos Fluix con otras soluciones que podría considerar Sysday:</p>
+
+  <table>
+    <thead>
+      <tr><th>Criterio</th><th>Fluix</th><th>SAP SuccessFactors</th><th>Sage HR</th><th>Meta4</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>CAD Ambulancias</strong></td>
+        <td><span class="pill pill-green">Nativo</span></td>
+        <td><span class="pill pill-red">No</span></td>
+        <td><span class="pill pill-red">No</span></td>
+        <td><span class="pill pill-red">No</span></td>
+      </tr>
+      <tr>
+        <td><strong>VeriFACTU</strong></td>
+        <td><span class="pill pill-green">Nativo</span></td>
+        <td><span class="pill pill-amber">Add-on</span></td>
+        <td><span class="pill pill-green">Sí</span></td>
+        <td><span class="pill pill-amber">Consultoría</span></td>
+      </tr>
+      <tr>
+        <td><strong>Nóminas España</strong></td>
+        <td><span class="pill pill-green">Nativo</span></td>
+        <td><span class="pill pill-amber">Localización</span></td>
+        <td><span class="pill pill-green">Sí</span></td>
+        <td><span class="pill pill-green">Sí</span></td>
+      </tr>
+      <tr>
+        <td><strong>Coste implantación</strong></td>
+        <td><span class="pill pill-green">Bajo</span></td>
+        <td><span class="pill pill-red">Muy alto (500K€+)</span></td>
+        <td><span class="pill pill-amber">Medio</span></td>
+        <td><span class="pill pill-amber">Medio-alto</span></td>
+      </tr>
+      <tr>
+        <td><strong>Tiempo impl.</strong></td>
+        <td><span class="pill pill-green">3-6 meses</span></td>
+        <td><span class="pill pill-red">12-24 meses</span></td>
+        <td><span class="pill pill-amber">6-12 meses</span></td>
+        <td><span class="pill pill-amber">9-18 meses</span></td>
+      </tr>
+      <tr>
+        <td><strong>Personalización</strong></td>
+        <td><span class="pill pill-green">Alta (código propio)</span></td>
+        <td><span class="pill pill-amber">Media (SAP SDK)</span></td>
+        <td><span class="pill pill-amber">Media</span></td>
+        <td><span class="pill pill-amber">Media</span></td>
+      </tr>
+      <tr>
+        <td><strong>Soporte 24/7</strong></td>
+        <td><span class="pill pill-amber">A definir</span></td>
+        <td><span class="pill pill-green">Sí (SLA premium)</span></td>
+        <td><span class="pill pill-green">Sí</span></td>
+        <td><span class="pill pill-green">Sí</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card green" style="margin-top: 10px;">
+    <div class="card-title">🏆 Ventaja competitiva de Fluix para Sysday</div>
+    <p>Fluix es <strong>la única solución del mercado que incluye un módulo CAD de ambulancias nativo</strong> integrado con el resto del ERP (nóminas, fichajes, portal empleado). Las alternativas enterprise requieren integrar un software de despacho externo (Neptune, Bosch CAD, Tritech) con el ERP mediante costosas integraciones. Fluix lo hace de fábrica.</p>
+  </div>
+
+
+  <!-- ── CONCLUSIONES ── -->
+  <div class="section-header page-break">
+    <div class="section-num">10</div>
+    <h2>Conclusiones y Recomendación Final</h2>
+  </div>
+
+  <div class="verdict">
+    <h3>Fluix está preparada para Sysday — con un plan de acción claro</h3>
+    <p>El 85% de las necesidades de una empresa de emergencias sanitarias de 2.700 empleados están cubiertas hoy. Los gaps identificados son resolubles en 3-6 meses de desarrollo incremental sin necesidad de rediseñar la arquitectura. La propuesta de valor es única en el mercado: ningún competidor ofrece un CAD de ambulancias integrado en un ERP completo.</p>
+    <div class="verdict-scores">
+      <div class="vs-item">
+        <div class="vs-score">✓</div>
+        <div class="vs-label">Listo hoy</div>
+      </div>
+      <div class="vs-item">
+        <div class="vs-score">3</div>
+        <div class="vs-label">Meses fase 1</div>
+      </div>
+      <div class="vs-item">
+        <div class="vs-score">6</div>
+        <div class="vs-label">Meses impl. total</div>
+      </div>
+      <div class="vs-item">
+        <div class="vs-score">€4K</div>
+        <div class="vs-label">Coste año 1 est.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <h3>✅ Fortalezas para Sysday</h3>
+      <ul class="check-list">
+        <li>CAD ambulancias único en el mercado</li>
+        <li>Stack RRHH completo en español</li>
+        <li>VeriFACTU nativo (obligatorio &gt;6M€)</li>
+        <li>Firebase escala sin rediseño</li>
+        <li>Portal empleado móvil para TES</li>
+        <li>Firma digital cualificada</li>
+        <li>Tiempo de implementación 3-6x más rápido que SAP</li>
+        <li>Coste 100x inferior a SAP SuccessFactors</li>
+        <li>Código fuente propio (sin dependencia de vendor)</li>
+      </ul>
+    </div>
+    <div>
+      <h3>⚡ Acciones prioritarias</h3>
+      <ul class="check-list warn-list">
+        <li>Nóminas batch (Cloud Tasks) — Prioridad 1</li>
+        <li>OSRM propio para producción CAD</li>
+        <li>FCM high-priority + acuse de despacho</li>
+        <li>Parametrizar CCEA (Convenio Ambulancias)</li>
+        <li>Jerarquía organizativa multi-nivel</li>
+        <li>SLA de soporte documentado para enterprise</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="divider"/>
+
+  <footer-note>
+    Informe confidencial generado el 6 de noviembre de 2026 · Fluix Tech S.L. · Para uso interno de Sysday Emergencias Sanitarias S.L.<br/>
+    Los datos de escalabilidad son estimaciones basadas en análisis de código fuente. Los precios están sujetos a negociación comercial.
+  </footer-note>
+
+</div>
+
+<script>
+  // Auto-detect print intent
+  document.querySelector('.print-btn').addEventListener('click', () => window.print());
+</script>
+</body>
+</html>

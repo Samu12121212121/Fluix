@@ -1,0 +1,487 @@
+[
+  {
+    "id": "juguettos",
+    "nombre": "Juguettos",
+    "telefono": "+34949048672",
+    "direccion": "C. Virgen del Amparo, 30, 19003 Guadalajara"
+  },
+  {
+    "id": "jupiter_guadalajara",
+    "nombre": "Júpiter Guadalajara",
+    "telefono": "+34949409240",
+    "direccion": "C. San Roque, 15, 19002 Guadalajara"
+  },
+  {
+    "id": "la_avenida_cafe",
+    "nombre": "La Avenida Café",
+    "telefono": "+34605950951",
+    "direccion": "C. Virgen del Amparo, 32, Guadalajara"
+  },
+  {
+    "id": "la_boheme_tattoo_studio",
+    "nombre": "La Bohème Tattoo Studio",
+    "telefono": "+34638373771",
+    "direccion": "C. Cifuentes, 23, 19003 Guadalajara"
+  },
+  {
+    "id": "la_casa_del_bacalao_yubero_gourmet",
+    "nombre": "La Casa del Bacalao - Yubero Gourmet",
+    "telefono": "+34949232112",
+    "direccion": "C. Virgen de la Soledad, 26, 19003 Guadalajara",
+    "web": "http://lacasadelbacalao.net"
+  },
+  {
+    "id": "la_casa_del_barbero",
+    "nombre": "La Casa del Barbero"
+  },
+  {
+    "id": "la_juguetera_alcarrena",
+    "nombre": "La Juguetera Alcarreña",
+    "telefono": "+34949222408",
+    "direccion": "C. Virgen de la Soledad, 17, 19003 Guadalajara",
+    "web": "https://www.juguetesguadalajara.es"
+  },
+  {
+    "id": "la_leyenda_barbershop",
+    "nombre": "La Leyenda Barbershop",
+    "telefono": "+34632513010",
+    "direccion": "C. de la Alcarria, 1, Local 2, 19005 Guadalajara"
+  },
+  {
+    "id": "la_pasta",
+    "nombre": "La Pasta",
+    "telefono": "+34949215868",
+    "direccion": "Pl. Capitán Boixareu Rivera, 53, Local 2, 19001 Guadalajara"
+  },
+  {
+    "id": "la_pelu_de_roci",
+    "nombre": "La Pelu de Roci",
+    "telefono": "+34689336708",
+    "direccion": "Av. del Ejército, 17, 19003 Guadalajara",
+    "web": "https://la-pelu-de-roci.ueniweb.com"
+  },
+  {
+    "id": "la_quinta_avenida",
+    "nombre": "La Quinta Avenida",
+    "telefono": "+34949212988",
+    "direccion": "C. las Cañas, 48C, 19005 Guadalajara",
+    "web": "http://www.laquintaavenue.com"
+  },
+  {
+    "id": "la_taberna_alcarrena",
+    "nombre": "La Taberna Alcarreña",
+    "telefono": "+34949218923",
+    "direccion": "Av. de Barcelona, 16, 19005 Guadalajara"
+  },
+  {
+    "id": "la_tahona",
+    "nombre": "La Tahona",
+    "telefono": "+34949230764",
+    "direccion": "C. Virgen de la Soledad, 19, 19003 Guadalajara",
+    "web": "https://www.latahonaguadalajara.com"
+  },
+  {
+    "id": "la_tinta_mona_tattoo",
+    "nombre": "La Tinta Mona Tattoo",
+    "telefono": "+34611035832",
+    "direccion": "C. Zaragoza, 6, Local 28, 19005 Guadalajara"
+  },
+  {
+    "id": "las_cabras_taberna",
+    "nombre": "Las Cabras Taberna",
+    "telefono": "+34648913180",
+    "direccion": "C. Juan Bautista Topete, 7, Esq. Pl. Marlasca, 19001 Guadalajara",
+    "web": "https://casalascabras.com"
+  },
+  {
+    "id": "laude_servibelleza",
+    "nombre": "Laude Servibelleza",
+    "telefono": "+34949880643",
+    "direccion": "Blvr. de Entrepeñas, 8, 19005 Guadalajara",
+    "web": "https://www.servibelleza.es",
+    "ratingGoogle": 4.6
+  },
+  {
+    "id": "le_coquette",
+    "nombre": "Le Coquette",
+    "telefono": "+34949057843",
+    "direccion": "C. Antonio Lozano Viñes, 6, 19001 Guadalajara"
+  },
+  {
+    "id": "leo_s_barber_shop",
+    "nombre": "Leo's Barber Shop",
+    "telefono": "+34655868850",
+    "direccion": "C. de Rufino Blanco, 7, 19003 Guadalajara"
+  },
+  {
+    "id": "libreria_emilio_cobos",
+    "nombre": "Librería Emilio Cobos",
+    "telefono": "+34949226794",
+    "direccion": "C. Mayor, 34, 19001 Guadalajara"
+  },
+  {
+    "id": "libreria_lua_libreria_universitaria_alcarria",
+    "nombre": "Librería LUA (Librería Universitaria Alcarria)",
+    "telefono": "+34949210688",
+    "direccion": "C. de la Virgen de la Soledad, 14, 19003 Guadalajara",
+    "web": "https://www.librerialua.es"
+  },
+  {
+    "id": "libreria_papeleria_aguas_vivas",
+    "nombre": "Librería Papelería Aguas Vivas",
+    "telefono": "+34949217978",
+    "direccion": "Av. de Beleña, 12, 19005 Guadalajara"
+  },
+  {
+    "id": "libreria_papeleria_carma",
+    "nombre": "Librería Papelería Carma",
+    "telefono": "+34949203654",
+    "direccion": "C. de Julián Besteiro, 11, 19004 Guadalajara"
+  },
+  {
+    "id": "los_chicos",
+    "nombre": "Los Chicos",
+    "telefono": "+34949211413",
+    "direccion": "C. La Carrera, 35, Guadalajara"
+  },
+  {
+    "id": "lostte_peluqueros",
+    "nombre": "Lostte Peluqueros",
+    "telefono": "+34624032455",
+    "direccion": "Av. de Castilla, 18F, 19002 Guadalajara"
+  },
+  {
+    "id": "lynn_nails",
+    "nombre": "Lynn Nails",
+    "telefono": "+34620611441",
+    "direccion": "C. de la Virgen de la Soledad, 3, local 2, 19003 Guadalajara"
+  },
+  {
+    "id": "magistral_tattoo_studio",
+    "nombre": "Magistral Tattoo Studio",
+    "telefono": "+34643516572",
+    "direccion": "Av. de Barcelona, 34, 19005 Guadalajara",
+    "web": "https://magistraltattoo.com"
+  },
+  {
+    "id": "mama_carnicera",
+    "nombre": "Mamá Carnicera"
+  },
+  {
+    "id": "marus_pan_cafe_av_de_francia",
+    "nombre": "Marus Pan & Café (Av. de Francia)",
+    "telefono": "+34949054468",
+    "direccion": "Av. de Francia, 10, 19005 Guadalajara"
+  },
+  {
+    "id": "marus_pan_cafe_c_virgen_del_amparo",
+    "nombre": "Marus Pan & Café (C. Virgen del Amparo)",
+    "telefono": "+34672213503",
+    "direccion": "C. Virgen del Amparo, Guadalajara"
+  },
+  {
+    "id": "mentacanela_cafe_bar",
+    "nombre": "MentaCanela Café Bar",
+    "telefono": "+34687435466",
+    "direccion": "C. San Roque, 8, 19002 Guadalajara"
+  },
+  {
+    "id": "milbby",
+    "nombre": "Milbby",
+    "telefono": "+34949700068",
+    "direccion": "Av. de Eduardo Guitián, 13-19, CC Ferial Plaza, 19002 Guadalajara",
+    "web": "https://www.milbby.com"
+  },
+  {
+    "id": "mipicanteria",
+    "nombre": "MiPicanteria",
+    "telefono": "+34633568155",
+    "direccion": "Guadalajara, 19001",
+    "web": "https://www.mipicanteria.com"
+  },
+  {
+    "id": "moreno_papeleria",
+    "nombre": "Moreno Papelería",
+    "telefono": "+34949232042",
+    "direccion": "C. de Cifuentes, 13, 19003 Guadalajara",
+    "web": "https://www.papeleriadetodalavida.com"
+  },
+  {
+    "id": "mountain_nails_art",
+    "nombre": "Mountain Nails Art",
+    "telefono": "+34636576563",
+    "direccion": "C. de Alonso Núñez de Reinoso, 5, 19002 Guadalajara"
+  },
+  {
+    "id": "mundo_estilo_elegance",
+    "nombre": "Mundo Estilo Elegance",
+    "telefono": "+34949121215",
+    "direccion": "C. Padre Tabernero, 7, 19002 Guadalajara",
+    "web": "https://www.mundoestiloguadalajara.es",
+    "ratingGoogle": 4.7
+  },
+  {
+    "id": "nails_addiction",
+    "nombre": "Nails Addiction",
+    "telefono": "+34682149007",
+    "direccion": "C. de Cifuentes, 19, 19003 Guadalajara"
+  },
+  {
+    "id": "o_s_peluquerias_mario_s",
+    "nombre": "O'S Peluquerías Mario's",
+    "telefono": "+34949374099",
+    "direccion": "Blvr. Clara Campoamor, 7, 19005 Guadalajara",
+    "web": "https://mariospeluqueros.com"
+  },
+  {
+    "id": "pa_mi_mascota",
+    "nombre": "Pa & Mi mascota",
+    "telefono": "+34949246805",
+    "direccion": "Blvr. Clara Campoamor, 10, Local 9, 19005 Guadalajara",
+    "web": "https://www.paymimascota.com"
+  },
+  {
+    "id": "paep_digital_imprenta",
+    "nombre": "PAEP Digital Imprenta",
+    "telefono": "+34949214255",
+    "direccion": "C. Alamín, 11, 19005 Guadalajara",
+    "web": "https://paepdigital.es"
+  },
+  {
+    "id": "panaderia_la_extremena",
+    "nombre": "Panadería La Extremeña",
+    "telefono": "+34949211388",
+    "direccion": "C. Dr. González Hierro, 1B, 19002 Guadalajara",
+    "web": "https://www.panificadoralaextremena.com"
+  },
+  {
+    "id": "panaderia_y_alimentacion_miguel_angel",
+    "nombre": "Panadería y Alimentación Miguel Ángel",
+    "telefono": "+34949218645",
+    "direccion": "C. del Cardenal González de Mendoza, 29, 19004 Guadalajara"
+  },
+  {
+    "id": "papeleria_libreria_la_mar",
+    "nombre": "Papelería Librería La Mar",
+    "telefono": "+34949030485",
+    "direccion": "C. Dr. Layna Serrano, 26, 19002 Guadalajara"
+  },
+  {
+    "id": "papeleria_libreria_redondo",
+    "nombre": "Papelería Librería Redondo",
+    "telefono": "+34949223772",
+    "direccion": "C. Sigüenza, 8, 19003 Guadalajara"
+  },
+  {
+    "id": "pasteleria_marian",
+    "nombre": "Pastelería Marian",
+    "telefono": "+34949221648",
+    "direccion": "C. Toledo, 16, 19002 Guadalajara",
+    "web": "https://www.pasteleriamarian.com"
+  },
+  {
+    "id": "peluqueria_d_ellas",
+    "nombre": "Peluquería D'Ellas",
+    "telefono": "+34949210488",
+    "direccion": "Av. de Castilla, 25, 19002 Guadalajara"
+  },
+  {
+    "id": "peluqueria_mario_s_c_zaragoza_23",
+    "nombre": "Peluquería Mario's (C. Zaragoza, 23)",
+    "telefono": "+34949247221",
+    "direccion": "C. Zaragoza, 23, 19005 Guadalajara",
+    "web": "https://mariospeluqueros.com"
+  },
+  {
+    "id": "peluqueria_ruben_higuera",
+    "nombre": "Peluquería Rubén Higuera",
+    "telefono": "+34949871345",
+    "direccion": "C. San Esteban, 2, local 2, 19001 Guadalajara",
+    "web": "https://www.peluqueriarh.com"
+  },
+  {
+    "id": "pilar_prieto",
+    "nombre": "Pilar Prieto",
+    "telefono": "+34949212607",
+    "direccion": "C. Virgen del Amparo, 3, 19001 Guadalajara",
+    "web": "https://www.pilarprieto.es"
+  },
+  {
+    "id": "pizzeria_dall_italiano",
+    "nombre": "Pizzería Dall'italiano",
+    "telefono": "+34633055103",
+    "direccion": "C. las Cañas, 48, 19005 Guadalajara"
+  },
+  {
+    "id": "pizzeria_pizca",
+    "nombre": "Pizzería Pizca",
+    "telefono": "+34949217154",
+    "direccion": "C. del Cardenal González de Mendoza, 21, 19004 Guadalajara",
+    "web": "https://www.pizzeriapizca.es"
+  },
+  {
+    "id": "productos_de_la_alcarria",
+    "nombre": "Productos de la Alcarria"
+  },
+  {
+    "id": "puerta_gayola_porta_gayola",
+    "nombre": "Puerta Gayola (Porta Gayola)",
+    "telefono": "+34654104305",
+    "direccion": "Pl. San Esteban, 5, 19001 Guadalajara"
+  },
+  {
+    "id": "restaurante_davalos",
+    "nombre": "Restaurante Dávalos",
+    "telefono": "+34949492895",
+    "direccion": "C. Francisco de Quevedo, 1, 19001 Guadalajara",
+    "web": "http://www.restaurantedavalos.es",
+    "ratingGoogle": 4.3
+  },
+  {
+    "id": "restaurante_el_buen_vivir",
+    "nombre": "Restaurante El Buen Vivir",
+    "telefono": "+34949223839",
+    "direccion": "Pl. del Capitán Boixareu Rivera, 81, 19002 Guadalajara",
+    "web": "https://www.elbuenvivir.es"
+  },
+  {
+    "id": "restaurante_la_duquesa",
+    "nombre": "Restaurante La Duquesa",
+    "telefono": "+34949253845",
+    "direccion": "C. Vizcondesa del Jorbalán, 10, 19001 Guadalajara",
+    "web": "https://grupolino.com"
+  },
+  {
+    "id": "ristorante_trattoria_giovani_fratelli",
+    "nombre": "Ristorante Trattoria Giovani Fratelli",
+    "telefono": "+34697195714",
+    "direccion": "Blvr. Clara Campoamor esq. C. Ana Mariscal, 1, Guadalajara"
+  },
+  {
+    "id": "s98_barbershop",
+    "nombre": "S98 Barbershop",
+    "telefono": "+34631695909",
+    "direccion": "C. de Cifuentes, 23, 19003 Guadalajara"
+  },
+  {
+    "id": "samira_health",
+    "nombre": "Samira Health",
+    "telefono": "+34949255379",
+    "direccion": "Av. del Ejército, 9A, 19004 Guadalajara"
+  },
+  {
+    "id": "sensorial_estetica_avanzada",
+    "nombre": "Sensorial Estética Avanzada",
+    "telefono": "+34613177918",
+    "direccion": "Av. de Castilla, 18G, 19002 Guadalajara",
+    "web": "https://sensorialesteticaavanzada.com"
+  },
+  {
+    "id": "studio_8_tattoo_and_piercing_studio",
+    "nombre": "Studio 8 - Tattoo and Piercing Studio",
+    "telefono": "+34644364469",
+    "direccion": "C. Cuesta de Hita, 26, 19005 Guadalajara",
+    "web": "https://www.nuevostudio8.com"
+  },
+  {
+    "id": "studio_madrid_tattoo",
+    "nombre": "Studio Madrid Tattoo",
+    "telefono": "+34605562616",
+    "direccion": "C. Alfonso López de Haro, 10, 19001 Guadalajara",
+    "web": "https://www.studiomadridtattoo.es"
+  },
+  {
+    "id": "summer",
+    "nombre": "Summer",
+    "telefono": "+34949895321",
+    "direccion": "C. San Roque, 16, 19002 Guadalajara",
+    "web": "https://sites.google.com/view/summerguadalajara"
+  },
+  {
+    "id": "taberna_macareno",
+    "nombre": "Taberna Macareno",
+    "telefono": "+34949258740",
+    "direccion": "C. de Rufino Blanco, 3, 19003 Guadalajara",
+    "ratingGoogle": 4.4
+  },
+  {
+    "id": "taberna_santa_maria",
+    "nombre": "Taberna Santa María",
+    "telefono": "+34949210707",
+    "direccion": "C. del Dr. Santiago Ramón y Cajal, 10, 19001 Guadalajara"
+  },
+  {
+    "id": "tapas_guadalajara",
+    "nombre": "Tapas Guadalajara",
+    "direccion": "Pl. de Santo Domingo, 12, 19001 Guadalajara"
+  },
+  {
+    "id": "the_closet",
+    "nombre": "The Closet",
+    "telefono": "+34949121809",
+    "direccion": "C. Virgen del Amparo, 35-37, 19002 Guadalajara",
+    "web": "https://thecloset.es"
+  },
+  {
+    "id": "the_lion_burger",
+    "nombre": "The Lion Burger",
+    "telefono": "+34949410494",
+    "direccion": "C. Prado Taracena, 8, 19005 Guadalajara"
+  },
+  {
+    "id": "the_lion_burger_gourmet",
+    "nombre": "The Lion Burger Gourmet",
+    "telefono": "+34949313616",
+    "direccion": "Blvr. Clara Campoamor, 2, 19005 Guadalajara"
+  },
+  {
+    "id": "tienda_burcol",
+    "nombre": "Tienda Burcol",
+    "telefono": "+34949860161",
+    "direccion": "C. Molina de Aragón, 3, Local A, Guadalajara",
+    "web": "https://burcol.es"
+  },
+  {
+    "id": "valier_boutique",
+    "nombre": "VALIER Boutique",
+    "telefono": "+34949871558",
+    "direccion": "Pl. La Llanilla, 1, 19003 Guadalajara"
+  },
+  {
+    "id": "vanessa_fernandez_peluqueros",
+    "nombre": "Vanessa Fernández Peluqueros",
+    "telefono": "+34949298783",
+    "direccion": "Av. de Beleña, 7, local 3, 19005 Guadalajara"
+  },
+  {
+    "id": "velvet_cafe",
+    "nombre": "Velvet Café",
+    "telefono": "+34689117102",
+    "direccion": "Av. de Eduardo Guitián, 19, CC Ferial Plaza, 19002 Guadalajara"
+  },
+  {
+    "id": "wakko_tattoo",
+    "nombre": "Wakko Tattoo",
+    "telefono": "+34653131007",
+    "direccion": "C. de Cifuentes, 21, 19003 Guadalajara"
+  },
+  {
+    "id": "walkyria_comics",
+    "nombre": "Walkyria Cómics",
+    "telefono": "+34949214629",
+    "direccion": "Pl. del Capitán Boixareu Rivera, 74, 19002 Guadalajara",
+    "web": "http://www.walkyriacomics.com"
+  },
+  {
+    "id": "white_lotus",
+    "nombre": "White Lotus",
+    "telefono": "+34624052079",
+    "direccion": "Blvr. Clara Campoamor, 31, 19005 Guadalajara",
+    "web": "https://www.centrodeesteticawhitelotus.es",
+    "ratingGoogle": 4.9
+  },
+  {
+    "id": "yoe_barbershop",
+    "nombre": "Yoe Barbershop"
+  }
+]

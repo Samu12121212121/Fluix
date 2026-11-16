@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi App — Guía para aparecer bien en Explorar</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F4F6FB; color: #1E293B; line-height: 1.6; }
+
+.topbar { background: #0D1B3E; padding: 16px 32px; display: flex; align-items: center; gap: 14px; }
+.logo { font-size: 22px; font-weight: 900; color: #00BFA5; letter-spacing: -1px; }
+.topbar h1 { font-size: 15px; font-weight: 600; color: rgba(255,255,255,.8); }
+
+.container { max-width: 880px; margin: 0 auto; padding: 28px 20px 80px; }
+
+/* INTRO */
+.intro-hero { background: linear-gradient(135deg, #0D1B3E 0%, #1a2f5e 100%); border-radius: 18px; padding: 28px 32px; margin-bottom: 28px; color: white; }
+.intro-hero h2 { font-size: 22px; font-weight: 800; line-height: 1.2; margin-bottom: 8px; }
+.intro-hero p  { font-size: 14px; opacity: .75; max-width: 520px; line-height: 1.6; }
+
+/* PHONE PREVIEW */
+.phone-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 28px; }
+.phone-zone { flex-shrink: 0; background: white; border-radius: 14px; border: 1px solid #E2E8F0; padding: 14px 16px; width: 220px; box-shadow: 0 2px 8px rgba(0,0,0,.06); cursor: default; }
+.pz-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #94A3B8; margin-bottom: 6px; }
+.pz-name  { font-size: 14px; font-weight: 700; color: #0F172A; margin-bottom: 6px; }
+.pz-reqs  { font-size: 12px; color: #64748B; line-height: 1.5; }
+.pz-reqs span { display: block; }
+.dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: middle; position: relative; top: -1px; }
+
+/* STEP CARDS */
+.step { background: white; border-radius: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.06); overflow: hidden; }
+.step-header { padding: 16px 20px; display: flex; align-items: center; gap: 14px; cursor: pointer; user-select: none; }
+.step-num  { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 900; color: white; flex-shrink: 0; }
+.step-title { flex: 1; }
+.step-title h3 { font-size: 15px; font-weight: 700; }
+.step-title p  { font-size: 12px; color: #64748B; margin-top: 1px; }
+.step-impact { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+.imp { font-size: 10px; padding: 3px 8px; border-radius: 20px; font-weight: 700; white-space: nowrap; }
+
+.step-body { padding: 0 20px 20px; border-top: 1px solid #F1F5F9; }
+
+/* Path navigation */
+.nav-path { display: flex; align-items: center; gap: 6px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; margin: 14px 0 16px; flex-wrap: wrap; }
+.nav-path .arrow { color: #CBD5E1; font-size: 12px; }
+.nav-path .step-n { font-size: 12px; font-weight: 600; color: #0F172A; background: white; padding: 3px 10px; border-radius: 6px; border: 1px solid #E2E8F0; }
+.nav-path .step-n.active { background: #00BFA5; color: white; border-color: #00BFA5; }
+
+/* Upload areas */
+.upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+@media(max-width:500px){ .upload-grid { grid-template-columns: 1fr; } }
+.upload-box { border: 2px dashed #CBD5E1; border-radius: 12px; padding: 18px 14px; text-align: center; }
+.upload-box .ub-icon { font-size: 28px; margin-bottom: 6px; }
+.upload-box .ub-title { font-size: 13px; font-weight: 700; color: #0F172A; }
+.upload-box .ub-desc  { font-size: 11px; color: #64748B; margin-top: 2px; line-height: 1.4; }
+.upload-box .ub-where { font-size: 10px; font-weight: 700; color: #00BFA5; margin-top: 6px; text-transform: uppercase; letter-spacing: .3px; }
+.upload-box.highlight { border-color: #00BFA5; background: #F0FEFA; }
+
+/* Field list */
+.field-list { list-style: none; }
+.field-list li { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid #F8FAFC; font-size: 13px; align-items: flex-start; }
+.field-list li:last-child { border-bottom: none; }
+.fi-label { font-weight: 700; color: #0F172A; min-width: 160px; flex-shrink: 0; }
+.fi-where { font-size: 11px; color: #64748B; }
+.fi-imp   { font-size: 10px; padding: 1px 6px; border-radius: 4px; font-weight: 700; white-space: nowrap; margin-left: auto; }
+.must { background: #FEE2E2; color: #991B1B; }
+.rec  { background: #FEF3C7; color: #92400E; }
+.opt  { background: #F1F5F9; color: #475569; }
+
+/* Info boxes */
+.info  { background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px; padding: 11px 14px; font-size: 13px; color: #1E40AF; margin: 10px 0; line-height: 1.5; }
+.warn  { background: #FFFBEB; border: 1px solid #FCD34D; border-radius: 10px; padding: 11px 14px; font-size: 13px; color: #92400E; margin: 10px 0; line-height: 1.5; }
+.tip   { background: #F0FDF4; border: 1px solid #86EFAC; border-radius: 10px; padding: 11px 14px; font-size: 13px; color: #166534; margin: 10px 0; line-height: 1.5; }
+
+/* affects badges */
+.aff-grid { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.aff { font-size: 11px; padding: 4px 10px; border-radius: 20px; font-weight: 600; }
+
+/* Checklist */
+.checklist { list-style: none; margin-top: 10px; }
+.checklist li { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #F1F5F9; font-size: 13px; }
+.checklist li:last-child { border-bottom: none; }
+.ck { width: 18px; height: 18px; border: 2px solid #CBD5E1; border-radius: 5px; flex-shrink: 0; margin-top: 1px; }
+
+h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #94A3B8; margin: 16px 0 8px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">Fluix</span>
+  <h1>Mi App — Cómo aparecer bien en la pantalla Explorar</h1>
+</div>
+
+<div class="container">
+
+  <div class="intro-hero">
+    <h2>Esta guía es para el negocio 🏪</h2>
+    <p>Explica paso a paso qué tienes que subir o rellenar en <strong>Mi App</strong> para que tu negocio aparezca en cada sección del Explorar. Cada paso indica a dónde ir dentro de la app.</p>
+  </div>
+
+  <!-- Mapa zonas -->
+  <h4 style="margin-top:0">¿En qué zonas del explorar puedes aparecer?</h4>
+  <div class="phone-row">
+    <div class="phone-zone">
+      <div class="pz-label">Zona 1</div>
+      <div class="pz-name">🔲 Grid principal</div>
+      <div class="pz-reqs">
+        <span><span class="dot" style="background:#EF4444"></span>Obligatorio para aparecer</span>
+        <span><span class="dot" style="background:#F59E0B"></span>Sube tu posición</span>
+      </div>
+    </div>
+    <div class="phone-zone">
+      <div class="pz-label">Zona 2</div>
+      <div class="pz-name">⭐ Recomendados</div>
+      <div class="pz-reqs">
+        <span><span class="dot" style="background:#F59E0B"></span>Necesitas rating ≥ 4.0</span>
+        <span><span class="dot" style="background:#94A3B8"></span>(viene de Google)</span>
+      </div>
+    </div>
+    <div class="phone-zone">
+      <div class="pz-label">Zona 3</div>
+      <div class="pz-name">📍 Cerca de ti</div>
+      <div class="pz-reqs">
+        <span><span class="dot" style="background:#EF4444"></span>Necesitas dirección</span>
+        <span><span class="dot" style="background:#EF4444"></span>con coordenadas</span>
+      </div>
+    </div>
+    <div class="phone-zone">
+      <div class="pz-label">Zona 4</div>
+      <div class="pz-name">🏷️ Ofertas especiales</div>
+      <div class="pz-reqs">
+        <span><span class="dot" style="background:#EF4444"></span>Pon un mensaje</span>
+        <span><span class="dot" style="background:#EF4444"></span>promocional activo</span>
+      </div>
+    </div>
+    <div class="phone-zone">
+      <div class="pz-label">Zona 5</div>
+      <div class="pz-name">⚡ Ofertas flash</div>
+      <div class="pz-reqs">
+        <span><span class="dot" style="background:#EF4444"></span>Crea un flash slot</span>
+        <span><span class="dot" style="background:#EF4444"></span>con descuento</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- PASO 1 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num" style="background:#EF4444;">1</div>
+      <div class="step-title">
+        <h3>Actívate y pon tu negocio visible</h3>
+        <p>Sin esto, no apareces en ningún sitio</p>
+      </div>
+      <div class="step-impact">
+        <span class="aff" style="background:#FEE2E2; color:#991B1B;">Afecta a TODO</span>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="nav-path">
+        <span class="step-n active">Mi App</span>
+        <span class="arrow">›</span>
+        <span class="step-n active">Cabecera (arriba del todo)</span>
+        <span class="arrow">›</span>
+        <span class="step-n active">Interruptor Visible / Oculto</span>
+      </div>
+      <div class="warn">⚠️ Si el interruptor está en <strong>Oculto</strong>, tu negocio no aparece en el Explorar aunque tengas todo lo demás relleno.</div>
+      <div class="tip">✅ El interruptor debe estar en <strong>Visible</strong> (verde) y el negocio debe tener al menos <strong>una foto</strong> o <strong>una descripción</strong> para pasar el filtro mínimo.</div>
+    </div>
+  </div>
+
+
+  <!-- PASO 2 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num" style="background:#3B82F6;">2</div>
+      <div class="step-title">
+        <h3>Sube tu foto de portada</h3>
+        <p>La primera foto que subas es la que aparece en la tarjeta del grid</p>
+      </div>
+      <div class="step-impact">
+        <span class="aff" style="background:#DBEAFE; color:#1D4ED8;">Grid principal</span>
+        <span class="aff" style="background:#DBEAFE; color:#1D4ED8;">Carruseles</span>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="nav-path">
+        <span class="step-n active">Mi App</span>
+        <span class="arrow">›</span>
+        <span class="step-n active">Galería</span>
+        <span class="arrow">›</span>
+        <span class="step-n active">Pulsa el + para subir fotos</span>
+      </div>
+      <div class="upload-grid">
+        <div class="upload-box highlight">
+          <div class="ub-icon">🖼️</div>
+          <div class="ub-title">Foto de portada</div>
+          <div class="ub-desc">La <strong>primera</strong> foto que subas aparece en la tarjeta del grid y en los carruseles. Elige una imagen atractiva, bien iluminada y en horizontal.</div>
+          <div class="ub-where">Mi App → Galería → primera foto</div>
+        </div>
+        <div class="upload-box">
+          <div class="ub-icon">📸</div>
+          <div class="ub-title">Más fotos (galería)</div>
+          <div class="ub-desc">Las fotos adicionales aparecen en la ficha de detalle del negocio cuando el cliente la abre.</div>
+          <div class="ub-where">Mi App → Galería → fotos siguientes</div>
+        </div>
+      </div>
+      <div class="info">💡 <strong>Tip:</strong> Cuantas más fotos subas, más puntos de completitud tienes → antes apareces dentro de tu categoría en el grid.</div>
+    </div>
+  </div>
+
+
+  <!-- PASO 3 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num" style="background:#00BFA5;">3</div>
+      <div class="step-title">
+        <h3>Rellena tu información básica</h3>
+        <p>Nombre, descripción corta y categoría — son lo que se ve en la tarjeta</p>
+      </div>
+      <div class="step-impact">
+        <span class="aff" style="background:#CCFBF1; color:#0F766E;">Grid principal</span>
+        <span class="aff" style="background:#CCFBF1; color:#0F766E;">Búsqueda</span>
+        <span class="aff" style="background:#CCFBF1; color:#0F766E;">Chips de categoría</span>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="nav-path">
+        <span class="step-n active">Mi App</span>
+        <span class="arrow">›</span>
+        <span class="step-n active">Identidad</span>
+      </div>
+      <ul class="field-list">
+        <li>
+          <span class="fi-label">Nombre del negocio</span>
+          <span class="fi-where">Aparece en la tarjeta del grid y en los resultados de búsqueda</span>
+          <span class="fi-imp must">Obligatorio</span>
+        </li>
+        <li>
+          <span class="fi-label">Descripción corta</span>
+          <span class="fi-where">Se ve bajo el nombre en la tarjeta (máx. 2 líneas). Ej: "Peluquería con 15 años de experiencia en el centro"</span>
+          <span class="fi-imp must">Muy recomendado</span>
+        </li>
+        <li>
+          <span class="fi-label">Descripción detallada</span>
+          <span class="fi-where">Aparece en la ficha de detalle. Si no hay descripción corta, se usa esta como bio en la tarjeta.</span>
+          <span class="fi-imp rec">Recomendado</span>
+        </li>
+        <li>
+          <span class="fi-label">Tagline</span>
+          <span class="fi-where">Frase corta de impacto. Ej: "Tu imagen, nuestra pasión"</span>
+          <span class="fi-imp opt">Opcional</span>
+        </li>
+        <li>
+          <span class="fi-label">Logo</span>
+          <span class="fi-where">Aparece en la ficha de detalle y suma puntos de completitud (+2 pts)</span>
+          <span class="fi-imp rec">Recomendado</span>
+        </li>
+      </ul>
+      <div class="nav-path" style="margin-top:16px">
+        <span class="step-n active">Mi App</span>
+        <span class="arrow">›</span>
+        <span class="step-n active">Cabecera</span>
+        <span class="arrow">›</span>
+        <span class="step-n active">Selector de categoría</span>
+      </div>
+      <ul class="field-list">
+        <li>
+          <span class="fi-label">Categoría</span>
+          <span class="fi-where">Define en qué chip del Explorar apareces al filtrar. Ej: si eres Restaurante, apareces al pulsar el chip "Restaurantes"</span>
+          <span class="fi-imp must">Obligatorio</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+
+  <!-- PASO 4 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num" style="background:#6366F1;">4</div>
+      <div class="step-title">
+        <h3>Pon tu dirección y ubicación</h3>
+        <p>Para aparecer en "Cerca de ti" necesitas coordenadas</p>
+      </div>
+      <div class="step-impact">
+        <span class="aff" style="background:#EEF2FF; color:#3730A3;">Cerca de ti</span>
+        <span class="aff" style="background:#EEF2FF; color:#3730A3;">Ficha de detalle</span>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="nav-path">
+        <span class="step-n active">Mi App</span>
+        <span class="arrow">›</span>
+        <span class="step-n active">Ubicación</span>
+      </div>
+      <ul class="field-list">
+        <li>
+          <span class="fi-label">Dirección completa</span>
+          <span class="fi-where">Calle, número, CP, localidad, provincia</span>
+          <span class="fi-imp rec">Recomendado</span>
+        </li>
+        <li>
+          <span class="fi-label">Latitud y Longitud</span>
+          <span class="fi-where">Son las coordenadas GPS. <strong>Sin esto no apareces en "Cerca de ti".</strong> Cópialas de Google Maps: clic derecho sobre tu negocio → copiar coordenadas</span>
+          <span class="fi-imp must">Necesario para Cerca de ti</span>
+        </li>
+      </ul>
+      <div class="info">💡 <strong>Cómo conseguir las coordenadas:</strong> Abre Google Maps, busca tu negocio, haz clic derecho sobre el pin → las dos primeras líneas del menú son latitud y longitud. Cópialas y pégalas en Mi App → Ubicación.</div>
+    </div>
+  </div>
+
+
+  <!-- PASO 5 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num" style="background:#8B5CF6;">5</div>
+      <div class="step-title">
+        <h3>Configura tus horarios</h3>
+        <p>Para que aparezca el badge "Abierto / Cerrado" en tu tarjeta</p>
+      </div>
+      <div class="step-impact">
+        <span class="aff" style="background:#EDE9FE; color:#5B21B6;">Badge Abierto/Cerrado</span>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="nav-path">
+        <span class="step-n active">Mi App</span>
+        <span class="arrow">›</span>
+        <span class="step-n active">Horarios</span>
+      </div>
+      <p style="font-size:13px; color:#64748B;">Activa o desactiva cada día de la semana e introduce la hora de apertura y cierre. Puedes configurar turno de mañana y tarde por separado.</p>
+      <div class="tip" style="margin-top:10px">✅ Sin horarios configurados, la tarjeta no muestra el badge. Con horarios, aparece en verde "Abierto ahora" o en gris "Cerrado" según la hora del usuario.</div>
+    </div>
+  </div>
+
+
+  <!-- PASO 6 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num" style="background:#10B981;">6</div>
+      <div class="step-title">
+        <h3>Añade una oferta especial</h3>
+        <p>Para aparecer en el carrusel "Ofertas especiales"</p>
+      </div>
+      <div class="step-impact">
+        <span class="aff" style="background:#D1FAE5; color:#065F46;">Carrusel Ofertas especiales</span>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="nav-path">
+        <span class="step-n active">Mi App</span>
+        <span class="arrow">›</span>
+        <span class="step-n active">Diseño</span>
+        <span class="arrow">›</span>
+        <span class="step-n active">Mensaje promocional</span>
+      </div>
+      <p style="font-size:13px; color:#64748B; margin-bottom:10px">Escribe un mensaje corto con tu oferta activa. Ejemplos:</p>
+      <ul style="font-size:13px; color:#0F172A; padding-left:16px; line-height:2;">
+        <li><em>"Esta semana: 20% en coloraciones"</em></li>
+        <li><em>"Menú de mediodía 10€ de lunes a viernes"</em></li>
+        <li><em>"2ª sesión de masajes al 50%"</em></li>
+      </ul>
+      <div class="warn" style="margin-top:12px">⚠️ El mensaje se muestra mientras esté relleno. Cuando la oferta caduque, bórralo manualmente para que no aparezca en el carrusel.</div>
+    </div>
+  </div>
+
+
+  <!-- PASO 7 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num" style="background:#F59E0B;">7</div>
+      <div class="step-title">
+        <h3>Crea un Flash Slot ⚡</h3>
+        <p>Un hueco de última hora con precio especial y plazas limitadas</p>
+      </div>
+      <div class="step-impact">
+        <span class="aff" style="background:#FEF3C7; color:#92400E;">Carrusel Ofertas flash</span>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="nav-path">
+        <span class="step-n active">Dashboard</span>
+        <span class="arrow">›</span>
+        <span class="step-n active">Sidebar izquierdo</span>
+        <span class="arrow">›</span>
+        <span class="step-n active">Icono ⚡ Flash Slots</span>
+        <span class="arrow">›</span>
+        <span class="step-n active">Nueva oferta flash</span>
+      </div>
+      <ul class="field-list">
+        <li>
+          <span class="fi-label">Servicio</span>
+          <span class="fi-where">Elige uno de tus servicios activos (los que tengas en Mi App → Servicios)</span>
+          <span class="fi-imp must">Obligatorio</span>
+        </li>
+        <li>
+          <span class="fi-label">Descuento</span>
+          <span class="fi-where">En porcentaje (ej: 30%) o en euros fijos (ej: −15€)</span>
+          <span class="fi-imp must">Obligatorio</span>
+        </li>
+        <li>
+          <span class="fi-label">Fecha y hora del hueco</span>
+          <span class="fi-where">Cuándo es la cita o el servicio</span>
+          <span class="fi-imp must">Obligatorio</span>
+        </li>
+        <li>
+          <span class="fi-label">Tiempo de visibilidad</span>
+          <span class="fi-where">Cuánto tiempo aparece en el Explorar: 1h / 2h / 4h / 8h / 24h</span>
+          <span class="fi-imp must">Obligatorio</span>
+        </li>
+        <li>
+          <span class="fi-label">Huecos disponibles</span>
+          <span class="fi-where">Cuántas reservas acepta este slot (entre 1 y 20). Al llenarse desaparece solo.</span>
+          <span class="fi-imp must">Obligatorio</span>
+        </li>
+        <li>
+          <span class="fi-label">Profesional asignado</span>
+          <span class="fi-where">Opcional — si quieres asignarlo a un empleado concreto</span>
+          <span class="fi-imp opt">Opcional</span>
+        </li>
+      </ul>
+      <div class="tip">✅ El flash slot desaparece automáticamente cuando se llena o cuando expira el tiempo de visibilidad. No tienes que hacer nada.</div>
+    </div>
+  </div>
+
+
+  <!-- CHECKLIST FINAL -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num" style="background:#0D1B3E;">✓</div>
+      <div class="step-title">
+        <h3>Checklist de puesta en marcha</h3>
+        <p>Lo mínimo para salir bien en el Explorar</p>
+      </div>
+    </div>
+    <div class="step-body" style="padding-top:14px">
+      <h4>Obligatorio para aparecer en el grid</h4>
+      <ul class="checklist">
+        <li><div class="ck"></div>Interruptor en <strong>Visible</strong> (Mi App → cabecera)</li>
+        <li><div class="ck"></div>Al menos <strong>una foto</strong> subida en <strong>Galería</strong></li>
+        <li><div class="ck"></div><strong>Nombre</strong> del negocio relleno (Mi App → Identidad)</li>
+        <li><div class="ck"></div><strong>Categoría</strong> seleccionada (Mi App → cabecera)</li>
+      </ul>
+      <h4>Muy recomendado para aparecer con buen aspecto</h4>
+      <ul class="checklist">
+        <li><div class="ck" style="border-color:#F59E0B"></div><strong>Descripción corta</strong> rellena (Mi App → Identidad)</li>
+        <li><div class="ck" style="border-color:#F59E0B"></div><strong>Horarios</strong> configurados para el badge Abierto/Cerrado</li>
+        <li><div class="ck" style="border-color:#F59E0B"></div><strong>Teléfono o WhatsApp</strong> relleno (Mi App → Contacto)</li>
+      </ul>
+      <h4>Para aparecer en más zonas</h4>
+      <ul class="checklist">
+        <li><div class="ck" style="border-color:#6366F1"></div><strong>Latitud y Longitud</strong> para aparecer en "Cerca de ti" (Mi App → Ubicación)</li>
+        <li><div class="ck" style="border-color:#10B981"></div><strong>Mensaje promocional</strong> para aparecer en "Ofertas especiales" (Mi App → Diseño)</li>
+        <li><div class="ck" style="border-color:#F59E0B"></div><strong>Flash Slot creado</strong> para aparecer en "Ofertas flash" (Dashboard → ⚡)</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

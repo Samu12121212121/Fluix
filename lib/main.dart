@@ -459,18 +459,16 @@ class _PantallaRutaState extends State<_PantallaRuta> {
 
         final userData = snap.data?.data() as Map<String, dynamic>?;
 
-        // Si es cliente final, ir a la pantalla de explorar
-        if (userData != null) {
-          final rolString = userData['rol'] as String?; // campo correcto: 'rol' sin 'e'
-          if (rolString == 'clienteFinal') {
-            return const PantallaExplorar();
-          }
-        }
+        // Sin documento de usuario aún (race condition post-registro) o clienteFinal → Explorar
+        if (userData == null) return const PantallaExplorar();
 
-        final empresaId = userData?['empresa_id'] as String?;
+        final rolString = userData['rol'] as String?;
+        if (rolString == 'clienteFinal') return const PantallaExplorar();
 
-        // Sin empresa → ir al dashboard (lo crea automáticamente)
-        if (empresaId == null) return const PantallaDashboard();
+        final empresaId = userData['empresa_id'] as String?;
+
+        // Sin empresa → Explorar (testers y cuentas nuevas sin empresa asignada)
+        if (empresaId == null || empresaId.isEmpty) return const PantallaExplorar();
 
         if (_empresaId != empresaId || _futureEmpresa == null) {
           _empresaId = empresaId;

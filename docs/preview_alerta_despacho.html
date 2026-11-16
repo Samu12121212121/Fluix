@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Alerta Despacho — Preview</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0F172A; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 20px; font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; }
+
+.phone-frame {
+  width: 390px;
+  min-height: 844px;
+  background: #0F172A;
+  border-radius: 44px;
+  border: 2px solid #334155;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0,0,0,.7), inset 0 0 0 1px rgba(255,255,255,.05);
+  position: relative;
+}
+.notch { background: #0F172A; height: 44px; display: flex; align-items: center; justify-content: center; }
+.notch-pill { width: 120px; height: 32px; background: #000; border-radius: 20px; }
+
+/* Banner */
+.banner {
+  background: #DC2626;
+  padding: 14px 16px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.banner-icon {
+  font-size: 32px;
+  animation: pulse 0.9s ease-in-out infinite alternate;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+@keyframes pulse { from { transform: scale(0.95); } to { transform: scale(1.05); } }
+.banner-text { flex: 1; }
+.banner-title { display: flex; align-items: center; gap: 8px; }
+.banner-title h2 { color: white; font-size: 16px; font-weight: 900; letter-spacing: 0.8px; }
+.tipo-badge {
+  background: rgba(0,0,0,.25);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+.banner-time { color: rgba(255,255,255,.7); font-size: 12px; margin-top: 2px; }
+.cronometro {
+  background: rgba(0,0,0,.25);
+  border-radius: 10px;
+  padding: 8px 10px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.crono-time {
+  color: white;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+  display: block;
+}
+.crono-label { color: rgba(255,255,255,.6); font-size: 9px; }
+
+/* Body */
+.body { padding: 14px; overflow-y: auto; }
+
+/* Cards */
+.card {
+  background: #1E293B;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 10px;
+}
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.accent-bar { width: 3px; height: 16px; border-radius: 2px; flex-shrink: 0; }
+.card-title span { color: white; font-weight: 700; font-size: 13px; }
+
+.row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 7px; }
+.row:last-child { margin-bottom: 0; }
+.row-icon { color: #64748B; font-size: 15px; margin-top: 1px; flex-shrink: 0; }
+.row-label { color: #64748B; font-size: 12px; width: 76px; flex-shrink: 0; }
+.row-value { color: white; font-size: 13px; font-weight: 500; flex: 1; }
+
+/* Botones */
+.btn-aceptar {
+  width: 100%;
+  background: #16A34A;
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 18px;
+  font-size: 17px;
+  font-weight: 900;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 16px rgba(22,163,74,.4);
+  transition: transform .1s, box-shadow .1s;
+}
+.btn-aceptar:active { transform: scale(0.98); }
+.btn-pasar {
+  width: 100%;
+  background: transparent;
+  color: rgba(255,255,255,.5);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 14px;
+  padding: 14px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Info panel */
+.info-panel {
+  background: #1E293B;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  font-size: 11px;
+  color: #64748B;
+  text-align: center;
+  border: 1px dashed #334155;
+}
+
+/* Estado aceptado (oculto por defecto) */
+.estado-aceptado {
+  display: none;
+  background: #14532D;
+  border: 1px solid #16A34A;
+  border-radius: 14px;
+  padding: 16px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #4ADE80;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* Switcher */
+.switcher {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  background: rgba(15,23,42,.9);
+  border: 1px solid #334155;
+  border-radius: 20px;
+  padding: 6px;
+}
+.sw-btn {
+  padding: 6px 14px;
+  border-radius: 14px;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.sw-btn.active { background: #DC2626; color: white; }
+.sw-btn:not(.active) { background: transparent; color: #64748B; }
+.sw-btn.active.verde { background: #16A34A; }
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <div class="notch"><div class="notch-pill"></div></div>
+
+  <!-- Banner crítico -->
+  <div class="banner">
+    <div class="banner-icon" id="bannerIcon">🚨</div>
+    <div class="banner-text">
+      <div class="banner-title">
+        <h2 id="bannerTitle">DESPACHO CRÍTICO</h2>
+        <span class="tipo-badge" id="tipoBadge">PCR</span>
+      </div>
+      <div class="banner-time" id="bannerTime">14:32:07</div>
+    </div>
+    <div class="cronometro">
+      <span class="crono-time" id="cronometro">02:14</span>
+      <span class="crono-label">transcurrido</span>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- Paciente -->
+    <div class="card">
+      <div class="card-title">
+        <div class="accent-bar" style="background:#DC2626"></div>
+        <span>🩺 Paciente</span>
+      </div>
+      <div class="row">
+        <span class="row-icon">👤</span>
+        <span class="row-label">Nombre</span>
+        <span class="row-value">Sin identificar</span>
+      </div>
+      <div class="row">
+        <span class="row-icon">🎂</span>
+        <span class="row-label">Edad</span>
+        <span class="row-value" id="edadPaciente">67 años</span>
+      </div>
+      <div class="row">
+        <span class="row-icon">🏥</span>
+        <span class="row-label">Motivo</span>
+        <span class="row-value" id="motivoPaciente">PCR — Paciente con signos de parada cardiorrespiratoria</span>
+      </div>
+    </div>
+
+    <!-- Dirección -->
+    <div class="card">
+      <div class="card-title">
+        <div class="accent-bar" style="background:#3B82F6"></div>
+        <span>📍 Destino</span>
+      </div>
+      <div class="row">
+        <span class="row-icon">📌</span>
+        <span class="row-label">Dirección</span>
+        <span class="row-value">Calle Mayor 42</span>
+      </div>
+      <div class="row">
+        <span class="row-icon">🏙️</span>
+        <span class="row-label">Localidad</span>
+        <span class="row-value">Guadalajara</span>
+      </div>
+      <div class="row">
+        <span class="row-icon">ℹ️</span>
+        <span class="row-label">Referencia</span>
+        <span class="row-value">Junto al banco Santander</span>
+      </div>
+    </div>
+
+    <!-- Asignación -->
+    <div class="card">
+      <div class="card-title">
+        <div class="accent-bar" style="background:#059669"></div>
+        <span>🚑 Asignación</span>
+      </div>
+      <div class="row">
+        <span class="row-icon">🏥</span>
+        <span class="row-label">Ambulancia</span>
+        <span class="row-value">A-07</span>
+      </div>
+      <div class="row">
+        <span class="row-icon">👨‍⚕️</span>
+        <span class="row-label">Médico</span>
+        <span class="row-value">Dr. Hernández</span>
+      </div>
+    </div>
+
+    <!-- Botones -->
+    <div id="botonesDiv">
+      <button class="btn-aceptar" onclick="aceptar()">
+        ✅ ACEPTAR DESPACHO
+      </button>
+      <button class="btn-pasar" onclick="pasar()">
+        ✖ No puedo atender
+      </button>
+    </div>
+
+    <!-- Estado aceptado -->
+    <div class="estado-aceptado" id="estadoAceptado">
+      ✅ Despacho aceptado — En camino
+    </div>
+
+    <div class="info-panel">
+      Esta pantalla se abre automáticamente al recibir la alerta,<br>
+      incluso con la app cerrada (Android full-screen intent)
+    </div>
+  </div>
+</div>
+
+<!-- Switcher de prioridades -->
+<div class="switcher">
+  <button class="sw-btn active" onclick="setPrioridad('critica')">🚨 Crítica</button>
+  <button class="sw-btn" onclick="setPrioridad('alta')">⚠️ Alta</button>
+  <button class="sw-btn" onclick="setPrioridad('media')">ℹ️ Media</button>
+  <button class="sw-btn verde" onclick="setPrioridad('baja')">✅ Baja</button>
+</div>
+
+<script>
+// Cronómetro
+let segundos = 134;
+setInterval(() => {
+  segundos++;
+  const m = String(Math.floor(segundos/60)).padStart(2,'0');
+  const s = String(segundos%60).padStart(2,'0');
+  document.getElementById('cronometro').textContent = m+':'+s;
+}, 1000);
+
+// Hora actual
+function updateTime() {
+  const now = new Date();
+  document.getElementById('bannerTime').textContent =
+    now.toTimeString().substring(0,8);
+}
+updateTime();
+setInterval(updateTime, 1000);
+
+const prioridades = {
+  critica: { color:'#DC2626', icon:'🚨', label:'DESPACHO CRÍTICO', tipo:'PCR', motivo:'PCR — Parada cardiorrespiratoria' },
+  alta:    { color:'#EA580C', icon:'⚠️', label:'DESPACHO ALTA', tipo:'IAM', motivo:'IAM — Infarto agudo de miocardio' },
+  media:   { color:'#D97706', icon:'ℹ️', label:'DESPACHO MEDIA', tipo:'TCE', motivo:'TCE — Traumatismo craneoencefálico' },
+  baja:    { color:'#16A34A', icon:'✅', label:'DESPACHO BAJA', tipo:'SVB', motivo:'SVB — Soporte vital básico' },
+};
+
+function setPrioridad(p) {
+  const cfg = prioridades[p];
+  document.querySelector('.banner').style.background = cfg.color;
+  document.getElementById('bannerIcon').textContent = cfg.icon;
+  document.getElementById('bannerTitle').textContent = cfg.label;
+  document.getElementById('tipoBadge').textContent = cfg.tipo;
+  document.getElementById('motivoPaciente').textContent = cfg.motivo;
+  document.getElementById('edadPaciente').textContent = (Math.floor(Math.random()*50)+20)+' años';
+  // Actualizar botones switcher
+  document.querySelectorAll('.sw-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  // Reset estado
+  document.getElementById('botonesDiv').style.display = 'block';
+  document.getElementById('estadoAceptado').style.display = 'none';
+}
+
+function aceptar() {
+  document.getElementById('botonesDiv').style.display = 'none';
+  const el = document.getElementById('estadoAceptado');
+  el.style.display = 'flex';
+  // Vibración si está disponible
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+}
+
+function pasar() {
+  document.getElementById('botonesDiv').style.display = 'none';
+  const el = document.getElementById('estadoAceptado');
+  el.style.display = 'flex';
+  el.style.background = '#7F1D1D';
+  el.style.borderColor = '#DC2626';
+  el.style.color = '#F87171';
+  el.textContent = '✖ Despacho rechazado';
+}
+</script>
+</body>
+</html>

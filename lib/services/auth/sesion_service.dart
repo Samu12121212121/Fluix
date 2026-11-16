@@ -30,7 +30,7 @@ class SesionService {
   SesionService._();
 
   // ── Configuración ─────────────────────────────────────────────────────────
-  static const Duration _tiempoInactividad = Duration(hours: 12);
+  static const Duration _tiempoInactividad = Duration(hours: 4);
 
   // ── Estado interno ────────────────────────────────────────────────────────
   Timer? _timerInactividad;

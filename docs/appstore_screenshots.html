@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Fluix — App Store Screenshots</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#1a1a2e; font-family: -apple-system, 'SF Pro Display', sans-serif; display:flex; flex-wrap:wrap; gap:24px; padding:32px; justify-content:center; }
+
+/* Cada frame = 390×844 (iPhone 14 ratio ~1:2.165) */
+.screen {
+  width:390px; height:844px;
+  border-radius:44px;
+  overflow:hidden;
+  position:relative;
+  box-shadow:0 30px 80px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.08);
+  flex-shrink:0;
+}
+.screen::before {
+  content:''; position:absolute; top:0; left:50%; transform:translateX(-50%);
+  width:126px; height:34px; background:#000;
+  border-radius:0 0 20px 20px; z-index:99;
+}
+
+/* status bar */
+.sb { display:flex; justify-content:space-between; align-items:center;
+  padding:14px 22px 0; font-size:12px; font-weight:600; }
+
+/* ── SCREEN 1: Dashboard ── */
+.s1 { background: linear-gradient(160deg, #0D1B3E 0%, #1a2f5e 100%); color:white; }
+.s1 .sb { color:rgba(255,255,255,.7); }
+.s1 .hero-header { padding:18px 20px 0; }
+.s1 .greeting { font-size:11px; color:rgba(255,255,255,.5); letter-spacing:1px; text-transform:uppercase; margin-bottom:3px; }
+.s1 .biz-name { font-size:22px; font-weight:800; letter-spacing:-0.5px; }
+.s1 .sub { font-size:12px; color:rgba(255,255,255,.5); margin-top:2px; }
+
+.kpi-row { display:flex; gap:10px; padding:16px 20px 0; }
+.kpi { flex:1; background:rgba(255,255,255,.07); border-radius:14px; padding:14px 12px; border:1px solid rgba(255,255,255,.06); }
+.kpi .val { font-size:24px; font-weight:900; color:#00FFC8; letter-spacing:-0.5px; }
+.kpi .lbl { font-size:10px; color:rgba(255,255,255,.45); margin-top:3px; line-height:1.3; }
+
+.section-title { font-size:13px; font-weight:700; color:rgba(255,255,255,.8); padding:18px 20px 10px; }
+
+.module-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:0 20px; }
+.mod { background:rgba(255,255,255,.06); border-radius:14px; padding:12px 8px; text-align:center; border:1px solid rgba(255,255,255,.05); }
+.mod .ico { font-size:22px; }
+.mod .name { font-size:9px; color:rgba(255,255,255,.55); margin-top:5px; }
+
+.activity-list { padding:12px 20px 0; }
+.act-item { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+.act-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.act-txt { flex:1; font-size:12px; color:rgba(255,255,255,.7); }
+.act-time { font-size:10px; color:rgba(255,255,255,.3); }
+
+.badge { display:inline-block; background:#00FFC8; color:#0D1B3E; font-size:9px; font-weight:800; padding:3px 8px; border-radius:20px; }
+
+/* ── SCREEN 2: Explorar ── */
+.s2 { background:#F4F6FB; color:#1E293B; }
+.s2 .sb { color:#1E293B; }
+.hero-img { width:100%; height:220px; background:linear-gradient(160deg,#0D1B3E,#1a3a6e); position:relative; overflow:hidden; }
+.hero-img img { width:100%; height:100%; object-fit:cover; }
+.hero-overlay { position:absolute; inset:0; background:linear-gradient(180deg,rgba(13,27,62,.3) 0%,rgba(13,27,62,.8) 100%); display:flex; flex-direction:column; justify-content:flex-end; padding:18px; }
+.hero-city { font-size:11px; color:#70E5D1; letter-spacing:1.5px; font-weight:700; }
+.hero-title { font-size:28px; font-weight:800; color:white; line-height:1.1; letter-spacing:-0.5px; margin-top:4px; }
+.search-box { background:white; border-radius:14px; padding:10px 16px; display:flex; align-items:center; gap:10px; margin:12px 16px 0; box-shadow:0 4px 20px rgba(0,0,0,.1); }
+.search-box input { border:none; outline:none; font-size:13px; color:#64748B; flex:1; background:transparent; }
+.chips-row { display:flex; gap:6px; padding:10px 16px 0; overflow:hidden; }
+.chip { font-size:10.5px; padding:5px 10px; border-radius:20px; border:1px solid #DDE3ED; white-space:nowrap; font-weight:500; }
+.chip.sel { background:#00BFA5; color:white; border-color:#00BFA5; }
+.biz-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:12px 16px 0; }
+.biz-card { background:white; border-radius:14px; overflow:hidden; border:1px solid #E2E8F0; box-shadow:0 2px 8px rgba(0,0,0,.05); }
+.biz-img { height:90px; background:linear-gradient(135deg,#667eea,#764ba2); }
+.biz-info { padding:8px; }
+.biz-name { font-size:11.5px; font-weight:700; color:#0F172A; }
+.biz-cat { font-size:9.5px; color:#64748B; margin-top:1px; }
+.biz-bio { font-size:9.5px; color:#94A3B8; margin-top:3px; line-height:1.3; }
+.star-row { display:flex; align-items:center; gap:3px; margin-top:3px; }
+.star-row span { font-size:9px; color:#D97706; font-weight:700; }
+
+/* ── SCREEN 3: Facturación ── */
+.s3 { background:#F8FAFC; color:#0F172A; }
+.s3 .sb { color:#0F172A; }
+.page-header { padding:16px 20px 12px; }
+.page-title { font-size:22px; font-weight:800; letter-spacing:-0.5px; }
+.page-sub { font-size:12px; color:#64748B; margin-top:2px; }
+.verifactu-badge { display:inline-flex; align-items:center; gap:5px; background:#EEF6FF; border:1px solid #BFDBFE; border-radius:8px; padding:4px 10px; margin-top:8px; }
+.verifactu-badge span { font-size:10px; color:#1D4ED8; font-weight:600; }
+.fact-list { padding:0 16px; }
+.fact-item { background:white; border-radius:12px; border:1px solid #E2E8F0; padding:12px 14px; margin-bottom:8px; display:flex; align-items:center; gap:12px; box-shadow:0 1px 4px rgba(0,0,0,.04); }
+.fact-num { font-size:10.5px; font-weight:700; color:#0F172A; }
+.fact-client { font-size:11px; color:#64748B; }
+.fact-amount { font-size:14px; font-weight:800; color:#0F172A; margin-left:auto; }
+.fact-badge { font-size:9px; padding:2px 8px; border-radius:20px; font-weight:700; }
+.paid { background:#D1FAE5; color:#065F46; }
+.pend { background:#FEF3C7; color:#92400E; }
+.fact-icon { width:36px; height:36px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+
+.total-bar { background:linear-gradient(90deg,#1D4ED8,#2563EB); border-radius:14px; padding:16px 18px; margin:12px 16px 0; color:white; display:flex; justify-content:space-between; align-items:center; }
+.total-bar .t-lbl { font-size:11px; opacity:.7; }
+.total-bar .t-val { font-size:22px; font-weight:900; }
+
+/* ── SCREEN 4: CRM Clientes ── */
+.s4 { background:#F8FAFC; color:#0F172A; }
+.s4 .sb { color:#0F172A; }
+.crm-stats { display:flex; gap:8px; padding:8px 16px 0; }
+.crm-stat { flex:1; background:white; border-radius:12px; border:1px solid #E2E8F0; padding:12px; text-align:center; }
+.crm-stat .sv { font-size:20px; font-weight:900; color:#00BFA5; }
+.crm-stat .sl { font-size:9px; color:#94A3B8; margin-top:2px; }
+.client-list { padding:10px 16px 0; }
+.client-item { background:white; border-radius:12px; border:1px solid #E2E8F0; padding:12px 14px; margin-bottom:8px; display:flex; align-items:center; gap:12px; }
+.avatar { width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; color:white; flex-shrink:0; }
+.cli-name { font-size:13px; font-weight:700; color:#0F172A; }
+.cli-sub { font-size:11px; color:#64748B; margin-top:1px; }
+.cli-tag { font-size:9px; padding:2px 7px; border-radius:6px; font-weight:600; margin-top:4px; display:inline-block; }
+
+/* ── SCREEN 5: Fichajes/RRHH ── */
+.s5 { background:#0F172A; color:white; }
+.s5 .sb { color:rgba(255,255,255,.6); }
+.fichaje-header { padding:16px 20px 0; }
+.fichaje-title { font-size:20px; font-weight:800; }
+.fichaje-date { font-size:11px; color:rgba(255,255,255,.4); margin-top:2px; }
+
+.timer-card { margin:14px 16px 0; background:linear-gradient(135deg,#00BFA5,#0097A7); border-radius:18px; padding:20px; text-align:center; }
+.timer-card .timer-lbl { font-size:11px; opacity:.7; margin-bottom:6px; letter-spacing:0.5px; }
+.timer-card .timer-val { font-size:42px; font-weight:900; letter-spacing:2px; }
+.timer-card .timer-sub { font-size:11px; opacity:.6; margin-top:4px; }
+.timer-btns { display:flex; gap:10px; margin-top:14px; }
+.t-btn { flex:1; padding:10px; border-radius:10px; font-size:12px; font-weight:700; border:none; cursor:pointer; }
+.t-btn.end { background:rgba(255,255,255,.15); color:white; }
+.t-btn.pause { background:rgba(255,255,255,.1); color:rgba(255,255,255,.7); }
+
+.emp-list { padding:12px 16px 0; }
+.emp-item { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.06); }
+.emp-avatar { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:white; }
+.emp-name { font-size:12px; font-weight:600; }
+.emp-time { font-size:11px; color:rgba(255,255,255,.45); }
+.emp-status { margin-left:auto; font-size:9px; padding:3px 8px; border-radius:20px; font-weight:700; }
+.working { background:rgba(0,191,165,.15); color:#00BFA5; }
+.off { background:rgba(255,255,255,.07); color:rgba(255,255,255,.4); }
+
+/* ── SCREEN 6: TPV ── */
+.s6 { background:#F8FAFC; color:#0F172A; }
+.s6 .sb { color:#0F172A; }
+.tpv-header { padding:14px 16px 10px; display:flex; align-items:center; justify-content:space-between; }
+.tpv-title { font-size:18px; font-weight:800; }
+.tpv-table-badge { background:#00BFA5; color:white; font-size:10px; font-weight:700; padding:4px 10px; border-radius:20px; }
+.product-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:0 16px; }
+.prod { background:white; border-radius:12px; padding:10px 8px; text-align:center; border:1px solid #E2E8F0; }
+.prod .emoji { font-size:24px; }
+.prod .pname { font-size:10px; font-weight:600; color:#0F172A; margin-top:4px; }
+.prod .pprice { font-size:11px; font-weight:800; color:#00BFA5; }
+.ticket-area { margin:10px 16px 0; background:white; border-radius:14px; border:1px solid #E2E8F0; padding:12px; }
+.ticket-row { display:flex; justify-content:space-between; font-size:12px; padding:4px 0; border-bottom:1px solid #F1F5F9; }
+.ticket-row:last-child { border-bottom:none; }
+.ticket-total { display:flex; justify-content:space-between; align-items:center; margin-top:10px; }
+.ticket-total .lbl { font-size:13px; font-weight:700; }
+.ticket-total .val { font-size:22px; font-weight:900; color:#00BFA5; }
+.cobrar-btn { background:#00BFA5; color:white; border:none; border-radius:14px; width:calc(100% - 32px); margin:10px 16px 0; padding:15px; font-size:15px; font-weight:800; letter-spacing:-0.3px; }
+
+/* Caption */
+.caption { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(180deg,transparent,rgba(0,0,0,.6)); padding:16px 20px 24px; }
+.cap-tag { font-size:10px; font-weight:700; color:#00FFC8; letter-spacing:1px; text-transform:uppercase; }
+.cap-title { font-size:18px; font-weight:800; color:white; line-height:1.2; margin-top:3px; }
+</style>
+</head>
+<body>
+
+<!-- ═══ SCREEN 1: Dashboard ═══ -->
+<div class="screen s1">
+  <div class="sb"><span>9:41</span><span>●●●</span></div>
+  <div class="hero-header">
+    <div class="greeting">Fluix CRM</div>
+    <div class="biz-name">Buenos días, Samuel 👋</div>
+    <div class="sub">Viernes 31 · Restaurante El Olivo</div>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="val">€4.280</div><div class="lbl">Ventas<br>hoy</div></div>
+    <div class="kpi"><div class="val">12</div><div class="lbl">Reservas<br>hoy</div></div>
+    <div class="kpi"><div class="val">3</div><div class="lbl">Pendiente<br>cobro</div></div>
+    <div class="kpi"><div class="val">8</div><div class="lbl">Empleados<br>activos</div></div>
+  </div>
+  <div class="section-title">Módulos</div>
+  <div class="module-grid">
+    <div class="mod"><div class="ico">📋</div><div class="name">Clientes</div></div>
+    <div class="mod"><div class="ico">📅</div><div class="name">Reservas</div></div>
+    <div class="mod"><div class="ico">💰</div><div class="name">Factura.</div></div>
+    <div class="mod"><div class="ico">🧾</div><div class="name">TPV</div></div>
+    <div class="mod"><div class="ico">👥</div><div class="name">Empleados</div></div>
+    <div class="mod"><div class="ico">📊</div><div class="name">Fiscal</div></div>
+    <div class="mod"><div class="ico">⏱️</div><div class="name">Fichajes</div></div>
+    <div class="mod"><div class="ico">📦</div><div class="name">Pedidos</div></div>
+  </div>
+  <div class="section-title">Actividad reciente</div>
+  <div class="activity-list">
+    <div class="act-item">
+      <div class="act-dot" style="background:#00BFA5"></div>
+      <div class="act-txt">Nueva reserva — Carlos Martínez</div>
+      <div class="act-time">hace 5m</div>
+    </div>
+    <div class="act-item">
+      <div class="act-dot" style="background:#3B82F6"></div>
+      <div class="act-txt">Factura F-2026-0089 enviada</div>
+      <div class="act-time">hace 23m</div>
+    </div>
+    <div class="act-item">
+      <div class="act-dot" style="background:#F59E0B"></div>
+      <div class="act-txt">Nómina octubre pendiente</div>
+      <div class="act-time">hace 1h</div>
+    </div>
+    <div class="act-item">
+      <div class="act-dot" style="background:#10B981"></div>
+      <div class="act-txt">Pago recibido — Restaurante Sol</div>
+      <div class="act-time">hace 2h</div>
+    </div>
+  </div>
+  <div class="caption">
+    <div class="cap-tag">Dashboard</div>
+    <div class="cap-title">Todo tu negocio<br>en una pantalla</div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN 2: Explorar ═══ -->
+<div class="screen s2">
+  <div class="sb" style="color:#1E293B"><span>9:41</span><span>●●●</span></div>
+  <div class="hero-img">
+    <div class="hero-overlay">
+      <div class="hero-city">GUADALAJARA</div>
+      <div class="hero-title">Descubre<br>algo nuevo.</div>
+    </div>
+  </div>
+  <div class="search-box" style="margin:12px 16px 0;">
+    <span style="color:#00BFA5;font-size:16px;">🔍</span>
+    <input placeholder="¿Qué te apetece descubrir?" />
+  </div>
+  <div class="chips-row">
+    <div class="chip sel">✨ Todo</div>
+    <div class="chip">🍽️ Restaurantes</div>
+    <div class="chip">✂️ Peluquerías</div>
+    <div class="chip">💅 Estética</div>
+  </div>
+  <div style="padding:12px 16px 0;font-size:13px;font-weight:700;color:#0F172A;">Todos los negocios</div>
+  <div class="biz-grid">
+    <div class="biz-card">
+      <div class="biz-img" style="background:linear-gradient(135deg,#f093fb,#f5576c)"></div>
+      <div class="biz-info">
+        <div class="biz-name">Peluquería Marina</div>
+        <div class="star-row"><span>⭐ 4.8</span><span style="color:#94A3B8;font-size:8px;">(124)</span></div>
+        <div class="biz-cat">Peluquería · estética</div>
+        <div class="biz-bio">Especialistas en color y tratamientos capilares en el centro</div>
+      </div>
+    </div>
+    <div class="biz-card">
+      <div class="biz-img" style="background:linear-gradient(135deg,#43e97b,#38f9d7)"></div>
+      <div class="biz-info">
+        <div class="biz-name">Restaurante El Olivo</div>
+        <div class="star-row"><span>⭐ 4.6</span><span style="color:#94A3B8;font-size:8px;">(89)</span></div>
+        <div class="biz-cat">Restaurante</div>
+        <div class="biz-bio">Cocina mediterránea con producto fresco de la huerta</div>
+      </div>
+    </div>
+    <div class="biz-card">
+      <div class="biz-img" style="background:linear-gradient(135deg,#4facfe,#00f2fe)"></div>
+      <div class="biz-info">
+        <div class="biz-name">Clínica Dental Sonríe</div>
+        <div class="star-row"><span>⭐ 4.9</span><span style="color:#94A3B8;font-size:8px;">(203)</span></div>
+        <div class="biz-cat">Clínica dental</div>
+        <div class="biz-bio">Ortodoncia invisible y blanqueamiento profesional</div>
+      </div>
+    </div>
+    <div class="biz-card">
+      <div class="biz-img" style="background:linear-gradient(135deg,#fa709a,#fee140)"></div>
+      <div class="biz-info">
+        <div class="biz-name">Gym Sport Center</div>
+        <div class="star-row"><span>⭐ 4.5</span><span style="color:#94A3B8;font-size:8px;">(67)</span></div>
+        <div class="biz-cat">Gimnasio</div>
+        <div class="biz-bio">Máquinas modernas, clases dirigidas y zona de spa</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN 3: Facturación Verifactu ═══ -->
+<div class="screen s3">
+  <div class="sb"><span>9:41</span><span>●●●</span></div>
+  <div class="page-header">
+    <div class="page-title">Facturación</div>
+    <div class="page-sub">Octubre 2026 · 24 facturas</div>
+    <div class="verifactu-badge">
+      <span>✅ Compatible Verifactu — RD 1007/2023</span>
+    </div>
+  </div>
+  <div class="total-bar">
+    <div><div class="t-lbl">TOTAL FACTURADO</div><div class="t-val">€12.480</div></div>
+    <div style="text-align:right"><div class="t-lbl">COBRADO</div><div class="t-val" style="font-size:18px;color:#00FFC8">€9.320</div></div>
+  </div>
+  <div style="padding:12px 16px 6px;font-size:12px;font-weight:700;color:#64748B;">ÚLTIMAS FACTURAS</div>
+  <div class="fact-list">
+    <div class="fact-item">
+      <div class="fact-icon" style="background:#EFF6FF;">📄</div>
+      <div><div class="fact-num">F-2026-0089</div><div class="fact-client">Construcciones López S.L.</div></div>
+      <div style="text-align:right;margin-left:auto;">
+        <div class="fact-amount">€1.450</div>
+        <div class="fact-badge paid">Cobrada</div>
+      </div>
+    </div>
+    <div class="fact-item">
+      <div class="fact-icon" style="background:#FFFBEB;">📄</div>
+      <div><div class="fact-num">F-2026-0088</div><div class="fact-client">Clínica Veterinaria Norte</div></div>
+      <div style="text-align:right;margin-left:auto;">
+        <div class="fact-amount">€890</div>
+        <div class="fact-badge pend">Pendiente</div>
+      </div>
+    </div>
+    <div class="fact-item">
+      <div class="fact-icon" style="background:#EFF6FF;">📄</div>
+      <div><div class="fact-num">F-2026-0087</div><div class="fact-client">Restaurante El Marino</div></div>
+      <div style="text-align:right;margin-left:auto;">
+        <div class="fact-amount">€2.100</div>
+        <div class="fact-badge paid">Cobrada</div>
+      </div>
+    </div>
+    <div class="fact-item">
+      <div class="fact-icon" style="background:#FFFBEB;">📄</div>
+      <div><div class="fact-num">F-2026-0086</div><div class="fact-client">Peluquería Style</div></div>
+      <div style="text-align:right;margin-left:auto;">
+        <div class="fact-amount">€340</div>
+        <div class="fact-badge pend">Pendiente</div>
+      </div>
+    </div>
+  </div>
+  <div style="margin:14px 16px 0;padding:12px 14px;background:#F0FDF4;border-radius:12px;border:1px solid #86EFAC;font-size:11px;color:#166534;">
+    🔒 Firma digital automática · Registro en AEAT · PDF certificado
+  </div>
+</div>
+
+<!-- ═══ SCREEN 4: CRM Clientes ═══ -->
+<div class="screen s4">
+  <div class="sb"><span>9:41</span><span>●●●</span></div>
+  <div class="page-header">
+    <div class="page-title">Clientes & CRM</div>
+    <div class="page-sub">148 clientes · actualizado ahora</div>
+  </div>
+  <div class="crm-stats">
+    <div class="crm-stat"><div class="sv">148</div><div class="sl">Total</div></div>
+    <div class="crm-stat"><div class="sv">12</div><div class="sl">Nuevos<br>este mes</div></div>
+    <div class="crm-stat"><div class="sv">94%</div><div class="sl">Tasa<br>retención</div></div>
+  </div>
+  <div style="padding:12px 16px 6px;font-size:12px;font-weight:700;color:#64748B;">RECIENTES</div>
+  <div class="client-list">
+    <div class="client-item">
+      <div class="avatar" style="background:linear-gradient(135deg,#667eea,#764ba2)">C</div>
+      <div>
+        <div class="cli-name">Carlos Martínez Ruiz</div>
+        <div class="cli-sub">📱 +34 612 345 678 · 3 visitas</div>
+        <div class="cli-tag" style="background:#D1FAE5;color:#065F46;">Cliente VIP</div>
+      </div>
+      <div style="margin-left:auto;font-size:11px;color:#94A3B8;">Hoy</div>
+    </div>
+    <div class="client-item">
+      <div class="avatar" style="background:linear-gradient(135deg,#f093fb,#f5576c)">A</div>
+      <div>
+        <div class="cli-name">Ana López García</div>
+        <div class="cli-sub">📧 ana.lopez@gmail.com</div>
+        <div class="cli-tag" style="background:#DBEAFE;color:#1D4ED8;">Reserva pendiente</div>
+      </div>
+      <div style="margin-left:auto;font-size:11px;color:#94A3B8;">Ayer</div>
+    </div>
+    <div class="client-item">
+      <div class="avatar" style="background:linear-gradient(135deg,#43e97b,#38f9d7)">M</div>
+      <div>
+        <div class="cli-name">María Sánchez</div>
+        <div class="cli-sub">💬 WhatsApp activo</div>
+        <div class="cli-tag" style="background:#FEF3C7;color:#92400E;">Seguimiento</div>
+      </div>
+      <div style="margin-left:auto;font-size:11px;color:#94A3B8;">Lun</div>
+    </div>
+    <div class="client-item">
+      <div class="avatar" style="background:linear-gradient(135deg,#4facfe,#00f2fe)">J</div>
+      <div>
+        <div class="cli-name">Juan Pérez Molina</div>
+        <div class="cli-sub">📋 Historial · 8 facturas</div>
+        <div class="cli-tag" style="background:#D1FAE5;color:#065F46;">Cliente VIP</div>
+      </div>
+      <div style="margin-left:auto;font-size:11px;color:#94A3B8;">Mar</div>
+    </div>
+  </div>
+  <div style="margin:10px 16px 0;padding:12px 14px;background:#EFF6FF;border-radius:12px;border:1px solid #BFDBFE;font-size:11px;color:#1E40AF;">
+    🤖 IA integrada · Segmentación automática · Importación CSV
+  </div>
+</div>
+
+<!-- ═══ SCREEN 5: Fichajes RRHH ═══ -->
+<div class="screen s5">
+  <div class="sb"><span>9:41</span><span>●●●</span></div>
+  <div class="fichaje-header">
+    <div class="fichaje-title">Control Horario</div>
+    <div class="fichaje-date">Viernes, 31 de octubre · Turno mañana</div>
+  </div>
+  <div class="timer-card">
+    <div class="timer-lbl">TIEMPO EN TURNO</div>
+    <div class="timer-val">03:42:15</div>
+    <div class="timer-sub">Entrada 06:00 · Sin pausas</div>
+    <div class="timer-btns">
+      <button class="t-btn pause">⏸ Pausa</button>
+      <button class="t-btn end">⏹ Salida</button>
+    </div>
+  </div>
+  <div style="padding:12px 20px 6px;font-size:11px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:0.5px;">EQUIPO HOY</div>
+  <div class="emp-list">
+    <div class="emp-item">
+      <div class="emp-avatar" style="background:#00BFA5">M</div>
+      <div><div class="emp-name">María Torres</div><div class="emp-time">Entrada 08:00 · 1h 42m</div></div>
+      <div class="emp-status working">Trabajando</div>
+    </div>
+    <div class="emp-item">
+      <div class="emp-avatar" style="background:#3B82F6">J</div>
+      <div><div class="emp-name">José Ruiz</div><div class="emp-time">Entrada 07:30 · 2h 12m</div></div>
+      <div class="emp-status working">Trabajando</div>
+    </div>
+    <div class="emp-item">
+      <div class="emp-avatar" style="background:#8B5CF6">L</div>
+      <div><div class="emp-name">Laura Gómez</div><div class="emp-time">Turno tarde 16:00</div></div>
+      <div class="emp-status off">Libre</div>
+    </div>
+    <div class="emp-item">
+      <div class="emp-avatar" style="background:#F59E0B">P</div>
+      <div><div class="emp-name">Pablo Sanz</div><div class="emp-time">Vacaciones hasta el 04/11</div></div>
+      <div class="emp-status off">🏖️ Vacac.</div>
+    </div>
+  </div>
+  <div class="caption">
+    <div class="cap-tag">RRHH & Fichajes</div>
+    <div class="cap-title">Control horario GPS<br>Nóminas automáticas</div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN 6: TPV ═══ -->
+<div class="screen s6">
+  <div class="sb"><span>9:41</span><span>●●●</span></div>
+  <div class="tpv-header">
+    <div class="tpv-title">🧾 TPV</div>
+    <div class="tpv-table-badge">Mesa 4 · Abierta</div>
+  </div>
+  <div class="product-grid">
+    <div class="prod"><div class="emoji">🥗</div><div class="pname">Ensalada César</div><div class="pprice">€8.50</div></div>
+    <div class="prod"><div class="emoji">🍕</div><div class="pname">Pizza Margherita</div><div class="pprice">€12.00</div></div>
+    <div class="prod"><div class="emoji">🍷</div><div class="pname">Vino Tinto D.O.</div><div class="pprice">€4.50</div></div>
+    <div class="prod"><div class="emoji">🥩</div><div class="pname">Chuletón 400g</div><div class="pprice">€22.00</div></div>
+    <div class="prod"><div class="emoji">🍮</div><div class="pname">Flan casero</div><div class="pprice">€4.00</div></div>
+    <div class="prod"><div class="emoji">☕</div><div class="pname">Café cortado</div><div class="pprice">€1.50</div></div>
+  </div>
+  <div class="ticket-area">
+    <div style="font-size:11px;font-weight:700;color:#64748B;margin-bottom:6px;">TICKET ACTUAL</div>
+    <div class="ticket-row"><span>Pizza Margherita ×2</span><span>€24.00</span></div>
+    <div class="ticket-row"><span>Vino Tinto ×1</span><span>€4.50</span></div>
+    <div class="ticket-row"><span>Ensalada César ×1</span><span>€8.50</span></div>
+    <div class="ticket-row"><span style="color:#64748B;font-size:11px;">IVA (10%)</span><span style="color:#64748B;font-size:11px;">€3.70</span></div>
+    <div class="ticket-total">
+      <div class="lbl">TOTAL</div>
+      <div class="val">€40.70</div>
+    </div>
+  </div>
+  <button class="cobrar-btn">💳 Cobrar €40.70</button>
+  <div style="display:flex;gap:8px;padding:8px 16px 0;font-size:10px;color:#94A3B8;justify-content:center;">
+    <span>💵 Efectivo</span> · <span>💳 Tarjeta</span> · <span>📱 Bizum</span> · <span>🅿️ PayPal</span>
+  </div>
+  <div class="caption">
+    <div class="cap-tag">TPV Integrado</div>
+    <div class="cap-title">Ventas · Facturación<br>Cierre de caja automático</div>
+  </div>
+</div>
+
+</body>
+</html>

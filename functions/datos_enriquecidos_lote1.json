@@ -1,0 +1,372 @@
+[
+  {
+    "id": "acilegna",
+    "nombre": "Acilegna",
+    "categoria": "tiendas",
+    "descripcion": "Empresa de venta al por menor de productos de consumo por medios telemáticos e internet."
+  },
+  {
+    "id": "adapink",
+    "nombre": "AdaPink",
+    "categoria": "esteticas",
+    "telefono": "+34949410106",
+    "direccion": "C. Cronista Manuel Serrano, S/N, 19001 Guadalajara",
+    "ratingGoogle": 4.8,
+    "descripcion": "Centro de estética integral especializado en uñas, depilación láser, extensiones de pestañas, microblading y tratamientos faciales y corporales."
+  },
+  {
+    "id": "aesthetic_center_alba",
+    "nombre": "Aesthetic Center Alba",
+    "categoria": "esteticas",
+    "telefono": "+34949210237",
+    "direccion": "C. de Rufino Blanco, 9, 19002 Guadalajara",
+    "web": "https://albaesteticaguadalajara.es",
+    "ratingGoogle": 4.8,
+    "descripcion": "Centro de estética con más de 45 años de historia en Guadalajara, especializado en tratamientos faciales, corporales, depilación y manicura."
+  },
+  {
+    "id": "alberto_hair_beauty",
+    "nombre": "Alberto Hair & Beauty",
+    "categoria": "peluquerias",
+    "telefono": "+34949229562",
+    "direccion": "C. Segovia, 3, 19005 Guadalajara",
+    "web": "https://albertohairbeauty.es",
+    "ratingGoogle": 4.8,
+    "descripcion": "Salón de peluquería con servicio completo de corte, coloración, mechas y tratamientos capilares en un ambiente inclusivo y profesional."
+  },
+  {
+    "id": "alcarrena_de_carnes",
+    "nombre": "Alcarreña de Carnes",
+    "categoria": "carnicerias",
+    "telefono": "+34949231832",
+    "direccion": "Av. Barcelona, 21, 19005 Guadalajara",
+    "web": "https://www.alcarcarnes.com",
+    "ratingGoogle": 4.8,
+    "descripcion": "Carnicería de barrio con más de 20 años de experiencia, especializada en carnes frescas y embutidos de máxima calidad, con productos sin gluten y servicio a domicilio."
+  },
+  {
+    "id": "alcarria_natura_el_rincon_de_la_lavanda",
+    "nombre": "Alcarria Natura - El Rincón de la Lavanda",
+    "categoria": "tiendas",
+    "telefono": "+34606533531",
+    "web": "https://www.alcarrianatura.com",
+    "descripcion": "Tienda especializada en productos de lavanda de La Alcarria: cosméticos, esencias, mieles y flores. Cultivan y destilan lavanda desde 1969 y organizan visitas guiadas a sus campos."
+  },
+  {
+    "id": "amy_princesa",
+    "nombre": "Amy Princesa",
+    "categoria": "esteticas",
+    "telefono": "+34691374504",
+    "direccion": "C. Mayor, 15, 19001 Guadalajara",
+    "web": "http://www.amyprincesa.com",
+    "descripcion": "Academia y tienda especializada en uñas y estética, con venta de productos profesionales de peluquería y belleza al por mayor y menor."
+  },
+  {
+    "id": "aurelia_estilistas",
+    "nombre": "Aurelia Estilistas",
+    "categoria": "peluquerias",
+    "telefono": "+34949690066",
+    "direccion": "C. Padre Tabernero, 9, 19002 Guadalajara",
+    "ratingGoogle": 4.9,
+    "descripcion": "Salón de peluquería con amplia experiencia en Guadalajara, valorado por su profesionalidad y trato personalizado, con servicios de corte, color, manicura y pedicura."
+  },
+  {
+    "id": "badass_barbers_by_joel_solano",
+    "nombre": "Badass Barbers by Joel Solano",
+    "categoria": "barberias",
+    "telefono": "+34949382042",
+    "direccion": "C. Dr. Layna Serrano, 20b, 19002 Guadalajara",
+    "web": "https://joelsolanobarberia.es",
+    "instagram": "https://www.instagram.com/badassbarbers_/",
+    "ratingGoogle": 4.9,
+    "descripcion": "Barbería neotradicional en el corazón de Guadalajara con más de una década de experiencia, especializada en cortes personalizados y afeitados clásicos con toalla caliente."
+  },
+  {
+    "id": "bar_la_calle",
+    "nombre": "Bar La Calle",
+    "categoria": "cafeterias",
+    "telefono": "+34611631640",
+    "direccion": "Pl. Don Pedro, 5, 19001 Guadalajara",
+    "ratingGoogle": 4.5,
+    "descripcion": "Bar de ambiente acogedor con amplia terraza en una plaza tranquila del centro histórico de Guadalajara. Conocido por sus desayunos, bocadillos y café de calidad."
+  },
+  {
+    "id": "barberia_berka",
+    "nombre": "Barbería Berka",
+    "categoria": "barberias",
+    "descripcion": "Barbería en Guadalajara."
+  },
+  {
+    "id": "barberia_moran",
+    "nombre": "Barbería Morán",
+    "categoria": "barberias",
+    "telefono": "+34643533378",
+    "direccion": "C. Colombia, 8, 19005 Guadalajara",
+    "ratingGoogle": 4.9,
+    "descripcion": "Barbería unisex con más de 20 años de experiencia en Guadalajara, especializada en cortes personalizados y estilos modernos a precios razonables."
+  },
+  {
+    "id": "bazar_regalos_zong_ii",
+    "nombre": "Bazar Regalos Zong II",
+    "categoria": "tiendas",
+    "descripcion": "Bazar y tienda de regalos en Guadalajara."
+  },
+  {
+    "id": "beauty_by_patricia",
+    "nombre": "Beauty by Patricia",
+    "categoria": "esteticas",
+    "telefono": "+34673811768",
+    "direccion": "Bulevar Entrepeñas, 1 B, 19005 Guadalajara",
+    "web": "https://beautyguadalajara.es",
+    "descripcion": "Centro de estética abierto en 2018, con más de una década de experiencia de su fundadora Patricia. Ofrece depilación láser, tratamientos faciales, lifting de pestañas y manicura."
+  },
+  {
+    "id": "beecoffee_specialty_coffee",
+    "nombre": "Beecoffee Specialty Coffee",
+    "categoria": "cafeterias",
+    "direccion": "C. Mayor, 14, 19001 Guadalajara",
+    "web": "https://www.beecoffee.es",
+    "instagram": "https://www.instagram.com/beecoffee_es/",
+    "ratingGoogle": 4.9,
+    "descripcion": "Cafetería de especialidad en la Calle Mayor de Guadalajara, reconocida como 'The Best Coffee Shop 2026'. Ofrece café artesanal, repostería casera con ingredientes locales y opciones sin gluten y sin lactosa."
+  },
+  {
+    "id": "belen_nogueras_estetica",
+    "nombre": "Belén Nogueras Estética",
+    "categoria": "esteticas",
+    "telefono": "+34949255888",
+    "direccion": "C. Felipe Solano Antelo, 19, 19002 Guadalajara",
+    "web": "https://belennoguerasestetica.es",
+    "descripcion": "Primer centro de estética natural y ecológica en Guadalajara, con más de 20 años de experiencia. Especializado en tratamientos faciales, corporales y técnicas respetuosas con el medioambiente."
+  },
+  {
+    "id": "bellas_artes_rosa",
+    "nombre": "Bellas Artes Rosa",
+    "categoria": "tiendas",
+    "telefono": "+34949213157",
+    "direccion": "Plaza Marqués de Villamejor, 7, 19005 Guadalajara",
+    "web": "https://www.bellasartesrosa.es",
+    "ratingGoogle": 4.2,
+    "descripcion": "Tienda especializada en material de bellas artes desde 1970: pinturas, dibujo, cerámica, marcos y accesorios para artistas y aficionados."
+  },
+  {
+    "id": "bellissima_s_centro_de_peluqueria_y_estetica",
+    "nombre": "Bellissima's Centro de peluquería y estética",
+    "categoria": "esteticas",
+    "telefono": "+34949409970",
+    "direccion": "C. Toledo, 40, 19002 Guadalajara",
+    "instagram": "https://www.instagram.com/bellissimas_guadalajara/",
+    "descripcion": "Centro de micropigmentación, uñas y estética en Guadalajara. Ofrece manicura, pedicura, extensiones de pestañas, depilación láser SHR y tratamientos faciales y corporales."
+  },
+  {
+    "id": "belucci_moda_mujer",
+    "nombre": "Belucci Moda Mujer",
+    "categoria": "tiendas",
+    "telefono": "+34949228675",
+    "direccion": "C. Padre Tabernero, 20, 19002 Guadalajara",
+    "web": "https://www.beluccimodamujer.es",
+    "ratingGoogle": 4.8,
+    "descripcion": "Tienda de moda femenina española e italiana con tallas de 38 a 68, abierta desde 2016. Ofrece ropa y complementos para todos los estilos y edades."
+  },
+  {
+    "id": "bernardo_caballeros",
+    "nombre": "Bernardo Caballeros",
+    "categoria": "barberias",
+    "telefono": "+34949222440",
+    "direccion": "C. Argentina, 11, 19005 Guadalajara",
+    "ratingGoogle": 4.8,
+    "descripcion": "Peluquería y barbería masculina en Guadalajara con excelente reputación, especializada en cortes clásicos y modernos con trato personalizado."
+  },
+  {
+    "id": "biosfera_guadalajara",
+    "nombre": "Biosfera Guadalajara",
+    "categoria": "restaurantes",
+    "telefono": "+34949894308",
+    "direccion": "Cuesta San Miguel, 5, 19001 Guadalajara",
+    "web": "https://biosferaguadalajara.com",
+    "instagram": "https://www.instagram.com/restaurantebiosfera/",
+    "ratingGoogle": 4.4,
+    "descripcion": "Restaurante de cocina de autor con inspiración global liderado por el chef Carlos Gumiel, combinando técnica moderna con producto local. Cuenta con un espacio exterior único en los jardines de la Cotilla."
+  },
+  {
+    "id": "blu_estilistas",
+    "nombre": "Blu Estilistas",
+    "categoria": "peluquerias",
+    "telefono": "+34949255979",
+    "direccion": "Av. Juan Pablo II, 10, Bajo 2B, 19005 Guadalajara",
+    "ratingGoogle": 4.7,
+    "descripcion": "Salón de peluquería y centro de belleza en Guadalajara, especializado en cortes, coloraciones y tratamientos capilares para toda la familia."
+  },
+  {
+    "id": "botanico_guadalajara",
+    "nombre": "Botánico Guadalajara",
+    "categoria": "restaurantes",
+    "telefono": "+34949289480",
+    "direccion": "P.º San Roque, 5, 19002 Guadalajara",
+    "web": "https://botanicoguadalajara.es",
+    "ratingGoogle": 4.2,
+    "descripcion": "Restaurante de cocina mediterránea actual situado en el Parque San Roque, con terraza entre árboles y reconocimiento Solete de la Guía Repsol desde 2003. Especialidad en paellas y carnes a la brasa."
+  },
+  {
+    "id": "cafeteria_valentina",
+    "nombre": "Cafetería Valentina",
+    "categoria": "cafeterias",
+    "telefono": "+34667792946",
+    "direccion": "Av. de Castilla, 14, 19002 Guadalajara",
+    "instagram": "https://www.instagram.com/cafeteriavalentinagu/",
+    "descripcion": "Cafetería con desayunos, tapas, pinchos y raciones en la Avenida de Castilla. Ganadora del 'Croqueta de Oro' en 2021 por sus croquetas de queso de cabra con cebolla caramelizada."
+  },
+  {
+    "id": "carezza_centro_de_estetica",
+    "nombre": "CAREZZA Centro de Estética",
+    "categoria": "esteticas",
+    "telefono": "+34605054156",
+    "direccion": "C. Condesa de la Vega del Pozo, 5, 19001 Guadalajara",
+    "web": "https://www.carezzaestetica.com",
+    "descripcion": "Centro de estética avanzada en el centro de Guadalajara, especializado en tratamientos faciales y corporales, depilación láser de diodo, cavitación, radiofrecuencia y microdermabrasión."
+  },
+  {
+    "id": "carnicas_guadalajara",
+    "nombre": "Cárnicas Guadalajara",
+    "categoria": "carnicerias",
+    "telefono": "+34949220299",
+    "direccion": "C. Padre Tabernero, 20, 19002 Guadalajara",
+    "descripcion": "Carnicería y charcutería en el barrio de Padre Tabernero de Guadalajara, especializada en carnes frescas, aves y todo tipo de embutidos y conservas cárnicas."
+  },
+  {
+    "id": "carniceria_henche",
+    "nombre": "Carnicería Henche",
+    "categoria": "carnicerias",
+    "telefono": "+34949220077",
+    "direccion": "C. de Alonso Núñez de Reinoso, 15, 19002 Guadalajara",
+    "web": "http://carniceriahenche.es",
+    "descripcion": "Carnicería fundada en 1981, especializada en ternera, cordero, cochinillo, embutidos, jamones ibéricos y quesos de la provincia de Guadalajara, con opción de pedidos a domicilio."
+  },
+  {
+    "id": "carniceria_pedro_guadalajara",
+    "nombre": "Carnicería Pedro Guadalajara",
+    "categoria": "carnicerias",
+    "telefono": "+34949221430",
+    "direccion": "C. Zaragoza, 25, 19005 Guadalajara",
+    "ratingGoogle": 4.8,
+    "descripcion": "Carnicería familiar con más de 25 años en Guadalajara, especializada en ternera abulense y cordero de la provincia, con servicio a domicilio en el mismo día."
+  },
+  {
+    "id": "carniceria_poveda",
+    "nombre": "Carnicería Poveda",
+    "categoria": "carnicerias",
+    "telefono": "+34949253628",
+    "direccion": "C. Doctor Fleming, 19, Local, 19003 Guadalajara",
+    "ratingGoogle": 4.9,
+    "descripcion": "Carnicería artesanal especializada en maduración de carnes, cerdo ibérico extremeño, cordero lechal y cabrito de Molina de Aragón. Elaboran embutidos sin alérgenos y ofrecen reparto a domicilio."
+  },
+  {
+    "id": "carniceria_salchicheria_pedro_alvarez",
+    "nombre": "Carnicería Salchichería Pedro Álvarez",
+    "categoria": "carnicerias",
+    "telefono": "+34673173912",
+    "direccion": "Pl. Virgen de la Antigua, 2, 19001 Guadalajara",
+    "web": "https://carniceriapedroalvarez.es",
+    "descripcion": "Saga familiar con casi un siglo de historia en el Mercado de Abastos de Guadalajara. Ofrece carnes frescas, productos ibéricos, embutidos artesanales y jamones de máxima calidad."
+  },
+  {
+    "id": "carniceria_torcal",
+    "nombre": "Carnicería Torcal",
+    "categoria": "carnicerias",
+    "telefono": "+34949210177",
+    "direccion": "C. Doctor Román Atienza, 8, 19001 Guadalajara",
+    "web": "https://www.carniceriatorcal.es",
+    "ratingGoogle": 4.8,
+    "descripcion": "Carnicería de referencia en Guadalajara desde 1960, reconocida por la calidad de sus carnes y la excelencia en el servicio al cliente."
+  },
+  {
+    "id": "casa_palomo",
+    "nombre": "Casa Palomo",
+    "categoria": "restaurantes",
+    "telefono": "+34949230632",
+    "direccion": "Cuesta San Miguel, 5, 19001 Guadalajara",
+    "web": "https://www.casapalomo.es",
+    "instagram": "https://www.instagram.com/casa.palomo/",
+    "ratingGoogle": 4.4,
+    "descripcion": "Restaurante familiar de cocina castellana tradicional con cuatro generaciones de hosteleros. Número 1 en Guadalajara en Tripadvisor, especializado en guisos de cuchara, carnes a la brasa y setas de temporada."
+  },
+  {
+    "id": "catapan",
+    "nombre": "Catapan",
+    "categoria": "cafeterias",
+    "telefono": "+34949219685",
+    "direccion": "Av. Castilla, 24, 19002 Guadalajara",
+    "web": "https://www.catapan.com",
+    "ratingGoogle": 4.1,
+    "descripcion": "Panadería artesanal y pastelería delicatessen con elaboraciones sin conservantes ni colorantes. Destacan sus panes artesanos, croissants, repostería sin gluten y platos preparados."
+  },
+  {
+    "id": "ccbc_barber_shop",
+    "nombre": "CCBC Barber Shop",
+    "categoria": "barberias",
+    "telefono": "+34641401094",
+    "direccion": "C. Dr. Fleming, 22, 19002 Guadalajara",
+    "descripcion": "Barbería en la Calle Doctor Fleming de Guadalajara, con reserva de citas online a través de Booksy."
+  },
+  {
+    "id": "cerveceria_la_montanera",
+    "nombre": "Cervecería La Montanera",
+    "categoria": "cafeterias",
+    "telefono": "+34949224577",
+    "direccion": "C. de Cifuentes, 53, 19003 Guadalajara",
+    "web": "https://cervecerialamontanera.shop",
+    "ratingGoogle": 3.9,
+    "descripcion": "Cervecería y bar de tapas en el barrio del Fuente de la Niña de Guadalajara. Ofrece desayunos, tapas variadas y terraza en un ambiente familiar y asequible."
+  },
+  {
+    "id": "clinica_carlos_gomez",
+    "nombre": "Clínica Carlos Gómez",
+    "categoria": "general",
+    "telefono": "+34949257328",
+    "direccion": "C. Virgen del Amparo, 44, 19002 Guadalajara",
+    "web": "https://clinicacarlosgomez.com",
+    "instagram": "https://www.instagram.com/clinicadentalcarlosgomez/",
+    "ratingGoogle": 4.7,
+    "descripcion": "Clínica dental en Guadalajara especializada en ortodoncia invisible, carillas dentales y tratamientos odontológicos integrales para toda la familia."
+  },
+  {
+    "id": "clinica_medico_estetica_cristina_aguilera",
+    "nombre": "Clínica Médico Estética Cristina Aguilera",
+    "categoria": "esteticas",
+    "telefono": "+34659780980",
+    "direccion": "Plaza de Pablo Iglesias, 4, 19001 Guadalajara",
+    "web": "https://cristinaguileraesthetic.es",
+    "instagram": "https://www.instagram.com/clinica.cristinaaguilera/",
+    "ratingGoogle": 5.0,
+    "descripcion": "Clínica de medicina estética de referencia en Guadalajara con equipo multidisciplinar. Especializada en toxina botulínica, rellenos dérmicos, reducción de grasa localizada y rejuvenecimiento facial."
+  },
+  {
+    "id": "color_nails",
+    "nombre": "Color Nails",
+    "categoria": "esteticas",
+    "telefono": "+34627620639",
+    "direccion": "C. de Sigüenza, 7, Local, 19003 Guadalajara",
+    "web": "https://www.color-nails.es",
+    "instagram": "https://www.instagram.com/colornails.montse/",
+    "descripcion": "Centro especializado en manicura y pedicura en Guadalajara. Ofrece uñas acrílicas, gel, semipermanente, acrigel, nail art y pedicura con las últimas tendencias y productos de calidad."
+  },
+  {
+    "id": "cose_tu_sueno",
+    "nombre": "Cose tu sueño",
+    "categoria": "tiendas",
+    "telefono": "+34646421467",
+    "direccion": "C. Hermanos Fernández Galiano, 11, 19004 Guadalajara",
+    "web": "https://cosetusueno.com",
+    "descripcion": "Taller y tienda artesanal de costura creada por Sandra, especializada en productos hechos a mano: macramé, bordados, artesanía textil y artículos personalizados."
+  },
+  {
+    "id": "dark_comics",
+    "nombre": "Dark Cómics",
+    "categoria": "tiendas",
+    "telefono": "+34949228999",
+    "direccion": "Cuesta del Matadero, 13, 19001 Guadalajara",
+    "web": "https://darkcomics.es",
+    "ratingGoogle": 4.8,
+    "descripcion": "Tienda especializada en cómics, manga, juegos de mesa y merchandising en el centro histórico de Guadalajara, abierta desde 2016. Amplio catálogo de cómic americano, europeo y nacional."
+  }
+]

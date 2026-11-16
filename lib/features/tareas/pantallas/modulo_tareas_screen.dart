@@ -124,6 +124,12 @@ class _ModuloTareasScreenState extends State<ModuloTareasScreen> {
 
   List<Tarea> _filtrar(List<Tarea> todas) {
     var r = todas.where((t) => t.estado != EstadoTarea.cancelada).toList();
+    // Staff solo ve sus tareas (asignadas a él o creadas por él)
+    final sesion = PermisosService().sesion;
+    if (sesion?.esStaff == true) {
+      r = r.where((t) =>
+          t.usuarioAsignadoId == _uid || t.creadoPorId == _uid).toList();
+    }
     if (_filtroPrioridad != null) r = r.where((t) => t.prioridad == _filtroPrioridad).toList();
     if (_filtroResponsable != null) r = r.where((t) => t.usuarioAsignadoId == _filtroResponsable).toList();
     if (_filtroEquipo != null) r = r.where((t) => t.equipoId == _filtroEquipo).toList();

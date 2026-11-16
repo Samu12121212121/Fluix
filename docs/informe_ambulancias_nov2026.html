@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Informe Noviembre 2026 — Sysday Emergencias</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #F1F5F9; color: #1E293B; }
+  .page { max-width: 960px; margin: 32px auto; padding: 0 16px; }
+
+  /* Header */
+  .header { background: #1D4ED8; border-radius: 16px; padding: 28px 32px; color: white; display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  .header h1 { font-size: 22px; font-weight: 700; }
+  .header p  { font-size: 13px; opacity: .75; margin-top: 4px; }
+  .header .badge { background: rgba(255,255,255,.15); border-radius: 8px; padding: 10px 18px; text-align: right; }
+  .header .badge span { font-size: 11px; opacity: .8; display: block; }
+  .header .badge strong { font-size: 20px; font-weight: 700; }
+
+  /* KPI row */
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .kpi { background: white; border-radius: 12px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(0,0,0,.07); }
+  .kpi .label { font-size: 11px; color: #64748B; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+  .kpi .value { font-size: 24px; font-weight: 700; }
+  .kpi .delta { font-size: 11px; margin-top: 4px; }
+  .green { color: #059669; } .red { color: #DC2626; } .blue { color: #1D4ED8; } .amber { color: #D97706; }
+
+  /* Section */
+  .section { background: white; border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.07); }
+  .section h2 { font-size: 14px; font-weight: 700; color: #1E293B; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #F1F5F9; display: flex; align-items: center; gap: 8px; }
+  .section h2 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #F8FAFC; color: #64748B; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; padding: 8px 12px; text-align: left; }
+  td { padding: 10px 12px; border-top: 1px solid #F1F5F9; }
+  tr:hover td { background: #F8FAFC; }
+  .pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .pill-green  { background: #D1FAE5; color: #065F46; }
+  .pill-blue   { background: #DBEAFE; color: #1D4ED8; }
+  .pill-amber  { background: #FEF3C7; color: #92400E; }
+  .pill-purple { background: #EDE9FE; color: #5B21B6; }
+
+  /* Bar chart */
+  .bars { display: flex; align-items: flex-end; gap: 6px; height: 100px; padding: 8px 0; }
+  .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; }
+  .bar-label { font-size: 9px; color: #94A3B8; }
+  .bar-val { font-size: 9px; font-weight: 600; color: #475569; }
+
+  /* Fichajes */
+  .fich-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid #F1F5F9; font-size: 13px; }
+  .fich-row:first-child { border-top: none; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: #DBEAFE; color: #1D4ED8; font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+  .fich-info { flex: 1; }
+  .fich-info strong { display: block; }
+  .fich-info span { font-size: 11px; color: #64748B; }
+  .fich-hours { font-size: 13px; font-weight: 700; color: #059669; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media(max-width:640px) { .kpi-row { grid-template-columns: 1fr 1fr; } .two-col { grid-template-columns: 1fr; } }
+
+  .nomina-row { display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid #F1F5F9; font-size: 13px; }
+  .nomina-row:first-child { border-top: none; }
+  .nomina-name { font-weight: 600; }
+  .nomina-sub  { font-size: 11px; color: #64748B; margin-top: 2px; }
+  .nomina-neto { font-weight: 700; color: #059669; text-align: right; }
+  .nomina-bruto { font-size: 11px; color: #94A3B8; text-align: right; margin-top: 2px; }
+
+  footer { text-align: center; font-size: 11px; color: #94A3B8; padding: 32px 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <h1>🚑 Sysday Emergencias</h1>
+      <p>Informe mensual · Noviembre 2026 · Generado por Fluix</p>
+    </div>
+    <div class="badge">
+      <span>Resultado del mes</span>
+      <strong>+ 12.272,10 €</strong>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="label">Ingresos</div>
+      <div class="value green">23.219 €</div>
+      <div class="delta green">3 facturas emitidas</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Gastos operativos</div>
+      <div class="value red">5.498 €</div>
+      <div class="delta">6 facturas recibidas</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Nóminas</div>
+      <div class="value amber">5.450 €</div>
+      <div class="delta">3 empleados</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Fichajes</div>
+      <div class="value blue">7</div>
+      <div class="delta">9 turnos este mes</div>
+    </div>
+  </div>
+
+  <!-- FACTURAS INGRESOS -->
+  <div class="section">
+    <h2><span class="dot" style="background:#059669"></span> Facturas emitidas — Ingresos</h2>
+    <table>
+      <thead><tr><th>Nº Factura</th><th>Cliente</th><th>Concepto</th><th>Fecha</th><th>Total</th><th>Estado</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>F2026-0041</strong></td>
+          <td>SESCAM — CL Mancha</td>
+          <td>Transporte sanitario urgente oct 2026</td>
+          <td>03/11/2026</td>
+          <td><strong>15.399,90 €</strong></td>
+          <td><span class="pill pill-blue">Enviada</span></td>
+        </tr>
+        <tr>
+          <td><strong>F2026-0042</strong></td>
+          <td>MAPFRE Seguros</td>
+          <td>Traslados programados oct 2026</td>
+          <td>04/11/2026</td>
+          <td><strong>5.180,00 €</strong></td>
+          <td><span class="pill pill-green">Cobrada</span></td>
+        </tr>
+        <tr>
+          <td><strong>F2026-0043</strong></td>
+          <td>SegurCaixa Adeslas</td>
+          <td>Asistencia sanitaria en ruta oct 2026</td>
+          <td>04/11/2026</td>
+          <td><strong>2.640,00 €</strong></td>
+          <td><span class="pill pill-blue">Enviada</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="text-align:right; margin-top:12px; font-size:13px; color:#64748B">
+      Total ingresos: <strong style="color:#059669; font-size:16px">23.219,90 €</strong>
+      &nbsp;·&nbsp; <span style="font-size:11px">Exento IVA — art. 20.1.3 LIVA (servicios sanitarios)</span>
+    </div>
+  </div>
+
+  <!-- DOS COLUMNAS: Gastos + Nóminas -->
+  <div class="two-col">
+
+    <!-- GASTOS -->
+    <div class="section">
+      <h2><span class="dot" style="background:#EF4444"></span> Gastos operativos</h2>
+      <table>
+        <thead><tr><th>Concepto</th><th style="text-align:right">Importe</th></tr></thead>
+        <tbody>
+          <tr><td>Combustible flotilla</td><td style="text-align:right; font-weight:600">1.240,80 €</td></tr>
+          <tr><td>Seguro RC vehículos</td><td style="text-align:right; font-weight:600">1.980,00 €</td></tr>
+          <tr><td>Alquiler garaje</td><td style="text-align:right; font-weight:600">850,00 €</td></tr>
+          <tr><td>Mantenimiento A-07</td><td style="text-align:right; font-weight:600">680,00 €</td></tr>
+          <tr><td>Material sanitario</td><td style="text-align:right; font-weight:600">534,60 €</td></tr>
+          <tr><td>Comunicaciones</td><td style="text-align:right; font-weight:600">212,40 €</td></tr>
+          <tr>
+            <td style="font-weight:700; padding-top:12px">TOTAL</td>
+            <td style="text-align:right; font-weight:700; color:#DC2626; padding-top:12px">5.497,80 €</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- NÓMINAS -->
+    <div class="section">
+      <h2><span class="dot" style="background:#D97706"></span> Nóminas noviembre</h2>
+      <div class="nomina-row">
+        <div>
+          <div class="nomina-name">Elena Martín Sanz</div>
+          <div class="nomina-sub">TES · Grupo 2 · Indefinido</div>
+        </div>
+        <div>
+          <div class="nomina-neto">1.445,77 €</div>
+          <div class="nomina-bruto">Bruto: 1.850,00 €</div>
+        </div>
+      </div>
+      <div class="nomina-row">
+        <div>
+          <div class="nomina-name">Roberto López Vega</div>
+          <div class="nomina-sub">TES · Grupo 2 · Indefinido</div>
+        </div>
+        <div>
+          <div class="nomina-neto">1.473,52 €</div>
+          <div class="nomina-bruto">Bruto: 1.850,00 €</div>
+        </div>
+      </div>
+      <div class="nomina-row">
+        <div>
+          <div class="nomina-name">Lucía Rodríguez</div>
+          <div class="nomina-sub">TES · Grupo 3 · Indefinido</div>
+        </div>
+        <div>
+          <div class="nomina-neto">1.411,37 €</div>
+          <div class="nomina-bruto">Bruto: 1.750,00 €</div>
+        </div>
+      </div>
+      <div style="text-align:right; margin-top:14px; border-top:1px solid #F1F5F9; padding-top:12px; font-size:13px; color:#64748B">
+        Total nóminas: <strong style="color:#D97706">5.450,00 €</strong> bruto
+      </div>
+    </div>
+  </div>
+
+  <!-- FICHAJES -->
+  <div class="section">
+    <h2><span class="dot" style="background:#1D4ED8"></span> Control horario — Noviembre</h2>
+    <div class="fich-row">
+      <div class="avatar">EM</div>
+      <div class="fich-info"><strong>Elena Martín Sanz</strong><span>Turno mañana · 08:00–16:00</span></div>
+      <div class="fich-hours">24h trabajadas (3 turnos)</div>
+    </div>
+    <div class="fich-row">
+      <div class="avatar">RL</div>
+      <div class="fich-info"><strong>Roberto López Vega</strong><span>Turno tarde · 14:00–22:00</span></div>
+      <div class="fich-hours">16h trabajadas (2 turnos)</div>
+    </div>
+    <div class="fich-row">
+      <div class="avatar">LR</div>
+      <div class="fich-info"><strong>Lucía Rodríguez</strong><span>Turno noche · 22:00–06:00</span></div>
+      <div class="fich-hours">16h trabajadas (2 turnos)</div>
+    </div>
+  </div>
+
+  <!-- RESULTADO -->
+  <div class="section" style="background: linear-gradient(135deg,#EFF6FF,#F0FDF4);">
+    <h2><span class="dot" style="background:#1D4ED8"></span> Resultado del mes</h2>
+    <table>
+      <tbody>
+        <tr><td style="color:#64748B">Ingresos facturados</td><td style="text-align:right; color:#059669; font-weight:700">+ 23.219,90 €</td></tr>
+        <tr><td style="color:#64748B">Gastos operativos</td><td style="text-align:right; color:#DC2626; font-weight:700">– 5.497,80 €</td></tr>
+        <tr><td style="color:#64748B">Nóminas brutas</td><td style="text-align:right; color:#D97706; font-weight:700">– 5.450,00 €</td></tr>
+        <tr>
+          <td style="font-size:16px; font-weight:700; padding-top:14px">RESULTADO NETO (antes de impuestos)</td>
+          <td style="text-align:right; font-size:20px; font-weight:800; color:#1D4ED8; padding-top:14px">+ 12.272,10 €</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>Generado por Fluix · fluix.es · Noviembre 2026 · Sysday Emergencias Guadalajara</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pantalla Explorar — Guía de configuración</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F4F6FB; color: #1E293B; line-height: 1.6; }
+
+  .topbar { background: #0D1B3E; color: white; padding: 18px 32px; display: flex; align-items: center; gap: 12px; }
+  .topbar .logo { font-size: 24px; font-weight: 900; color: #00BFA5; letter-spacing: -1px; }
+  .topbar h1 { font-size: 16px; font-weight: 600; opacity: 0.85; }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  .intro { background: white; border-radius: 16px; padding: 20px 24px; margin-bottom: 28px; border-left: 4px solid #00BFA5; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .intro p { color: #64748B; font-size: 14px; }
+  .intro code { background: #F1F5F9; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #0F172A; }
+
+  /* Mapa visual */
+  .mapa { background: white; border-radius: 16px; padding: 24px; margin-bottom: 28px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .mapa h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; color: #0F172A; }
+  .mapa-grid { display: flex; flex-direction: column; gap: 6px; }
+  .mapa-row { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 10px; border: 1px solid #E2E8F0; background: #F8FAFC; }
+  .mapa-num { font-size: 11px; font-weight: 800; color: white; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .mapa-title { font-size: 14px; font-weight: 600; flex: 1; }
+  .mapa-badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+  .badge-ok   { background: #D1FAE5; color: #065F46; }
+  .badge-warn { background: #FEF3C7; color: #92400E; }
+  .badge-miss { background: #FEE2E2; color: #991B1B; }
+
+  /* Secciones */
+  .section { background: white; border-radius: 16px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.06); overflow: hidden; }
+  .section-header { padding: 18px 24px 14px; border-bottom: 1px solid #F1F5F9; display: flex; align-items: center; gap: 12px; }
+  .section-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .section-header h2 { font-size: 15px; font-weight: 700; }
+  .section-header p  { font-size: 12px; color: #64748B; margin-top: 1px; }
+  .section-body { padding: 18px 24px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; background: #F8FAFC; color: #64748B; font-size: 11px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; }
+  td { padding: 9px 12px; border-bottom: 1px solid #F1F5F9; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { font-weight: 600; color: #0F172A; }
+
+  .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 600; white-space: nowrap; }
+  .pill-teal   { background: #CCFBF1; color: #0F766E; }
+  .pill-blue   { background: #DBEAFE; color: #1D4ED8; }
+  .pill-orange { background: #FEF3C7; color: #B45309; }
+  .pill-red    { background: #FEE2E2; color: #B91C1C; }
+  .pill-gray   { background: #F1F5F9; color: #475569; }
+
+  .todo-list { list-style: none; }
+  .todo-list li { padding: 7px 0; font-size: 13px; display: flex; align-items: flex-start; gap: 8px; border-bottom: 1px solid #F1F5F9; }
+  .todo-list li:last-child { border-bottom: none; }
+  .todo-check { width: 16px; height: 16px; border: 2px solid #CBD5E1; border-radius: 4px; flex-shrink: 0; margin-top: 2px; }
+  .todo-high .todo-check { border-color: #EF4444; }
+  .todo-med  .todo-check { border-color: #F59E0B; }
+  .todo-low  .todo-check { border-color: #94A3B8; }
+  .todo-high .todo-text { color: #0F172A; }
+  .todo-med  .todo-text { color: #0F172A; }
+  .todo-low  .todo-text { color: #64748B; }
+  .todo-prio { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; margin-top: 2px; }
+  .prio-high { background: #FEE2E2; color: #B91C1C; }
+  .prio-med  { background: #FEF3C7; color: #B45309; }
+  .prio-low  { background: #F1F5F9; color: #475569; }
+
+  .score-table td:nth-child(2) { color: #00BFA5; font-weight: 700; text-align: right; width: 60px; }
+
+  .highlight-box { background: #F0FDF4; border: 1px solid #86EFAC; border-radius: 10px; padding: 12px 16px; margin-top: 12px; font-size: 13px; color: #166534; }
+  .warn-box { background: #FFFBEB; border: 1px solid #FCD34D; border-radius: 10px; padding: 12px 16px; margin-top: 12px; font-size: 13px; color: #92400E; }
+
+  h3 { font-size: 13px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px; }
+
+  .resumen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 0; }
+  @media (max-width: 600px) { .resumen-grid { grid-template-columns: 1fr; } }
+  .resumen-card { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px; }
+  .resumen-card .rc-title { font-size: 12px; font-weight: 700; color: #64748B; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .resumen-card .rc-from { font-size: 12px; color: #0F172A; font-weight: 600; }
+  .resumen-card .rc-what { font-size: 11px; color: #64748B; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">Fluix</span>
+  <h1>Pantalla Explorar — Guía de configuración</h1>
+</div>
+
+<div class="container">
+
+  <div class="intro">
+    <p>Este documento explica cada sección de la pantalla de Explorar: qué datos muestra, en qué sección de <strong>Mi App</strong> se configura, y qué está hardcodeado o pendiente de implementar.</p>
+    <p style="margin-top:6px">Archivo fuente: <code>lib/features/explorar_negocios/pantallas/pantalla_explorar.dart</code></p>
+  </div>
+
+  <!-- Mapa visual -->
+  <div class="mapa">
+    <h2>Mapa de secciones (de arriba a abajo)</h2>
+    <div class="mapa-grid">
+      <div class="mapa-row" style="background:#EFF6FF; border-color:#BFDBFE;">
+        <div class="mapa-num" style="background:#3B82F6;">1</div>
+        <div class="mapa-title">🏙️ Hero / Banner — foto ciudad + buscador</div>
+        <span class="mapa-badge badge-warn">Foto hardcoded</span>
+      </div>
+      <div class="mapa-row">
+        <div class="mapa-num" style="background:#00BFA5;">2</div>
+        <div class="mapa-title">🏷️ Chips de categoría</div>
+        <span class="mapa-badge badge-ok">Automático</span>
+      </div>
+      <div class="mapa-row" style="background:#FFF8E1; border-color:#FCD34D;">
+        <div class="mapa-num" style="background:#F59E0B;">3</div>
+        <div class="mapa-title">⚡ Ofertas flash</div>
+        <span class="mapa-badge badge-ok">Módulo Flash Slots</span>
+      </div>
+      <div class="mapa-row">
+        <div class="mapa-num" style="background:#10B981;">4</div>
+        <div class="mapa-title">🏷️ Ofertas especiales <em style="font-weight:400;font-size:12px">(si hay alguna)</em></div>
+        <span class="mapa-badge badge-ok">Mi App → Diseño</span>
+      </div>
+      <div class="mapa-row">
+        <div class="mapa-num" style="background:#F59E0B;">5</div>
+        <div class="mapa-title">⭐ Recomendados <em style="font-weight:400;font-size:12px">(si hay rating ≥ 4.0)</em></div>
+        <span class="mapa-badge badge-warn">Rating manual</span>
+      </div>
+      <div class="mapa-row">
+        <div class="mapa-num" style="background:#6366F1;">6</div>
+        <div class="mapa-title">📍 Cerca de ti <em style="font-weight:400;font-size:12px">(si hay permiso GPS)</em></div>
+        <span class="mapa-badge badge-warn">Lat/Lng manual</span>
+      </div>
+      <div class="mapa-row" style="background:#F0FDF4; border-color:#86EFAC;">
+        <div class="mapa-num" style="background:#16A34A;">7</div>
+        <div class="mapa-title">🔲 Todos los negocios — grid 2 columnas</div>
+        <span class="mapa-badge badge-ok">Mi App → múltiples secciones</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- 1. Hero -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#EFF6FF;">🏙️</div>
+      <div>
+        <h2>1. Hero / Banner superior</h2>
+        <p>Foto de ciudad a pantalla completa + gradiente + buscador inline</p>
+      </div>
+    </div>
+    <div class="section-body">
+      <table>
+        <tr><th>Elemento</th><th>Estado</th><th>Dónde configurar</th></tr>
+        <tr><td>Foto de fondo</td><td><span class="pill pill-red">Hardcoded</span> palacio_infantado.webp</td><td>No hay UI aún</td></tr>
+        <tr><td>Texto "GUADALAJARA"</td><td><span class="pill pill-red">Hardcoded</span> en el código</td><td>No hay UI aún</td></tr>
+        <tr><td>Buscador</td><td><span class="pill pill-teal">Funciona</span></td><td>Sin config necesaria</td></tr>
+        <tr><td>Botón filtros</td><td><span class="pill pill-teal">Funciona</span> rating / distancia / abiertos</td><td>Sin config necesaria</td></tr>
+      </table>
+      <div class="warn-box">⚠️ La foto y la ciudad están hardcodeadas. Para que cambien según el usuario habría que añadir un campo <code>ciudad</code> en el perfil y un lookup ciudad → imagen.</div>
+    </div>
+  </div>
+
+
+  <!-- 2. Chips -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#F0FDF4;">🏷️</div>
+      <div>
+        <h2>2. Chips de categoría</h2>
+        <p>Filtros rápidos — Todo, Tendencias, y una píldora por categoría</p>
+      </div>
+    </div>
+    <div class="section-body">
+      <table>
+        <tr><th>Chip</th><th>Criterio</th><th>Configurable en Mi App</th></tr>
+        <tr><td>Todo</td><td>Sin filtro</td><td>—</td></tr>
+        <tr><td>🔥 Tendencias</td><td><code>ratingFluix ≥ 4.3</code></td><td><span class="pill pill-red">No editable aún desde Mi App</span></td></tr>
+        <tr><td>Restaurantes, Peluquerías…</td><td>Categoría del negocio</td><td><strong>Mi App → cabecera</strong> (selector de categoría)</td></tr>
+      </table>
+      <div class="warn-box">⚠️ El chip "Tendencias" usa <code>ratingFluix</code> que actualmente no tiene UI de edición. Solo se puede poner directamente en Firestore.</div>
+    </div>
+  </div>
+
+
+  <!-- 3. Flash -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#FFF8E1;">⚡</div>
+      <div>
+        <h2>3. Ofertas flash</h2>
+        <p>Huecos de última hora con descuento y cuenta atrás. Se colapsa si no hay ninguna activa.</p>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="highlight-box">📍 Se crea desde: <strong>Dashboard empresa → sidebar → icono ⚡ → "Nueva oferta flash"</strong></div>
+      <br>
+      <table>
+        <tr><th>Campo del flash slot</th><th>Descripción</th></tr>
+        <tr><td>Servicio</td><td>Se elige de los servicios activos del negocio</td></tr>
+        <tr><td>Descuento</td><td>En % o en € fijo → calcula precio final automáticamente</td></tr>
+        <tr><td>Fecha y hora del hueco</td><td>Cuándo es la cita/servicio</td></tr>
+        <tr><td>Tiempo de visibilidad</td><td>1h / 2h / 4h / 8h / 24h — cuánto aparece en Explorar</td></tr>
+        <tr><td>Huecos disponibles</td><td>Plazas (1–20). Al llenarse desaparece automáticamente</td></tr>
+        <tr><td>Profesional</td><td>Opcional, asignar a un empleado concreto</td></tr>
+      </table>
+      <br>
+      <p style="font-size:13px; color:#64748B;"><strong>Condición para aparecer:</strong> <code>estado == 'activo'</code> + <code>fecha_hora_expiracion &gt; ahora</code> + <code>huecos_reservados &lt; huecos_totales</code></p>
+    </div>
+  </div>
+
+
+  <!-- 4. Ofertas especiales -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#F0FDF4;">🏷️</div>
+      <div>
+        <h2>4. Ofertas especiales</h2>
+        <p>Negocios con un mensaje promocional activo. Se colapsa si no hay ninguno.</p>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="highlight-box">📍 Se configura en: <strong>Mi App → sección "Diseño" → campo "Mensaje promocional"</strong><br>Ejemplo: <em>"Esta semana: 20% en coloraciones"</em></div>
+      <br>
+      <table>
+        <tr><th></th><th>Ofertas especiales</th><th>Ofertas flash ⚡</th></tr>
+        <tr><td>Qué es</td><td>Mensaje genérico en la ficha del negocio</td><td>Hueco concreto con plazas y precio</td></tr>
+        <tr><td>Urgencia</td><td>No tiene cuenta atrás</td><td>Sí — contador regresivo</td></tr>
+        <tr><td>Plazas</td><td>No aplica</td><td>Controladas — al llenarse desaparece</td></tr>
+        <tr><td>Caducidad</td><td>Mientras el campo esté relleno</td><td>Fecha/hora de expiración fija</td></tr>
+      </table>
+    </div>
+  </div>
+
+
+  <!-- 5. Recomendados -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#FFFBEB;">⭐</div>
+      <div>
+        <h2>5. Recomendados</h2>
+        <p>Carrusel de negocios con ratingGoogle ≥ 4.0, ordenados por rating</p>
+      </div>
+    </div>
+    <div class="section-body">
+      <table>
+        <tr><th>Campo</th><th>Estado</th></tr>
+        <tr><td><code>ratingGoogle</code></td><td><span class="pill pill-red">Solo manual en Firestore</span> — no hay importación automática de Google</td></tr>
+        <tr><td><code>numResenas</code></td><td><span class="pill pill-red">Solo manual en Firestore</span></td></tr>
+      </table>
+      <div class="warn-box">⚠️ Si un negocio no tiene <code>ratingGoogle</code>, no aparecerá en este carrusel aunque sea bueno. Hay que rellenarlo en Firestore manualmente hasta que se implemente la importación.</div>
+    </div>
+  </div>
+
+
+  <!-- 6. Cerca de ti -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#EEF2FF;">📍</div>
+      <div>
+        <h2>6. Cerca de ti</h2>
+        <p>Carrusel ordenado por distancia. Solo aparece si el usuario da permiso de GPS.</p>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="highlight-box">📍 Se configura en: <strong>Mi App → sección "Ubicación"</strong> → campos latitud / longitud</div>
+      <div class="warn-box" style="margin-top:10px">⚠️ No hay geocodificación automática. Hay que meter latitud y longitud a mano. Si están vacíos, el negocio no aparece en este carrusel.</div>
+    </div>
+  </div>
+
+
+  <!-- 7. Grid -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#F0FDF4;">🔲</div>
+      <div>
+        <h2>7. Grid "Todos los negocios"</h2>
+        <p>El grid principal — 2 columnas — que muestra todos los negocios activos</p>
+      </div>
+    </div>
+    <div class="section-body">
+
+      <h3>Condiciones para aparecer</h3>
+      <table>
+        <tr><th>#</th><th>Condición</th><th>Dónde activar</th></tr>
+        <tr><td>1</td><td><code>activo == true</code></td><td><strong>Mi App → interruptor "Visible/Oculto"</strong> en la cabecera principal</td></tr>
+        <tr><td>2</td><td>Tiene foto principal <strong>O</strong> descripción</td><td><strong>Mi App → Galería</strong> o <strong>Mi App → Identidad</strong></td></tr>
+        <tr><td>3</td><td>Está en el top-5 de su categoría por completitud</td><td>Rellenar más campos → más puntuación → antes aparece</td></tr>
+      </table>
+      <div class="warn-box" style="margin-top:10px">⚠️ El límite top-5 por categoría (<code>_kMaxPorCategoria = 5</code>) es temporal. Mientras no haya muchos datos habría que subirlo o quitarlo.</div>
+
+      <h3 style="margin-top:20px">Campos visibles en cada tarjeta</h3>
+      <table>
+        <tr><th>Lo que se ve en la tarjeta</th><th>Campo Firestore</th><th>Dónde editar en Mi App</th></tr>
+        <tr><td>🖼️ Foto de portada</td><td><code>fotosGaleria[0]</code> (primera foto)</td><td><strong>Galería</strong> → primera foto subida</td></tr>
+        <tr><td>📛 Nombre</td><td><code>nombre</code></td><td><strong>Identidad</strong> → "Nombre del negocio"</td></tr>
+        <tr><td>⭐ Rating</td><td><code>ratingGoogle</code></td><td>Manual en Firestore por ahora</td></tr>
+        <tr><td>💬 Bio</td><td><code>descripcionCorta</code> o <code>descripcion</code></td><td><strong>Identidad</strong> → "Descripción corta" (recomendado, 1-2 líneas)</td></tr>
+        <tr><td>🏷️ Categoría</td><td><code>categoria</code></td><td><strong>Cabecera Mi App</strong> → selector de categoría</td></tr>
+        <tr><td>🟢 Badge Abierto/Cerrado</td><td><code>horario</code> o <code>horarios</code></td><td><strong>Horarios</strong> → horario semanal</td></tr>
+      </table>
+
+      <h3 style="margin-top:20px">Puntuación de completitud</h3>
+      <p style="font-size:13px; color:#64748B; margin-bottom:12px">Determina qué 5 negocios de cada categoría aparecen. Más campos rellenos = aparece antes.</p>
+      <table class="score-table">
+        <tr><th>Campo</th><th>Puntos</th></tr>
+        <tr><td>Foto principal (<code>fotoUrl</code>)</td><td>+3</td></tr>
+        <tr><td>Logo</td><td>+2</td></tr>
+        <tr><td>Descripción detallada</td><td>+2</td></tr>
+        <tr><td>Rating Fluix</td><td>+2</td></tr>
+        <tr><td>Rating Google</td><td>+2</td></tr>
+        <tr><td>Foto secundaria</td><td>+1</td></tr>
+        <tr><td>Descripción corta</td><td>+1</td></tr>
+        <tr><td>Tagline</td><td>+1</td></tr>
+        <tr><td>Teléfono</td><td>+1</td></tr>
+        <tr><td>WhatsApp</td><td>+1</td></tr>
+        <tr><td>Email</td><td>+1</td></tr>
+        <tr><td>URL pública</td><td>+1</td></tr>
+        <tr><td>Subcategorías</td><td>+1</td></tr>
+        <tr><td style="font-weight:800; color:#0F172A;">Total máximo</td><td style="color:#0F172A;">17 pts</td></tr>
+      </table>
+    </div>
+  </div>
+
+
+  <!-- Tabla resumen Mi App → Explorar -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#EFF6FF;">🗺️</div>
+      <div>
+        <h2>Resumen: Sección Mi App → Efecto en Explorar</h2>
+        <p>Referencia rápida de qué tocar para cambiar qué</p>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="resumen-grid">
+        <div class="resumen-card">
+          <div class="rc-title">🔘 Cabecera — Visible/Oculto</div>
+          <div class="rc-from">Interruptor principal</div>
+          <div class="rc-what">El negocio aparece o desaparece de todo el Explorar</div>
+        </div>
+        <div class="resumen-card">
+          <div class="rc-title">🏷️ Identidad → Descripción corta</div>
+          <div class="rc-from">Mi App → Identidad</div>
+          <div class="rc-what">Bio bajo el nombre en la tarjeta del grid</div>
+        </div>
+        <div class="resumen-card">
+          <div class="rc-title">🖼️ Galería → primera foto</div>
+          <div class="rc-from">Mi App → Galería</div>
+          <div class="rc-what">Foto de portada en la tarjeta del grid y en los carruseles</div>
+        </div>
+        <div class="resumen-card">
+          <div class="rc-title">🕐 Horarios</div>
+          <div class="rc-from">Mi App → Horarios</div>
+          <div class="rc-what">Badge "Abierto / Cerrado" en la tarjeta</div>
+        </div>
+        <div class="resumen-card">
+          <div class="rc-title">📍 Ubicación → lat / lng</div>
+          <div class="rc-from">Mi App → Ubicación</div>
+          <div class="rc-what">El negocio aparece en el carrusel "Cerca de ti"</div>
+        </div>
+        <div class="resumen-card">
+          <div class="rc-title">🏷️ Diseño → Mensaje promocional</div>
+          <div class="rc-from">Mi App → Diseño</div>
+          <div class="rc-what">El negocio aparece en el carrusel "Ofertas especiales"</div>
+        </div>
+        <div class="resumen-card">
+          <div class="rc-title">⚡ Flash Slots</div>
+          <div class="rc-from">Dashboard → icono ⚡</div>
+          <div class="rc-what">El negocio aparece en el carrusel "Ofertas flash"</div>
+        </div>
+        <div class="resumen-card">
+          <div class="rc-title">🏷️ Cabecera → Categoría</div>
+          <div class="rc-from">Mi App → cabecera</div>
+          <div class="rc-what">En qué chip de categoría aparece el negocio al filtrar</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Pendiente -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon" style="background:#FEE2E2;">🚧</div>
+      <div>
+        <h2>Lista de lo que falta implementar</h2>
+        <p>Ordenado por prioridad</p>
+      </div>
+    </div>
+    <div class="section-body">
+
+      <h3>🔴 Alta prioridad</h3>
+      <ul class="todo-list">
+        <li class="todo-high">
+          <div class="todo-check"></div>
+          <span class="todo-prio prio-high">ALTA</span>
+          <span class="todo-text"><strong>ratingGoogle / numResenas auto-importados</strong> — ahora hay que meterlos a mano en Firestore. Sin rating el negocio no aparece en "Recomendados" y tiene menos puntuación en el grid.</span>
+        </li>
+        <li class="todo-high">
+          <div class="todo-check"></div>
+          <span class="todo-prio prio-high">ALTA</span>
+          <span class="todo-text"><strong>Quitar / subir el límite top-5 por categoría</strong> — <code>_kMaxPorCategoria = 5</code> en <code>pantalla_explorar.dart:494</code> — oculta negocios válidos mientras no haya muchos datos.</span>
+        </li>
+        <li class="todo-high">
+          <div class="todo-check"></div>
+          <span class="todo-prio prio-high">ALTA</span>
+          <span class="todo-text"><strong>Geocodificación automática</strong> — al guardar la dirección en "Ubicación", calcular lat/lng para que el negocio aparezca en "Cerca de ti" sin intervención manual.</span>
+        </li>
+      </ul>
+
+      <h3 style="margin-top:16px">🟡 Media prioridad</h3>
+      <ul class="todo-list">
+        <li class="todo-med">
+          <div class="todo-check"></div>
+          <span class="todo-prio prio-med">MEDIA</span>
+          <span class="todo-text"><strong>Foto del hero configurable por ciudad</strong> — campo <code>ciudad</code> en perfil del cliente → lookup ciudad → imagen de fondo del banner.</span>
+        </li>
+        <li class="todo-med">
+          <div class="todo-check"></div>
+          <span class="todo-prio prio-med">MEDIA</span>
+          <span class="todo-text"><strong>Gestión de flash slots activos desde Mi App</strong> — ahora se crean pero no se pueden ver ni cancelar desde la interfaz. Falta un listado en el módulo.</span>
+        </li>
+        <li class="todo-med">
+          <div class="todo-check"></div>
+          <span class="todo-prio prio-med">MEDIA</span>
+          <span class="todo-text"><strong>Fecha de expiración en <code>mensajePromocional</code></strong> — para que las "Ofertas especiales" caduquen solas sin que el negocio tenga que borrar el texto a mano.</span>
+        </li>
+        <li class="todo-med">
+          <div class="todo-check"></div>
+          <span class="todo-prio prio-med">MEDIA</span>
+          <span class="todo-text"><strong>ratingFluix editable desde Mi App</strong> — actualmente solo en Firestore. Afecta al chip "Tendencias" y a la puntuación de completitud.</span>
+        </li>
+      </ul>
+
+      <h3 style="margin-top:16px">⚪ Baja prioridad</h3>
+      <ul class="todo-list">
+        <li class="todo-low">
+          <div class="todo-check"></div>
+          <span class="todo-prio prio-low">BAJA</span>
+          <span class="todo-text">Sistema de <strong>boost / destacado</strong> — pagar para aparecer siempre en el top de la categoría.</span>
+        </li>
+        <li class="todo-low">
+          <div class="todo-check"></div>
+          <span class="todo-prio prio-low">BAJA</span>
+          <span class="todo-text"><strong>Subcategorías visibles</strong> como chip en la tarjeta del grid (el campo existe).</span>
+        </li>
+        <li class="todo-low">
+          <div class="todo-check"></div>
+          <span class="todo-prio prio-low">BAJA</span>
+          <span class="todo-text"><strong>Notificaciones push</strong> al propietario cuando se reserva un flash slot.</span>
+        </li>
+      </ul>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

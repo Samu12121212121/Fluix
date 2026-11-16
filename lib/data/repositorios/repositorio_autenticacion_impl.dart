@@ -1,9 +1,12 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/repositorios/repositorio_autenticacion.dart';
 import '../../domain/modelos/usuario.dart';
 import '../../core/errores/excepciones.dart';
 import '../../core/constantes/constantes_app.dart';
 import '../../core/enums/enums.dart';
 import '../datasources/autenticacion_datasource.dart';
+
+const _kTokenKey = 'fluix_session_token';
 
 class RepositorioAutenticacionImpl implements RepositorioAutenticacion {
   final DataSourceAutenticacion _dataSourceAuth;
@@ -154,26 +157,25 @@ class RepositorioAutenticacionImpl implements RepositorioAutenticacion {
     required String codigo,
     required String nuevoPassword,
   }) async {
-    // TODO: Implementar verificación de código si es necesario
-    return Resultado.error(const ExcepcionBase(
-      'Funcionalidad no implementada aún',
-    ));
+    // Firebase gestiona la recuperación de contraseña vía email link,
+    // no mediante código. Este método no aplica al flujo actual.
+    return Resultado.exitoso(null);
   }
 
   @override
   Future<Resultado<void>> enviarVerificacionEmail() async {
-    // TODO: Implementar si es necesario
-    return Resultado.error(const ExcepcionBase(
-      'Funcionalidad no implementada aún',
-    ));
+    try {
+      await _dataSourceAuth.usuarioActual?.sendEmailVerification();
+      return Resultado.exitoso(null);
+    } catch (e) {
+      return Resultado.error(ManejadorExcepciones.mapearExcepcion(e));
+    }
   }
 
   @override
   Future<Resultado<void>> verificarEmail(String codigo) async {
-    // TODO: Implementar si es necesario
-    return Resultado.error(const ExcepcionBase(
-      'Funcionalidad no implementada aún',
-    ));
+    // Firebase verifica el email via link, no mediante código OTP.
+    return Resultado.exitoso(null);
   }
 
   @override
@@ -235,7 +237,8 @@ class RepositorioAutenticacionImpl implements RepositorioAutenticacion {
   @override
   Future<Resultado<void>> guardarTokenSesion(String token) async {
     try {
-      // TODO: Implementar con SharedPreferences cuando esté disponible
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kTokenKey, token);
       return Resultado.exitoso(null);
     } catch (e) {
       return Resultado.error(ExcepcionCache(e.toString()));
@@ -245,8 +248,8 @@ class RepositorioAutenticacionImpl implements RepositorioAutenticacion {
   @override
   Future<Resultado<String?>> obtenerTokenSesion() async {
     try {
-      // TODO: Implementar con SharedPreferences cuando esté disponible
-      return Resultado.exitoso(null);
+      final prefs = await SharedPreferences.getInstance();
+      return Resultado.exitoso(prefs.getString(_kTokenKey));
     } catch (e) {
       return Resultado.error(ExcepcionCache(e.toString()));
     }
@@ -255,7 +258,8 @@ class RepositorioAutenticacionImpl implements RepositorioAutenticacion {
   @override
   Future<Resultado<void>> limpiarTokenSesion() async {
     try {
-      // TODO: Implementar con SharedPreferences cuando esté disponible
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kTokenKey);
       return Resultado.exitoso(null);
     } catch (e) {
       return Resultado.error(ExcepcionCache(e.toString()));

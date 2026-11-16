@@ -194,4 +194,172 @@ class _SelectorClienteWidgetState extends State<SelectorClienteWidget> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SELECTOR DE EMPLEADO (asignado a tarea)
+// ─────────────────────────────────────────────────────────────────────────────
 
+class SelectorEmpleadoTareaWidget extends StatefulWidget {
+  final String empresaId;
+  final String? empleadoIdSeleccionado;
+  final ValueChanged<String?> onChanged;
+
+  const SelectorEmpleadoTareaWidget({
+    super.key,
+    required this.empresaId,
+    required this.empleadoIdSeleccionado,
+    required this.onChanged,
+  });
+
+  @override
+  State<SelectorEmpleadoTareaWidget> createState() =>
+      _SelectorEmpleadoTareaWidgetState();
+}
+
+class _SelectorEmpleadoTareaWidgetState
+    extends State<SelectorEmpleadoTareaWidget> {
+  String _busqueda = '';
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.empleadoIdSeleccionado != null) {
+      return _EmpleadoAsignadoChip(
+        empleadoId: widget.empleadoIdSeleccionado!,
+        onClear: () => widget.onChanged(null),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          decoration: InputDecoration(
+            hintText: 'Buscar y asignar empleado...',
+            prefixIcon: const Icon(Icons.badge_outlined),
+            isDense: true,
+            filled: true,
+            fillColor: Colors.grey[100],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          onChanged: (v) => setState(() => _busqueda = v.toLowerCase().trim()),
+        ),
+        if (_busqueda.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          _buildResultadosEmpleados(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildResultadosEmpleados() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('usuarios')
+          .where('empresa_id', isEqualTo: widget.empresaId)
+          .where('activo', isEqualTo: true)
+          .limit(20)
+          .snapshots(),
+      builder: (context, snap) {
+        if (!snap.hasData) return const SizedBox.shrink();
+        final docs = snap.data!.docs.where((doc) {
+          final d = doc.data() as Map<String, dynamic>;
+          return (d['nombre'] ?? '').toString().toLowerCase().contains(_busqueda) ||
+              (d['correo'] ?? '').toString().toLowerCase().contains(_busqueda);
+        }).toList();
+
+        if (docs.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(8),
+            child: Text('Sin resultados para "$_busqueda"',
+                style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+          );
+        }
+
+        return Container(
+          constraints: const BoxConstraints(maxHeight: 200),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
+          ),
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: docs.length,
+            itemBuilder: (_, i) {
+              final d = docs[i].data() as Map<String, dynamic>;
+              return ListTile(
+                dense: true,
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFF3B82F6),
+                  radius: 16,
+                  child: Icon(Icons.badge_outlined, color: Colors.white, size: 16),
+                ),
+                title: Text(d['nombre'] ?? '', style: const TextStyle(fontSize: 13)),
+                subtitle: Text(d['correo'] ?? '',
+                    style: const TextStyle(fontSize: 11)),
+                onTap: () {
+                  setState(() => _busqueda = '');
+                  widget.onChanged(docs[i].id);
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _EmpleadoAsignadoChip extends StatefulWidget {
+  final String empleadoId;
+  final VoidCallback onClear;
+  const _EmpleadoAsignadoChip({required this.empleadoId, required this.onClear});
+
+  @override
+  State<_EmpleadoAsignadoChip> createState() => _EmpleadoAsignadoChipState();
+}
+
+class _EmpleadoAsignadoChipState extends State<_EmpleadoAsignadoChip> {
+  late Future<DocumentSnapshot> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = FirebaseFirestore.instance.collection('usuarios').doc(widget.empleadoId).get();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: _future,
+      builder: (context, snap) {
+        final nombre = snap.hasData
+            ? ((snap.data!.data() as Map<String, dynamic>?)?['nombre'] ?? 'Empleado')
+            : '…';
+        return Row(children: [
+          Expanded(
+            child: ActionChip(
+              avatar: const CircleAvatar(
+                backgroundColor: Color(0xFF3B82F6), radius: 12,
+                child: Icon(Icons.badge_outlined, color: Colors.white, size: 14),
+              ),
+              label: Text(nombre, style: const TextStyle(
+                  color: Color(0xFF3B82F6), fontWeight: FontWeight.w600)),
+              backgroundColor: const Color(0xFF3B82F6).withValues(alpha: 0.08),
+              side: const BorderSide(color: Color(0xFF3B82F6)),
+              onPressed: () {},
+              tooltip: 'Empleado asignado',
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+            onPressed: widget.onClear,
+            tooltip: 'Desasignar empleado',
+          ),
+        ]);
+      },
+    );
+  }
+}

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<!--
+  ═══════════════════════════════════════════════════════════════════════════════
+  EDITORIAL NAZARÍ — Sección de catálogo con filtros por categoría
+  ───────────────────────────────────────────────────────────────────────────────
+  INSTRUCCIONES:
+    Copia el bloque <style> en tu <head>.
+    Copia el bloque <div id="naz-catalogo-wrap"> donde quieras el catálogo.
+    Copia el bloque <script> antes de </body>.
+
+  Las categorías y los libros se cargan automáticamente desde Firestore.
+  Las categorías se gestionan desde Fluix → Web → Categorías.
+  ═══════════════════════════════════════════════════════════════════════════════
+-->
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catálogo — Editorial Nazarí</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Georgia', serif; background: #FAFAF8; color: #1a1a1a; }
+
+    /* ── Sección catálogo ── */
+    .naz-cat-section {
+      padding: 64px 0 80px;
+      background: #FAFAF8;
+    }
+    .naz-cat-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── Cabecera ── */
+    .naz-cat-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .naz-cat-eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #6B1E2A;
+      margin-bottom: 8px;
+    }
+    .naz-cat-titulo {
+      font-size: clamp(26px, 4vw, 40px);
+      font-weight: 800;
+      color: #1a1a1a;
+      margin: 0 0 10px;
+      line-height: 1.2;
+    }
+    .naz-cat-subtitulo {
+      font-size: 15px;
+      color: #64748B;
+      margin: 0;
+    }
+
+    /* ── Filtros de categoría ── */
+    .naz-filtros-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 40px;
+    }
+    .naz-filtro-btn {
+      padding: 7px 18px;
+      border-radius: 999px;
+      border: 1.5px solid #E2E8F0;
+      background: #fff;
+      color: #475569;
+      font-size: 13px;
+      font-family: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.18s;
+      white-space: nowrap;
+    }
+    .naz-filtro-btn:hover {
+      border-color: #6B1E2A;
+      color: #6B1E2A;
+    }
+    .naz-filtro-btn.activo {
+      background: #6B1E2A;
+      border-color: #6B1E2A;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    /* ── Buscador ── */
+    .naz-busqueda-wrap {
+      max-width: 400px;
+      margin: 0 auto 32px;
+      position: relative;
+    }
+    .naz-busqueda {
+      width: 100%;
+      padding: 10px 16px 10px 40px;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 999px;
+      font-size: 14px;
+      font-family: inherit;
+      background: #fff;
+      color: #1a1a1a;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .naz-busqueda:focus { border-color: #6B1E2A; }
+    .naz-busqueda-ico {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #94A3B8;
+      font-size: 15px;
+      pointer-events: none;
+    }
+
+    /* ── Grid libros ── */
+    .naz-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 24px;
+    }
+    @media (max-width: 600px) {
+      .naz-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 16px;
+      }
+    }
+
+    /* ── Tarjeta libro ── */
+    .naz-libro {
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #F1F5F9;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+    }
+    .naz-libro:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(107,30,42,0.12);
+    }
+    .naz-libro-cover {
+      aspect-ratio: 2/3;
+      background: #F8F0EE;
+      overflow: hidden;
+      position: relative;
+    }
+    .naz-libro-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .naz-libro-cover-fallback {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #6B1E2A22, #6B1E2A08);
+    }
+    .naz-libro-cover-fallback svg {
+      width: 40px; height: 40px; opacity: 0.3;
+    }
+    .naz-libro-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: #6B1E2A;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+    .naz-libro-info {
+      padding: 10px 12px 12px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .naz-libro-titulo {
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.3;
+      color: #0F172A;
+      margin-bottom: 4px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .naz-libro-autor {
+      font-size: 11px;
+      color: #64748B;
+      margin-bottom: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .naz-libro-precio {
+      font-size: 14px;
+      font-weight: 800;
+      color: #6B1E2A;
+      margin-top: auto;
+    }
+    .naz-libro-cat-chip {
+      display: inline-block;
+      font-size: 10px;
+      background: #F1F5F9;
+      color: #64748B;
+      padding: 2px 7px;
+      border-radius: 99px;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    /* ── Vacío / cargando ── */
+    .naz-empty {
+      text-align: center;
+      padding: 60px 0;
+      color: #94A3B8;
+      font-size: 15px;
+    }
+    .naz-empty svg {
+      display: block;
+      margin: 0 auto 16px;
+      opacity: 0.3;
+    }
+
+    /* ── Contador ── */
+    .naz-contador {
+      text-align: center;
+      font-size: 12px;
+      color: #94A3B8;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ CATÁLOGO CON FILTROS — pegar donde corresponda ══════════════════════ -->
+<section class="naz-cat-section">
+  <div class="naz-cat-inner">
+
+    <!-- Cabecera -->
+    <div class="naz-cat-header">
+      <p class="naz-cat-eyebrow">Editorial Nazarí</p>
+      <h1 class="naz-cat-titulo">Nuestro catálogo</h1>
+      <p class="naz-cat-subtitulo">Explora todos nuestros libros por género y temática</p>
+    </div>
+
+    <!-- Buscador -->
+    <div class="naz-busqueda-wrap">
+      <span class="naz-busqueda-ico">🔍</span>
+      <input class="naz-busqueda" id="naz-busqueda" type="search"
+             placeholder="Buscar por título o autor…" autocomplete="off">
+    </div>
+
+    <!-- Filtros de categoría -->
+    <div class="naz-filtros-wrap" id="naz-filtros"></div>
+
+    <!-- Contador -->
+    <p class="naz-contador" id="naz-contador"></p>
+
+    <!-- Grid -->
+    <div class="naz-grid" id="naz-grid">
+      <div class="naz-empty">
+        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+        </svg>
+        Cargando catálogo…
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══ SCRIPTS ═══════════════════════════════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+(function() {
+  var CFG = {
+    apiKey: "AIzaSyCVK8AUerxlYcr6N1fZg6t0RL8c7ajfNzU",
+    authDomain: "planeaapp-4bea4.firebaseapp.com",
+    projectId: "planeaapp-4bea4",
+    storageBucket: "planeaapp-4bea4.firebasestorage.app",
+    messagingSenderId: "1085482191658",
+    appId: "1:1085482191658:web:c5461353b123ab92d62c53"
+  };
+  var EID = "0PoomHYDUJf5w8tDFRLhFi9iURF3";
+
+  var app = (firebase.apps || []).find(function(a) { return a && a.name === "FluixApp"; })
+            || firebase.initializeApp(CFG, "FluixApp");
+  var db = firebase.firestore(app);
+
+  var todosLibros = [];
+  var categoriaActiva = null;
+  var busqueda = '';
+
+  // ── Normalización acento-insensible ──────────────────────────────────────
+  function norm(s) {
+    return (s || '').toLowerCase()
+      .replace(/[áàâäã]/g,'a').replace(/[éèêë]/g,'e')
+      .replace(/[íìîï]/g,'i').replace(/[óòôöõ]/g,'o')
+      .replace(/[úùûü]/g,'u').replace(/ñ/g,'n');
+  }
+
+  function tieneCat(libro, cat) {
+    var cats = libro.categorias;
+    if (Array.isArray(cats) && cats.length) {
+      return cats.some(function(c) { return norm(c) === norm(cat); });
+    }
+    return norm(libro.categoria || '').split('/').some(function(c) {
+      return c.trim() && norm(c.trim()) === norm(cat);
+    });
+  }
+
+  // ── Renderizar ───────────────────────────────────────────────────────────
+  function renderizar() {
+    var grid = document.getElementById('naz-grid');
+    var contador = document.getElementById('naz-contador');
+
+    var filtrados = todosLibros.filter(function(l) {
+      if (categoriaActiva && !tieneCat(l, categoriaActiva)) return false;
+      if (busqueda) {
+        var q = norm(busqueda);
+        return norm(l.nombre || l.titulo || '').includes(q)
+            || norm(l.campo_autor || '').includes(q);
+      }
+      return true;
+    });
+
+    contador.textContent = filtrados.length + ' libro' + (filtrados.length !== 1 ? 's' : '');
+
+    if (!filtrados.length) {
+      grid.innerHTML = '<div class="naz-empty">'
+        + '<svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">'
+        + '<path d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'
+        + '</svg>Sin resultados</div>';
+      return;
+    }
+
+    grid.innerHTML = filtrados.map(function(l) {
+      var titulo = l.nombre || l.titulo || '(sin título)';
+      var autor  = l.campo_autor || '';
+      var precio = l.precio ? l.precio + ' €' : '';
+      var img    = l.imagen_url || '';
+      var slug   = l.slug || l.id;
+      var tag    = l.tag || '';
+      var cats   = Array.isArray(l.categorias) && l.categorias.length
+                   ? l.categorias[0]
+                   : (l.categoria || '').split('/')[0].trim();
+      var href   = '/libro/' + slug + '/';
+
+      return '<a class="naz-libro" href="' + href + '">'
+        + '<div class="naz-libro-cover">'
+        + (img
+          ? '<img src="' + img + '" alt="' + titulo + '" loading="lazy">'
+          : '<div class="naz-libro-cover-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg></div>')
+        + (tag ? '<span class="naz-libro-badge">' + tag + '</span>' : '')
+        + '</div>'
+        + '<div class="naz-libro-info">'
+        + (cats ? '<span class="naz-libro-cat-chip">' + cats + '</span>' : '')
+        + '<div class="naz-libro-titulo">' + titulo + '</div>'
+        + (autor ? '<div class="naz-libro-autor">' + autor + '</div>' : '')
+        + (precio ? '<div class="naz-libro-precio">' + precio + '</div>' : '')
+        + '</div>'
+        + '</a>';
+    }).join('');
+  }
+
+  // ── Cargar categorías ────────────────────────────────────────────────────
+  function cargarCategorias() {
+    db.collection('empresas').doc(EID)
+      .collection('categorias_catalogo')
+      .where('activo', '==', true)
+      .orderBy('orden')
+      .onSnapshot(function(snap) {
+        var filtrosEl = document.getElementById('naz-filtros');
+        var cats = snap.docs
+          .map(function(d) { return d.data().nombre; })
+          .filter(Boolean);
+
+        // Chip "Todos"
+        var html = '<button class="naz-filtro-btn' + (categoriaActiva === null ? ' activo' : '')
+          + '" data-cat="">Todos</button>';
+        cats.forEach(function(cat) {
+          html += '<button class="naz-filtro-btn'
+            + (categoriaActiva === cat ? ' activo' : '')
+            + '" data-cat="' + cat + '">' + cat + '</button>';
+        });
+        filtrosEl.innerHTML = html;
+
+        // Eventos click
+        filtrosEl.querySelectorAll('.naz-filtro-btn').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            categoriaActiva = this.dataset.cat || null;
+            filtrosEl.querySelectorAll('.naz-filtro-btn')
+              .forEach(function(b) { b.classList.remove('activo'); });
+            this.classList.add('activo');
+            renderizar();
+          });
+        });
+      }, function(err) {
+        console.warn('Categorías no disponibles:', err.message);
+      });
+  }
+
+  // ── Cargar libros ────────────────────────────────────────────────────────
+  function cargarLibros() {
+    db.collection('empresas').doc(EID)
+      .collection('catalogo_web')
+      .where('activo', '==', true)
+      .onSnapshot(function(snap) {
+        todosLibros = snap.docs.map(function(d) {
+          return Object.assign({ id: d.id }, d.data());
+        });
+        // Ordenar: novedad primero, luego por nombre
+        todosLibros.sort(function(a, b) {
+          var tA = (a.nombre || a.titulo || '').toLowerCase();
+          var tB = (b.nombre || b.titulo || '').toLowerCase();
+          return tA.localeCompare(tB, 'es');
+        });
+        renderizar();
+      }, function(err) {
+        document.getElementById('naz-grid').innerHTML =
+          '<div class="naz-empty">Error al cargar el catálogo.</div>';
+        console.error(err);
+      });
+  }
+
+  // ── Buscador ─────────────────────────────────────────────────────────────
+  document.getElementById('naz-busqueda').addEventListener('input', function() {
+    busqueda = this.value.trim();
+    renderizar();
+  });
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  cargarCategorias();
+  cargarLibros();
+})();
+</script>
+
+</body>
+</html>

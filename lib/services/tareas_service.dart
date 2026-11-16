@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../domain/modelos/tarea.dart';
 import '../domain/modelos/recurrencia_config.dart';
+import 'notificaciones_service.dart';
 
 class TareasService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -154,6 +155,15 @@ class TareasService {
       recordatorio: recordatorio,
     );
     await ref.set(tarea.toFirestore());
+    if (recordatorio != null && recordatorio.tipo != TipoRecordatorio.ninguno) {
+      NotificacionesService().programarRecordatorioTarea(
+        tareaId: ref.id,
+        titulo: titulo,
+        fechaLimite: fechaLimite,
+        tipoRecordatorio: recordatorio.tipo.name,
+        fechaPersonalizada: recordatorio.fechaPersonalizada,
+      );
+    }
     return tarea;
   }
 

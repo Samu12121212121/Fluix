@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Permisos necesarios -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
@@ -8,6 +9,9 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
     <!-- Despertar pantalla al recibir alerta de despacho -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
+    <!-- Eliminar AD_ID que firebase_analytics inyecta por defecto (no usamos publicidad) -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove"/>
 
     <!-- Geolocalización (Cerca de ti) -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>

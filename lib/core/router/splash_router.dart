@@ -6,7 +6,6 @@ import 'package:planeag_flutter/features/autenticacion/pantallas/pantalla_login.
 import 'package:planeag_flutter/features/dashboard/pantallas/pantalla_dashboard.dart';
 import 'package:planeag_flutter/features/explorar_negocios/pantallas/pantalla_explorar.dart';
 import 'package:planeag_flutter/features/onboarding/pantallas/pantalla_onboarding.dart';
-import 'package:planeag_flutter/features/registro/pantallas/pantalla_registrar_empresa_social.dart';
 import 'package:planeag_flutter/features/suscripcion/pantallas/pantalla_suscripcion_vencida.dart';
 import 'package:planeag_flutter/features/multisede/servicios/multisede_service.dart';
 import 'package:planeag_flutter/features/multisede/pantallas/selector_sede_screen.dart';
@@ -50,21 +49,11 @@ class _SplashRouterState extends State<SplashRouter> {
         return PantallaOnboarding(empresaId: uid);
       }
 
-      final nombre = (userData['nombre'] as String?) ?? '';
-      final correo = (userData['correo'] as String?) ?? user.email ?? '';
       final empresaId = userData['empresa_id'] as String?;
 
-      // Sin empresa → cliente final B2C o registro social incompleto
-      if (empresaId == null) {
-        final rol = userData['rol'] as String? ?? '';
-        if (rol == 'clienteFinal') return const PantallaExplorar();
-        if (nombre.isEmpty && correo.isEmpty) {
-          return PantallaOnboarding(empresaId: uid);
-        }
-        return PantallaRegistrarEmpresaSocial(
-          nombreUsuario: nombre.isNotEmpty ? nombre : 'Usuario',
-          correoUsuario: correo,
-        );
+      // Sin empresa → Explorar (testers y cuentas nuevas sin empresa asignada)
+      if (empresaId == null || empresaId.isEmpty) {
+        return const PantallaExplorar();
       }
 
       // ── Multi-sede: si tiene varias empresas y ninguna activa → selector ──
@@ -126,6 +115,7 @@ class _SplashRouterState extends State<SplashRouter> {
     return FutureBuilder<Widget>(
       future: _futureDestino,
       builder: (context, snapshot) {
+        if (snapshot.hasError) return const PantallaLogin();
         if (snapshot.connectionState == ConnectionState.done &&
             snapshot.hasData) {
           return snapshot.data!;

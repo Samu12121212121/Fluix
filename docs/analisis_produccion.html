@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Análisis de Producción — Fluix App</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+    header { background: linear-gradient(135deg, #1a1f2e 0%, #16213e 100%); border-bottom: 1px solid #2d3748; padding: 32px 40px; }
+    header h1 { font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+    header p { color: #718096; font-size: 14px; }
+
+    .stats { display: flex; gap: 16px; padding: 24px 40px; background: #0f1117; }
+    .stat { flex: 1; border-radius: 12px; padding: 20px 24px; display: flex; flex-direction: column; gap: 4px; border: 1px solid; }
+    .stat.critico { background: #2d1515; border-color: #742a2a; }
+    .stat.alto    { background: #2d1f0e; border-color: #744210; }
+    .stat.medio   { background: #1a2234; border-color: #2b4080; }
+    .stat.bajo    { background: #1a2a1a; border-color: #276227; }
+    .stat .num  { font-size: 40px; font-weight: 800; line-height: 1; }
+    .stat .label { font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.7; }
+    .stat.critico .num { color: #fc8181; }
+    .stat.alto    .num { color: #f6ad55; }
+    .stat.medio   .num { color: #63b3ed; }
+    .stat.bajo    .num { color: #68d391; }
+
+    main { padding: 24px 40px; display: flex; flex-direction: column; gap: 24px; }
+
+    section { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 12px; overflow: hidden; }
+    section h2 { padding: 18px 24px; font-size: 15px; font-weight: 700; border-bottom: 1px solid #2d3748; display: flex; align-items: center; gap: 10px; }
+    section h2 .icon { font-size: 18px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { padding: 10px 16px; text-align: left; color: #718096; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #2d3748; background: #161b27; }
+    td { padding: 12px 16px; border-bottom: 1px solid #1e2535; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #1e2535; }
+
+    code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; background: #0f1117; padding: 2px 6px; border-radius: 4px; color: #a3bffa; border: 1px solid #2d3748; }
+
+    .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; }
+    .badge.critico { background: #742a2a; color: #fc8181; }
+    .badge.alto    { background: #744210; color: #f6ad55; }
+    .badge.medio   { background: #2b4080; color: #90cdf4; }
+    .badge.bajo    { background: #276227; color: #9ae6b4; }
+
+    .accion { background: #0d1f38; border: 1px solid #2b4080; border-radius: 12px; padding: 20px 24px; }
+    .accion h2 { border: none; padding: 0 0 16px; font-size: 16px; color: #90cdf4; }
+    .accion ol { padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+    .accion li { color: #cbd5e0; font-size: 14px; line-height: 1.6; }
+    .accion li strong { color: #fc8181; }
+    .accion li .ok { color: #68d391; }
+
+    .file { color: #a3bffa; font-family: 'SF Mono', monospace; font-size: 12px; }
+    .desc { color: #cbd5e0; line-height: 1.5; }
+    .linea { color: #718096; font-size: 11px; }
+
+    .ts { color: #4a5568; font-size: 12px; padding: 8px 40px 16px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🔍 Análisis de Producción — Fluix App</h1>
+  <p>Revisión exhaustiva de desconexiones, fallos y pendientes antes de producción · 6 nov 2026</p>
+</header>
+
+<div class="stats">
+  <div class="stat critico">
+    <span class="num">7</span>
+    <span class="label">Crítico</span>
+  </div>
+  <div class="stat alto">
+    <span class="num">16</span>
+    <span class="label">Alto</span>
+  </div>
+  <div class="stat medio">
+    <span class="num">18</span>
+    <span class="label">Medio</span>
+  </div>
+  <div class="stat bajo">
+    <span class="num">15</span>
+    <span class="label">Bajo</span>
+  </div>
+</div>
+
+<main>
+
+  <!-- ACCIONES URGENTES -->
+  <div class="accion">
+    <h2>⚡ Acciones urgentes antes de ir a producción</h2>
+    <ol>
+      <li><strong>URGENTE —</strong> Eliminar <code>sacoor90@gmail.com</code> de <code>pdf_templates_list_screen.dart:52</code></li>
+      <li><strong>URGENTE —</strong> Actualizar SMI 2026 real en <code>nomina.dart</code> (grupos 4-11 hardcodeados a <code>1381.20€</code>)</li>
+      <li><strong>URGENTE —</strong> Verificar que <code>credentials.json</code> (Service Account) NO está en el repo</li>
+      <li><strong>CRÍTICO —</strong> Certificado Verifactu real: sin él no se pueden certificar ingresos</li>
+      <li><strong>CRÍTICO —</strong> Implementar 2 Cloud Functions pendientes (notif. fichaje + aprobación vacaciones)</li>
+      <li><strong class="ok">OK —</strong> Fotos de fichaje comprimidas (800×600 @ 55%, ~65 KB/foto) y en Firebase Storage ✓</li>
+    </ol>
+  </div>
+
+  <!-- 1. CREDENCIALES Y DATOS HARDCODEADOS -->
+  <section>
+    <h2><span class="icon">🔑</span> 1. Credenciales y datos hardcodeados</h2>
+    <table>
+      <thead>
+        <tr><th>Archivo</th><th>Línea</th><th>Problema</th><th>Severidad</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code class="file">pdf_templates_list_screen.dart</code></td>
+          <td class="linea">52</td>
+          <td class="desc">Email personal del dev embebido: <code>sacoor90@gmail.com</code></td>
+          <td><span class="badge critico">CRÍTICO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">demo_cuenta_service.dart</code></td>
+          <td class="linea">17–18</td>
+          <td class="desc">Credenciales demo hardcodeadas: <code>demoFluix2026@gmail.com / FlFluix26</code></td>
+          <td><span class="badge alto">ALTO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">inicializar_empresa.dart</code></td>
+          <td class="linea">4</td>
+          <td class="desc">ID empresa Fluixtech hardcodeado: <code>ztZblwm1w71wNQtzHV7S</code></td>
+          <td><span class="badge alto">ALTO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">datos_prueba_fluixtech_service.dart</code></td>
+          <td class="linea">18</td>
+          <td class="desc">Emails generados como <code>{nombre}@fluixtech.com</code> hardcodeados</td>
+          <td><span class="badge alto">ALTO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">firestore.rules</code></td>
+          <td class="linea">205–206</td>
+          <td class="desc">Regla que permite login de demo con email hardcodeado específico</td>
+          <td><span class="badge alto">ALTO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">scripts/crear_cuenta_demo.ts</code></td>
+          <td class="linea">16–17</td>
+          <td class="desc">Requiere <code>credentials.json</code> (Service Account) en raíz del proyecto</td>
+          <td><span class="badge critico">CRÍTICO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">firebase_options.dart</code></td>
+          <td class="linea">67</td>
+          <td class="desc">Bundle ID hardcodeado: <code>com.fluixtech.crm</code></td>
+          <td><span class="badge bajo">BAJO</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 2. DATOS FISCALES PROVISIONALES -->
+  <section>
+    <h2><span class="icon">💶</span> 2. Datos fiscales y salariales provisionales</h2>
+    <table>
+      <thead>
+        <tr><th>Archivo</th><th>Línea</th><th>Problema</th><th>Severidad</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code class="file">nomina.dart</code></td>
+          <td class="linea">291–300</td>
+          <td class="desc">Grupos cotización 4–11: todos devuelven <code>1381.20€</code> con comentario "Provisional — pendiente SMI 2026". 6 valores sin actualizar.</td>
+          <td><span class="badge critico">CRÍTICO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">nomina.dart</code></td>
+          <td class="linea">297, 299</td>
+          <td class="desc">Base diaria <code>46,04€ × 30</code> — marcada como "Provisional"</td>
+          <td><span class="badge critico">CRÍTICO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">generar_doc_produccion.dart</code></td>
+          <td class="linea">253</td>
+          <td class="desc">Modelo 115: tablas 2025–2026 y tramos autonómicos sin actualizar</td>
+          <td><span class="badge alto">ALTO</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 3. FEATURES INCOMPLETAS -->
+  <section>
+    <h2><span class="icon">🚧</span> 3. Features incompletas / pendientes</h2>
+    <table>
+      <thead>
+        <tr><th>Módulo</th><th>Archivo</th><th>Pendiente</th><th>Severidad</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Verifactu</td>
+          <td><code class="file">generar_doc_produccion.dart:96</code></td>
+          <td class="desc">Certificado real NO configurado. Cloud Function de notificaciones pendiente.</td>
+          <td><span class="badge critico">CRÍTICO</span></td>
+        </tr>
+        <tr>
+          <td>Notificaciones empleados</td>
+          <td><code class="file">functions/src/index.ts</code></td>
+          <td class="desc">2 Cloud Functions pendientes: alerta cuando empleado no ficha + aprobación de vacaciones</td>
+          <td><span class="badge alto">ALTO</span></td>
+        </tr>
+        <tr>
+          <td>Módulo Delivery</td>
+          <td><code class="file">generar_doc_produccion.dart:282</code></td>
+          <td class="desc">Módulo completo marcado "pendiente pruebas de campo"</td>
+          <td><span class="badge alto">ALTO</span></td>
+        </tr>
+        <tr>
+          <td>Impresora térmica</td>
+          <td><code class="file">generar_doc_produccion.dart:150</code></td>
+          <td class="desc">Compatibilidad iOS pendiente (Bluetooth limitado en App Store)</td>
+          <td><span class="badge alto">ALTO</span></td>
+        </tr>
+        <tr>
+          <td>Autenticación</td>
+          <td><code class="file">repositorio_autenticacion_impl.dart</code></td>
+          <td class="desc"><code>confirmarRecuperacionPassword()</code>, <code>enviarVerificacionEmail()</code>, <code>verificarEmail()</code> — 3 métodos con TODO sin implementar</td>
+          <td><span class="badge alto">ALTO</span></td>
+        </tr>
+        <tr>
+          <td>Sesión</td>
+          <td><code class="file">repositorio_autenticacion_impl.dart:238</code></td>
+          <td class="desc"><code>guardarTokenSesion()</code>, <code>obtenerTokenSesion()</code>, <code>limpiarTokenSesion()</code> — 3 TODOs SharedPreferences</td>
+          <td><span class="badge medio">MEDIO</span></td>
+        </tr>
+        <tr>
+          <td>Monedero cliente</td>
+          <td><code class="file">pantalla_perfil_cliente.dart:8</code></td>
+          <td class="desc">Import de <code>pantalla_monedero.dart</code> comentado: "oculto temporalmente"</td>
+          <td><span class="badge bajo">BAJO</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 4. HARDCODING FLUIXTECH EN LÓGICA -->
+  <section>
+    <h2><span class="icon">🏗️</span> 4. Lógica hardcodeada para "fluixtech"</h2>
+    <table>
+      <thead>
+        <tr><th>Archivo</th><th>Línea</th><th>Problema</th><th>Severidad</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code class="file">pantalla_dashboard.dart</code></td>
+          <td class="linea">690, 982, 984</td>
+          <td class="desc">Condicional que da acceso de propietario y módulo exclusivo solo si empresaId contiene "fluixtech". Romperá para cualquier otro cliente propietario.</td>
+          <td><span class="badge alto">ALTO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">admin_initializer.dart</code></td>
+          <td class="linea">126, 159, 173</td>
+          <td class="desc">Dominio <code>fluixtech.com</code> hardcodeado en 3 lugares</td>
+          <td><span class="badge bajo">BAJO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">constantes_app.dart</code></td>
+          <td class="linea">7</td>
+          <td class="desc">URL web propietaria hardcodeada: <code>fluixtech.com</code></td>
+          <td><span class="badge bajo">BAJO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">cad_operaciones_screen.dart</code></td>
+          <td class="linea">581</td>
+          <td class="desc">Package Android hardcodeado en intent: <code>com.fluixtech.fluix</code>. Fallará si el bundle ID cambia.</td>
+          <td><span class="badge medio">MEDIO</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 5. REGLAS FIRESTORE -->
+  <section>
+    <h2><span class="icon">🔐</span> 5. Reglas Firestore permisivas</h2>
+    <table>
+      <thead>
+        <tr><th>Colección</th><th>Línea</th><th>Problema</th><th>Severidad</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>trafico_web</code></td>
+          <td class="linea">39</td>
+          <td class="desc"><code>allow write: if true;</code> — escritura pública sin validar tamaño ni campos. Solo protegida por autenticación anónima.</td>
+          <td><span class="badge medio">MEDIO</span></td>
+        </tr>
+        <tr>
+          <td>Documento público</td>
+          <td class="linea">466</td>
+          <td class="desc"><code>allow get: if true;</code> — lectura pública sin restricción</td>
+          <td><span class="badge medio">MEDIO</span></td>
+        </tr>
+        <tr>
+          <td>reservas, servicios, tienda</td>
+          <td class="linea">múltiples</td>
+          <td class="desc"><code>allow read: if true;</code> en 30+ líneas — por diseño, pero verificar que no expone datos sensibles</td>
+          <td><span class="badge bajo">BAJO</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 6. ERROR HANDLING -->
+  <section>
+    <h2><span class="icon">⚠️</span> 6. Error handling insuficiente</h2>
+    <table>
+      <thead>
+        <tr><th>Archivo</th><th>Línea</th><th>Problema</th><th>Severidad</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code class="file">pantalla_contenido_web.dart</code></td>
+          <td class="linea">—</td>
+          <td class="desc">Stream Firestore sin <code>try-catch</code> ni <code>.handleError()</code> — crash silencioso en error de permisos</td>
+          <td><span class="badge alto">ALTO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">modulo_propietario.dart</code></td>
+          <td class="linea">18–20</td>
+          <td class="desc">Llama a servicio demo sin guard de error. Solo funciona para fluixtech.</td>
+          <td><span class="badge alto">ALTO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">splash_router.dart</code></td>
+          <td class="linea">118–121</td>
+          <td class="desc">Catch genérico en <code>_resolverDestino()</code> solo redirige a login sin loguear el motivo real del fallo</td>
+          <td><span class="badge medio">MEDIO</span></td>
+        </tr>
+        <tr>
+          <td>~40 servicios</td>
+          <td class="linea">—</td>
+          <td class="desc"><code>rethrow;</code> sin recuperación ni log — solo propagan el error genérico hacia arriba</td>
+          <td><span class="badge medio">MEDIO</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 7. DATOS PRUEBA EN CÓDIGO -->
+  <section>
+    <h2><span class="icon">🧪</span> 7. Datos de prueba embebidos en producción</h2>
+    <table>
+      <thead>
+        <tr><th>Archivo</th><th>Problema</th><th>Severidad</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code class="file">seed_peluqueria_demo_service.dart</code></td>
+          <td class="desc">30+ IDs hardcodeados: <code>emp_demo_1</code>, <code>svc_demo_1</code>, <code>prod_demo_1</code>, etc.</td>
+          <td><span class="badge medio">MEDIO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">demo_cuenta_service.dart:80–150</code></td>
+          <td class="desc"><code>_configurarFirestoreDemo()</code> crea empresa completa — verificar que no se ejecuta en producción real</td>
+          <td><span class="badge alto">ALTO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">ServicioNegocio.dart:333</code></td>
+          <td class="desc">Lista de empleados mock hardcodeada: <code>["Cualquiera", "Empleado 1", "Empleado 2"]</code></td>
+          <td><span class="badge medio">MEDIO</span></td>
+        </tr>
+        <tr>
+          <td><code class="file">fichaje_demo_data.dart</code></td>
+          <td class="desc">5 empleados con UIDs demo: <code>demo_maria_garcia</code>, <code>demo_juan_lopez</code>, etc.</td>
+          <td><span class="badge bajo">BAJO</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+</main>
+
+<p class="ts">Generado el 6 nov 2026 · 56 issues · PlaneaG / Fluix Flutter App</p>
+
+</body>
+</html>

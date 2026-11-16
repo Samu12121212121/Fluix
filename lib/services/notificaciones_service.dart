@@ -520,6 +520,67 @@ class NotificacionesService {
     );
   }
 
+  // ── RECORDATORIOS DE TAREAS ──────────────────────────────────────────────
+
+  // Mapa de timers activos por tareaId — permite cancelar si se edita la tarea
+  final Map<String, Timer> _recordatorioTimers = {};
+
+  /// Programa (o reprograma) un recordatorio local para una tarea.
+  /// Funciona mientras la app está en memoria.
+  /// Para recordatorios offline se requiere timezone + zonedSchedule (v2).
+  void programarRecordatorioTarea({
+    required String tareaId,
+    required String titulo,
+    required DateTime? fechaLimite,
+    required String tipoRecordatorio, // 'ninguno'|'alDia'|'unDiaAntes'|'unaHoraAntes'|'personalizado'
+    DateTime? fechaPersonalizada,
+  }) {
+    // Cancelar timer previo si existía
+    _recordatorioTimers[tareaId]?.cancel();
+    _recordatorioTimers.remove(tareaId);
+
+    if (tipoRecordatorio == 'ninguno' || fechaLimite == null) return;
+
+    DateTime? cuando;
+    switch (tipoRecordatorio) {
+      case 'alDia':
+        cuando = DateTime(fechaLimite.year, fechaLimite.month, fechaLimite.day, 9, 0);
+        break;
+      case 'unDiaAntes':
+        final dia = fechaLimite.subtract(const Duration(days: 1));
+        cuando = DateTime(dia.year, dia.month, dia.day, 9, 0);
+        break;
+      case 'unaHoraAntes':
+        cuando = fechaLimite.subtract(const Duration(hours: 1));
+        break;
+      case 'personalizado':
+        cuando = fechaPersonalizada;
+        break;
+    }
+
+    if (cuando == null) return;
+    final delay = cuando.difference(DateTime.now());
+    if (delay.isNegative) return; // ya pasó
+
+    _recordatorioTimers[tareaId] = Timer(delay, () {
+      _recordatorioTimers.remove(tareaId);
+      if (!_inicializado) return;
+      _localNotifications.show(
+        tareaId.hashCode.abs() % 100000,
+        '⏰ Recordatorio de tarea',
+        titulo,
+        _detallesNotificacion(importante: true),
+        payload: jsonEncode({'tipo': 'recordatorio_tarea', 'tarea_id': tareaId}),
+      );
+    });
+  }
+
+  /// Cancela el recordatorio de una tarea (al completarla o eliminarla).
+  void cancelarRecordatorioTarea(String tareaId) {
+    _recordatorioTimers[tareaId]?.cancel();
+    _recordatorioTimers.remove(tareaId);
+  }
+
   NotificationDetails _detallesNotificacion({bool importante = false}) {
     return NotificationDetails(
       android: AndroidNotificationDetails(

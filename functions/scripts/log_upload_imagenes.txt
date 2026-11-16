@@ -1,0 +1,29 @@
+
+Negocios con imagenes: 20
+Bucket: planeaapp-4bea4.firebasestorage.app
+
+[1/20] Aesthetic_Center_Alba ..................... [aesthetic_center_alba] 21 imgs (sitio:11 adic:0 svs:10)
+[2/20] Alberto_Hair_Beauty . [alberto_hair_beauty] 1 imgs (sitio:1 adic:0 svs:0)
+[3/20] Beauty_by_Patricia ......................................................................... [beauty_by_patricia] 89 imgs (sitio:32 adic:0 svs:57)
+[4/20] Belen_Nogueras_Estetica ................................... [belen_nogueras_estetica] 35 imgs (sitio:35 adic:0 svs:0)
+[5/20] Biosfera_Guadalajara ........... [biosfera_guadalajara] 11 imgs (sitio:11 adic:0 svs:0)
+[6/20] Blu_Estilistas ............ [blu_estilistas] 19 imgs (sitio:9 adic:0 svs:10)
+[7/20] Golden_Estilistas ............... [golden_estilistas] 20 imgs (sitio:10 adic:0 svs:10)
+[8/20] Hammam_Spa_Luxury . [hammam_spa_luxury] 1 imgs (sitio:1 adic:0 svs:0)
+[9/20] IC_Belleza_Pro ......... [ic_belleza_pro] 9 imgs (sitio:9 adic:0 svs:0)
+[10/20] La_Casa_del_Barbero ............. [la_casa_del_barbero] 20 imgs (sitio:10 adic:0 svs:10)
+[11/20] La_Leyenda_Barbershop .......... [la_leyenda_barbershop] 10 imgs (sitio:10 adic:0 svs:0)
+[12/20] La_pelu_del_barrio ..................... [la_pelu] 21 imgs (sitio:11 adic:0 svs:10)
+[13/20] La_Pelu_de_Roci ........... [la_pelu_de_roci] 11 imgs (sitio:11 adic:0 svs:0)
+[14/20] La_Quinta_Avenida .............. [la_quinta_avenida] 21 imgs (sitio:11 adic:0 svs:10)
+[15/20] Mundo_Estilo_Elegance ... [mundo_estilo_elegance] 11 imgs (sitio:0 adic:0 svs:11)
+[16/20] OS_Peluquerias_Marios . [os_peluquerias_marios] 1 imgs (sitio:1 adic:0 svs:0)
+[17/20] R_B_Peluqueros ..................... [rb_peluqueros] 21 imgs (sitio:11 adic:0 svs:10)
+[18/20] Salon_Luca   [SKIP] Salon_Luca — no encontrado en Firestore
+[19/20] Samira_Health ................. [samira_health] 19 imgs (sitio:10 adic:0 svs:9)
+[20/20] White_Lotus ............... [white_lotus] 17 imgs (sitio:9 adic:0 svs:8)
+
+──────────────────────────────────────────────────
+fotoUrl      : 23 / 178
+fotosGaleria : 22 / 178
+──────────────────────────────────────────────────

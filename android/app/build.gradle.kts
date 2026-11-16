@@ -30,9 +30,9 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.fluixcrm.app"
-        minSdk = 24
-        targetSdk = 35
+        applicationId = "com.fluixtech.crm"
+        minSdk = 26
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Roles y Departamentos — Fluix</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; }
+    header { background: linear-gradient(135deg, #1a1f2e, #16213e); border-bottom: 1px solid #2d3748; padding: 32px 40px; }
+    header h1 { font-size: 26px; font-weight: 700; color: #fff; }
+    header p { color: #718096; font-size: 14px; margin-top: 6px; }
+    main { padding: 32px 40px; display: flex; flex-direction: column; gap: 28px; max-width: 1100px; }
+
+    h2 { font-size: 16px; font-weight: 700; color: #90cdf4; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    h3 { font-size: 13px; font-weight: 700; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+
+    .card { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 12px; padding: 20px 24px; }
+
+    /* Arquitectura */
+    .arch { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    .arch-box { background: #111827; border: 1px solid #374151; border-radius: 10px; padding: 16px; }
+    .arch-box h4 { font-size: 12px; font-weight: 700; color: #60a5fa; margin-bottom: 8px; letter-spacing: 0.05em; text-transform: uppercase; }
+    .arch-box code { display: block; font-family: 'SF Mono', monospace; font-size: 11.5px; color: #a3bffa; line-height: 1.8; }
+
+    /* Jerarquía visual */
+    .hierarchy { display: flex; flex-direction: column; gap: 8px; }
+    .h-row { display: flex; align-items: center; gap: 12px; }
+    .h-badge { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: #fff; flex-shrink: 0; }
+    .h-line { flex: 1; height: 1px; border-top: 1px dashed; opacity: 0.3; }
+    .h-info { }
+    .h-info strong { font-size: 14px; font-weight: 700; }
+    .h-info span { font-size: 12px; color: #718096; display: block; }
+    .h-perms { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .h-perm { font-size: 10px; padding: 2px 7px; border-radius: 999px; font-weight: 500; }
+
+    /* Tabla */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { padding: 9px 14px; text-align: left; color: #718096; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #2d3748; background: #161b27; }
+    td { padding: 11px 14px; border-bottom: 1px solid #1e2535; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #1e2535; }
+    code { font-family: 'SF Mono', monospace; font-size: 12px; background: #0f1117; padding: 2px 6px; border-radius: 4px; color: #a3bffa; border: 1px solid #2d3748; }
+
+    .badge { display: inline-flex; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .new  { background: #0d4429; color: #68d391; }
+    .mod  { background: #0d2d44; color: #90cdf4; }
+    .cf   { background: #2d1f44; color: #d6bcfa; }
+
+    /* Flujo */
+    .flow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .flow-step { background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 10px 14px; font-size: 12.5px; }
+    .flow-arrow { color: #4a5568; font-size: 18px; }
+
+    .col2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .ts { color: #4a5568; font-size: 12px; padding: 8px 40px 16px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🏗️ Sistema de Roles y Departamentos — Fluix</h1>
+  <p>Jerarquía organizativa escalable · Custom Claims · 6 nov 2026</p>
+</header>
+<main>
+
+  <!-- Qué se creó -->
+  <div class="card">
+    <h2>📦 Archivos creados / modificados</h2>
+    <table>
+      <thead><tr><th>Archivo</th><th>Tipo</th><th>Descripción</th></tr></thead>
+      <tbody>
+        <tr><td><code>lib/domain/modelos/rol_empresa.dart</code></td><td><span class="badge new">NUEVO</span></td><td>Modelo RolEmpresa — nombre, nivel 1-5, color, mapa de permisos</td></tr>
+        <tr><td><code>lib/domain/modelos/departamento_empresa.dart</code></td><td><span class="badge new">NUEVO</span></td><td>Modelo DepartamentoEmpresa — nombre, jefe, padre (jerarquía)</td></tr>
+        <tr><td><code>lib/services/roles_departamentos_service.dart</code></td><td><span class="badge new">NUEVO</span></td><td>CRUD de roles y departamentos + asignarRolEmpleado()</td></tr>
+        <tr><td><code>lib/features/empleados/pantallas/pantalla_gestion_roles.dart</code></td><td><span class="badge new">NUEVO</span></td><td>UI para crear/editar/eliminar roles con permisos y colores</td></tr>
+        <tr><td><code>lib/features/empleados/pantallas/pantalla_gestion_departamentos.dart</code></td><td><span class="badge new">NUEVO</span></td><td>UI para crear/editar departamentos con jefe y padre</td></tr>
+        <tr><td><code>functions/src/actualizarClaimsEmpleado.ts</code></td><td><span class="badge cf">CF TRIGGER</span></td><td>Firestore trigger: actualiza Custom Claims al cambiar nivel/dept</td></tr>
+        <tr><td><code>lib/features/empleados/pantallas/formulario_empleado_form.dart</code></td><td><span class="badge mod">MODIFICADO</span></td><td>Dropdowns de rol jerárquico y departamento estructurado</td></tr>
+        <tr><td><code>lib/features/empleados/pantallas/modulo_empleados_screen.dart</code></td><td><span class="badge mod">MODIFICADO</span></td><td>Menú: "Gestionar roles" + "Gestionar departamentos"</td></tr>
+        <tr><td><code>functions/src/index.ts</code></td><td><span class="badge mod">MODIFICADO</span></td><td>Export de actualizarClaimsEmpleado</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Estructura Firestore -->
+  <div class="card">
+    <h2>🗄️ Estructura Firestore</h2>
+    <div class="arch">
+      <div class="arch-box">
+        <h4>Roles</h4>
+        <code>empresas/{id}/</code>
+        <code>  roles_empresa/{roleId}</code>
+        <code>&nbsp;</code>
+        <code>nombre: "Jefe de Base"</code>
+        <code>nivel: 2</code>
+        <code>color: "#10B981"</code>
+        <code>permisos: {</code>
+        <code>  ver_fichajes_equipo: true</code>
+        <code>  aprobar_vacaciones: true</code>
+        <code>}</code>
+        <code>activo: true</code>
+      </div>
+      <div class="arch-box">
+        <h4>Departamentos</h4>
+        <code>empresas/{id}/</code>
+        <code>  departamentos/{deptId}</code>
+        <code>&nbsp;</code>
+        <code>nombre: "Base Norte"</code>
+        <code>jefe_uid: "uid_jefe"</code>
+        <code>jefe_nombre: "Ana López"</code>
+        <code>padre_id: null</code>
+        <code>activo: true</code>
+        <code>&nbsp;</code>
+        <code>// sub-dept → padre_id: "deptId"</code>
+      </div>
+      <div class="arch-box">
+        <h4>Usuario (campos añadidos)</h4>
+        <code>usuarios/{uid}</code>
+        <code>&nbsp;</code>
+        <code>rol_empresa_id: "roleId"</code>
+        <code>nivel_jerarquico: 2</code>
+        <code>departamento_id: "deptId"</code>
+        <code>departamento: "Base Norte"</code>
+        <code>manager_uid: "uid_jefe"</code>
+        <code>&nbsp;</code>
+        <code>// claims_actualizados_at</code>
+        <code>// (lo setea la CF)</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- Jerarquía de ejemplo -->
+  <div class="card">
+    <h2>🏢 Ejemplo — Empresa de ambulancias (Sysday)</h2>
+    <div class="hierarchy">
+      <div class="h-row">
+        <div class="h-badge" style="background:#ef4444">1</div>
+        <div class="h-line" style="border-color:#ef4444"></div>
+        <div class="h-info">
+          <strong>Director</strong>
+          <span>Acceso total a todos los módulos</span>
+          <div class="h-perms">
+            <span class="h-perm" style="background:#2d1515;color:#fc8181">gestionar_empleados</span>
+            <span class="h-perm" style="background:#2d1515;color:#fc8181">ver_nominas_equipo</span>
+            <span class="h-perm" style="background:#2d1515;color:#fc8181">exportar_datos</span>
+          </div>
+        </div>
+      </div>
+      <div class="h-row" style="padding-left:24px">
+        <div class="h-badge" style="background:#f59e0b">2</div>
+        <div class="h-line" style="border-color:#f59e0b"></div>
+        <div class="h-info">
+          <strong>Jefe de Base</strong>
+          <span>Gestiona su base y equipo TES</span>
+          <div class="h-perms">
+            <span class="h-perm" style="background:#2d1f0e;color:#f6ad55">ver_fichajes_equipo</span>
+            <span class="h-perm" style="background:#2d1f0e;color:#f6ad55">editar_fichajes_equipo</span>
+            <span class="h-perm" style="background:#2d1f0e;color:#f6ad55">aprobar_vacaciones</span>
+          </div>
+        </div>
+      </div>
+      <div class="h-row" style="padding-left:48px">
+        <div class="h-badge" style="background:#3b82f6">3</div>
+        <div class="h-line" style="border-color:#3b82f6"></div>
+        <div class="h-info">
+          <strong>TES Senior</strong>
+          <span>Solo sus propios fichajes y nóminas</span>
+          <div class="h-perms">
+            <span class="h-perm" style="background:#0d1f38;color:#90cdf4">ver_nominas_propias</span>
+            <span class="h-perm" style="background:#0d1f38;color:#90cdf4">ver_informes</span>
+          </div>
+        </div>
+      </div>
+      <div class="h-row" style="padding-left:64px">
+        <div class="h-badge" style="background:#64748b">4</div>
+        <div class="h-line" style="border-color:#64748b"></div>
+        <div class="h-info">
+          <strong>TES Junior</strong>
+          <span>Solo sus propios datos</span>
+          <div class="h-perms">
+            <span class="h-perm" style="background:#1a2535;color:#94a3b8">ver_nominas_propias</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Claims -->
+  <div class="card">
+    <h2>⚡ Flujo Custom Claims (Firebase Auth)</h2>
+    <div class="flow">
+      <div class="flow-step">Admin asigna rol/dept<br><small style="color:#718096">formulario_empleado_form.dart</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Firestore escribe<br><code style="font-size:10px">usuarios/{uid}</code></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">CF trigger<br><code style="font-size:10px">actualizarClaimsEmpleado</code></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Firebase Auth<br><code style="font-size:10px">setCustomUserClaims(uid, {nivel, dept})</code></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Firestore Rules<br><code style="font-size:10px">request.auth.token.nivel ≤ 2</code></div>
+    </div>
+    <div style="margin-top:16px;padding:12px 16px;background:#0d2d44;border-radius:8px;border:1px solid #2b4080">
+      <p style="font-size:12.5px;color:#90cdf4;line-height:1.6">
+        <strong>¿Por qué Custom Claims?</strong> Los claims viajan dentro del JWT de Firebase Auth.
+        Firestore Rules los lee con <code style="background:#0f1117">request.auth.token.nivel</code>
+        <strong>sin ninguna consulta extra</strong> — crítico a 2.700+ empleados donde cada query adicional
+        se multiplica por todas las lecturas simultáneas.
+      </p>
+    </div>
+  </div>
+
+  <!-- Permisos disponibles -->
+  <div class="card">
+    <h2>🔑 Permisos disponibles</h2>
+    <div class="col2">
+      <table>
+        <thead><tr><th>Clave</th><th>Qué permite</th></tr></thead>
+        <tbody>
+          <tr><td><code>ver_fichajes_equipo</code></td><td>Ver fichajes de empleados del departamento</td></tr>
+          <tr><td><code>editar_fichajes_equipo</code></td><td>Corregir fichajes del departamento</td></tr>
+          <tr><td><code>aprobar_vacaciones</code></td><td>Aprobar solicitudes de vacaciones</td></tr>
+          <tr><td><code>ver_nominas_equipo</code></td><td>Ver nóminas de empleados del departamento</td></tr>
+          <tr><td><code>ver_nominas_propias</code></td><td>Ver las propias nóminas</td></tr>
+        </tbody>
+      </table>
+      <table>
+        <thead><tr><th>Clave</th><th>Qué permite</th></tr></thead>
+        <tbody>
+          <tr><td><code>gestionar_empleados</code></td><td>Crear/editar empleados del departamento</td></tr>
+          <tr><td><code>ver_informes</code></td><td>Acceder a informes de actividad</td></tr>
+          <tr><td><code>exportar_datos</code></td><td>Exportar CSV/Excel</td></tr>
+          <tr><td><code>crear_fichajes</code></td><td>Crear o corregir fichajes manualmente</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Próximos pasos -->
+  <div class="card">
+    <h2>🚀 Próximos pasos para producción</h2>
+    <table>
+      <thead><tr><th>#</th><th>Tarea</th><th>Prioridad</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Actualizar <code>firestore.rules</code> para usar <code>request.auth.token.nivel</code> y <code>departamento_id</code> en las reglas de fichajes y nóminas</td><td>🔴 Alta</td></tr>
+        <tr><td>2</td><td>Deploy Cloud Function <code>actualizarClaimsEmpleado</code> (<code>firebase deploy --only functions:actualizarClaimsEmpleado</code>)</td><td>🔴 Alta</td></tr>
+        <tr><td>3</td><td>Crear índices Firestore para <code>roles_empresa</code> (nivel + activo) y <code>departamentos</code> (nombre + activo)</td><td>🟡 Media</td></tr>
+        <tr><td>4</td><td>Script de migración para empleados existentes: asignar <code>nivel_jerarquico</code> y <code>departamento_id</code> según el campo <code>departamento</code> de texto libre</td><td>🟡 Media</td></tr>
+        <tr><td>5</td><td>Añadir filtro por departamento en el listado de empleados del módulo RRHH</td><td>🟢 Baja</td></tr>
+        <tr><td>6</td><td>Mostrar organigrama visual (árbol de departamentos) en el módulo de empleados</td><td>🟢 Baja</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+<p class="ts">Generado el 6 nov 2026 · Fluix v1.0.20 · Sistema de roles jerárquico escalable</p>
+</body>
+</html>

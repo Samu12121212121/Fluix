@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Contrato de Trabajo — Elena Martín Sanz — Sysday Emergencias</title>
+  <style>
+    @page { size: A4; margin: 2.5cm 2.5cm 3cm 2.5cm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Georgia', serif;
+      font-size: 11pt;
+      line-height: 1.6;
+      color: #1a1a1a;
+      max-width: 210mm;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .logo-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid #1a365d;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+    .logo-name {
+      font-size: 22pt;
+      font-weight: bold;
+      color: #1a365d;
+      letter-spacing: -0.5px;
+    }
+    .logo-sub {
+      font-size: 9pt;
+      color: #4a5568;
+      margin-top: 2px;
+    }
+    .doc-ref {
+      text-align: right;
+      font-size: 9pt;
+      color: #718096;
+    }
+    h1 {
+      font-size: 14pt;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #1a365d;
+      margin: 24px 0 20px;
+      border-bottom: 1px solid #cbd5e0;
+      padding-bottom: 10px;
+    }
+    h2 {
+      font-size: 11pt;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #2d3748;
+      margin: 22px 0 10px;
+      border-left: 3px solid #1a365d;
+      padding-left: 10px;
+    }
+    p { margin: 6px 0; text-align: justify; }
+    .partes {
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 16px 20px;
+      margin: 16px 0;
+    }
+    .parte-bloque { margin-bottom: 14px; }
+    .parte-bloque:last-child { margin-bottom: 0; }
+    .parte-titulo {
+      font-weight: bold;
+      font-size: 10pt;
+      text-transform: uppercase;
+      color: #1a365d;
+      margin-bottom: 4px;
+    }
+    .parte-dato { margin: 2px 0; font-size: 10.5pt; }
+    .label { color: #718096; font-size: 9.5pt; }
+    table.condiciones {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    table.condiciones td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+    table.condiciones td:first-child {
+      width: 42%;
+      color: #4a5568;
+      font-weight: 600;
+    }
+    .aviso-legal {
+      background: #fff8e7;
+      border: 1px solid #f6d860;
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 9.5pt;
+      color: #744210;
+      margin: 16px 0;
+    }
+    .firmas {
+      margin-top: 36px;
+      display: flex;
+      justify-content: space-between;
+      gap: 40px;
+    }
+    .firma-bloque {
+      flex: 1;
+      border-top: 1px solid #a0aec0;
+      padding-top: 10px;
+    }
+    .firma-label { font-size: 9.5pt; color: #4a5568; margin-bottom: 4px; }
+    .firma-nombre { font-weight: bold; font-size: 10pt; }
+    .firma-cargo { font-size: 9pt; color: #718096; }
+    .firma-espacio {
+      height: 70px;
+      border: 1px dashed #cbd5e0;
+      border-radius: 4px;
+      margin: 10px 0;
+      background: #fafafa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #a0aec0;
+      font-size: 9pt;
+    }
+    .firma-fecha { font-size: 9pt; color: #718096; }
+    .pie-pagina {
+      margin-top: 40px;
+      padding-top: 10px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 8pt;
+      color: #a0aec0;
+      text-align: center;
+    }
+    .badge-eidas {
+      display: inline-block;
+      background: #ebf4ff;
+      color: #2b6cb0;
+      border: 1px solid #bee3f8;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 8pt;
+      font-weight: bold;
+    }
+    @media print {
+      body { padding: 0; }
+      .no-print { display: none; }
+    }
+    .btn-imprimir {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #1a365d;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .btn-imprimir:hover { background: #2c5282; }
+  </style>
+</head>
+<body>
+
+<button class="btn-imprimir no-print" onclick="window.print()">
+  🖨️ Guardar como PDF
+</button>
+
+<!-- CABECERA -->
+<div class="logo-header">
+  <div>
+    <div class="logo-name">SYSDAY</div>
+    <div class="logo-sub">Emergencias Sanitarias, S.L. — Guadalajara</div>
+  </div>
+  <div class="doc-ref">
+    <div><strong>Ref.:</strong> CT-TES-2026-0042</div>
+    <div><strong>Fecha:</strong> 4 de noviembre de 2026</div>
+    <div><strong>CIF:</strong> B19000001</div>
+  </div>
+</div>
+
+<h1>Contrato de Trabajo Indefinido<br>
+<span style="font-size:10pt; letter-spacing:1px; color:#4a5568;">
+  Técnico en Emergencias Sanitarias — Jornada Completa
+</span></h1>
+
+<p>En Guadalajara, a <strong>4 de noviembre de 2026</strong>, reunidas las partes que a continuación se identifican, acuerdan celebrar el presente contrato de trabajo indefinido, en virtud de lo dispuesto en el <strong>Estatuto de los Trabajadores (Real Decreto Legislativo 2/2015)</strong> y el <strong>IV Convenio Colectivo de Transporte Sanitario de Castilla-La Mancha</strong>, con sujeción a las siguientes:</p>
+
+<!-- PARTES -->
+<h2>1. Partes del Contrato</h2>
+
+<div class="partes">
+  <div class="parte-bloque">
+    <div class="parte-titulo">Empresa (Empleador)</div>
+    <div class="parte-dato"><span class="label">Razón social:</span> <strong>Sysday Emergencias Sanitarias, S.L.</strong></div>
+    <div class="parte-dato"><span class="label">CIF:</span> B19000001</div>
+    <div class="parte-dato"><span class="label">Domicilio:</span> Polígono El Balconcillo, C/ Industria 12, 19004 Guadalajara</div>
+    <div class="parte-dato"><span class="label">Representante:</span> D. Coordinador de Operaciones, en nombre y representación de la empresa</div>
+    <div class="parte-dato"><span class="label">Actividad:</span> Transporte sanitario urgente y no urgente (CNAE 8621)</div>
+  </div>
+
+  <div class="parte-bloque">
+    <div class="parte-titulo">Trabajador/a</div>
+    <div class="parte-dato"><span class="label">Nombre completo:</span> <strong>Elena Martín Sanz</strong></div>
+    <div class="parte-dato"><span class="label">DNI:</span> 11.111.111-H</div>
+    <div class="parte-dato"><span class="label">N.º Seguridad Social:</span> 19-0000-0000-01</div>
+    <div class="parte-dato"><span class="label">Domicilio:</span> Calle Mayor 15, 2.º B, 19001 Guadalajara</div>
+    <div class="parte-dato"><span class="label">Nacionalidad:</span> Española</div>
+    <div class="parte-dato"><span class="label">Titulación:</span> FP Grado Medio — Técnico en Emergencias Sanitarias (TES)</div>
+  </div>
+</div>
+
+<!-- CONDICIONES -->
+<h2>2. Objeto y Categoría Profesional</h2>
+<p>La trabajadora es contratada para desempeñar las funciones propias de <strong>Técnico en Emergencias Sanitarias (TES) — Nivel I</strong>, conforme a la clasificación del <em>IV Convenio Colectivo de Transporte Sanitario de Castilla-La Mancha</em>, categoría profesional <strong>TES Nivel I</strong> (código de categoría: <code>tes-nivel-i</code>).</p>
+
+<p>Sus funciones principales incluyen: atención prehospitalaria de urgencias y emergencias, movilización e inmovilización de pacientes, aplicación de técnicas de soporte vital básico y avanzado (SVB/SVA), uso de desfibrilador y medicación de emergencia conforme a protocolos, y toda aquella actividad relacionada con el transporte sanitario asistido.</p>
+
+<h2>3. Condiciones Económicas y Laborales</h2>
+
+<table class="condiciones">
+  <tr>
+    <td>Tipo de contrato</td>
+    <td><strong>Indefinido a jornada completa</strong></td>
+  </tr>
+  <tr>
+    <td>Fecha de inicio</td>
+    <td><strong>1 de marzo de 2021</strong></td>
+  </tr>
+  <tr>
+    <td>Período de prueba</td>
+    <td>60 días (ya superado)</td>
+  </tr>
+  <tr>
+    <td>Jornada laboral</td>
+    <td><strong>1.736 horas anuales</strong> en régimen de guardias de 12h, según cuadrante</td>
+  </tr>
+  <tr>
+    <td>Horario</td>
+    <td>Turnos rotatorios mañana/tarde/noche según cuadrante mensual</td>
+  </tr>
+  <tr>
+    <td>Salario base mensual</td>
+    <td><strong>1.562,36 €</strong> (bruto) × 14 pagas = <strong>21.873,04 €/año</strong></td>
+  </tr>
+  <tr>
+    <td>Nocturnidad</td>
+    <td>+10% sobre salario base/hora (horas entre 22:00 y 06:00)</td>
+  </tr>
+  <tr>
+    <td>Festivos especiales</td>
+    <td>36 € por día trabajado en 24/25/31 dic, 1 ene, Jue/Vie Santo</td>
+  </tr>
+  <tr>
+    <td>Dieta nocturna</td>
+    <td>75 €/mes para jornadas con guardia nocturna habitual</td>
+  </tr>
+  <tr>
+    <td>Pagas extraordinarias</td>
+    <td>2 pagas (junio y diciembre), 30 días de salario base cada una</td>
+  </tr>
+  <tr>
+    <td>Vacaciones</td>
+    <td><strong>30 días naturales</strong> al año</td>
+  </tr>
+  <tr>
+    <td>Convenio aplicable</td>
+    <td>IV Convenio Colectivo de Transporte Sanitario — Castilla-La Mancha (en ultraactividad desde nov. 2022)</td>
+  </tr>
+  <tr>
+    <td>Centro de trabajo</td>
+    <td>Polígono El Balconcillo, 19004 Guadalajara (con posibilidad de desplazamiento en ámbito CLM)</td>
+  </tr>
+</table>
+
+<!-- CLÁUSULAS -->
+<h2>4. Cláusulas Adicionales</h2>
+
+<p><strong>4.1 Confidencialidad.</strong> La trabajadora se compromete a mantener la más estricta confidencialidad respecto a los datos de salud de los pacientes atendidos, conforme al <strong>Reglamento (UE) 2016/679 (RGPD)</strong> y la <strong>Ley Orgánica 3/2018 (LOPD-GDD)</strong>, así como a las disposiciones de la <strong>Ley 41/2002</strong> de autonomía del paciente.</p>
+
+<p><strong>4.2 Formación continua.</strong> La empresa proporcionará anualmente al menos <strong>20 horas de formación</strong> en soporte vital, protocolos de emergencia y actualización normativa. La trabajadora se compromete a mantener vigentes las certificaciones exigidas (SVB+DEA, SVA, etc.).</p>
+
+<p><strong>4.3 Equipos de protección.</strong> La empresa dotará a la trabajadora de todos los equipos de protección individual (EPI) necesarios conforme al <strong>RD 773/1997</strong>.</p>
+
+<p><strong>4.4 Período de preaviso.</strong> Para la extinción del contrato por voluntad de la trabajadora, se establece un período de preaviso de <strong>15 días</strong>, salvo causa de fuerza mayor.</p>
+
+<p><strong>4.5 Protección de datos.</strong> Los datos personales de la trabajadora serán tratados por Sysday Emergencias Sanitarias, S.L. con la finalidad de gestión laboral, conforme al RGPD. Puede ejercer sus derechos en <em>rrhh@sysday.es</em>.</p>
+
+<!-- AVISO LEGAL FIRMA -->
+<div class="aviso-legal">
+  ⚖️ <strong>Validez legal de la firma electrónica:</strong> El presente contrato podrá ser suscrito mediante <strong>firma electrónica avanzada</strong> conforme al <strong>Reglamento (UE) 910/2014 (eIDAS), art. 26</strong>, con verificación de identidad por código SMS OTP al teléfono registrado y huella criptográfica SHA-256 del documento. La firma electrónica así obtenida tiene plena validez jurídica para contratos laborales según la <strong>Ley 6/2020</strong> y el <strong>art. 3.10 ET</strong>.
+</div>
+
+<!-- FIRMAS -->
+<h2>5. Conformidad de las Partes</h2>
+
+<p>Leído el presente contrato y en prueba de conformidad con todo su contenido, ambas partes lo suscriben por duplicado en el lugar y fecha indicados en el encabezamiento.</p>
+
+<div class="firmas">
+  <div class="firma-bloque">
+    <div class="firma-label">Por la empresa (Empleador)</div>
+    <div class="firma-espacio">[ Firma ]</div>
+    <div class="firma-nombre">Sysday Emergencias Sanitarias, S.L.</div>
+    <div class="firma-cargo">Coordinador de Operaciones</div>
+    <div class="firma-fecha">Guadalajara, 4 de noviembre de 2026</div>
+    <div style="margin-top:8px; font-size:9pt; color:#718096;">
+      <span class="badge-eidas">eIDAS art. 26</span>
+      Firma electrónica avanzada verificada
+    </div>
+  </div>
+
+  <div class="firma-bloque">
+    <div class="firma-label">La trabajadora</div>
+    <div class="firma-espacio">[ Firma ]</div>
+    <div class="firma-nombre">Elena Martín Sanz</div>
+    <div class="firma-cargo">DNI: 11.111.111-H — TES Nivel I</div>
+    <div class="firma-fecha">Guadalajara, 4 de noviembre de 2026</div>
+    <div style="margin-top:8px; font-size:9pt; color:#718096;">
+      <span class="badge-eidas">eIDAS art. 26</span>
+      Pendiente firma electrónica avanzada
+    </div>
+  </div>
+</div>
+
+<!-- PIE -->
+<div class="pie-pagina">
+  Sysday Emergencias Sanitarias, S.L. · CIF B19000001 · Polígono El Balconcillo, 19004 Guadalajara · rrhh@sysday.es<br>
+  Documento generado con Fluix RRHH · Ref. CT-TES-2026-0042 · Hash SHA-256 se calculará al subir el documento
+</div>
+
+</body>
+</html>
