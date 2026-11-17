@@ -767,7 +767,8 @@ class _PantallaDashboardState extends State<PantallaDashboard>
             .toLowerCase()
             .contains('demo');
         if (data['rol'] != 'propietario' && data['rol'] != 'admin' &&
-            empresaId != null && !esDemoAccount) {
+            data['rol'] != 'clienteFinal' &&
+            empresaId != null && empresaId.isNotEmpty && !esDemoAccount) {
           try {
             final adminSnap = await FirebaseFirestore.instance
                 .collection('usuarios')
@@ -793,6 +794,16 @@ class _PantallaDashboardState extends State<PantallaDashboard>
         // Cargar sesión con permisos
         final sesion = await PermisosService().cargarSesion();
         debugPrint(' ROL ACTUAL: ${sesion?.rol} | empresaId: $empresaId | esPropietario: ${sesion?.esPropietario}');
+
+        // Cliente final no pertenece al dashboard — redirigir a Explorar
+        if ((sesion == null || sesion.esClienteFinal) && mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const PantallaExplorar()),
+            (_) => false,
+          );
+          return;
+        }
         // Comprobar si el usuario gestiona varias sedes
         List<SedeInfo> sedes = [];
         try {

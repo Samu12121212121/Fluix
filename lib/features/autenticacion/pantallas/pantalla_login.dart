@@ -485,7 +485,8 @@ class _PantallaLoginState extends State<PantallaLogin> {
     }
 
     if (!mounted) return;
-    if (sesion?.rol == RolApp.clienteFinal) {
+    // sesion null = documento inexistente (race condition post-registro) → Explorar
+    if (sesion == null || sesion.rol == RolApp.clienteFinal) {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PantallaExplorar()));
     } else {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PantallaDashboard()));

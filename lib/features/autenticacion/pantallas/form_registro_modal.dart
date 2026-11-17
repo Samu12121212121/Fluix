@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../models/user_model.dart';
 import '../../../core/utils/permisos_service.dart';
+import '../../../features/explorar_negocios/pantallas/pantalla_explorar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODAL DE REGISTRO — Estilo negro / rosa (contraste con login cian)
@@ -122,7 +123,11 @@ class _FormRegistroModalState extends State<_FormRegistroModal> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const PantallaExplorar()),
+                (_) => false,
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _pink,
                 foregroundColor: Colors.white,
@@ -389,10 +394,13 @@ class _FormRegistroModalState extends State<_FormRegistroModal> {
 
       setState(() { _cargando = false; _registrado = true; });
 
-      // Navegar a Explorar tras cerrar el modal
+      // Navegar a Explorar tras el mensaje de éxito
       Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) Navigator.pop(context);
-        // La navegación a PantallaExplorar la gestiona el auth state listener
+        if (mounted) Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const PantallaExplorar()),
+          (_) => false,
+        );
       });
 
     } on FirebaseAuthException catch (e) {
