@@ -36,6 +36,65 @@ function fmt(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2
 function round2(n) { return Math.round(n * 100) / 100; }
 
 // ════════════════════════════════════════════════════════════════════════════
+// EMPRESA
+// ════════════════════════════════════════════════════════════════════════════
+
+const EMPRESA_DATA = {
+  perfil: {
+    nombre: 'Sanir Transporte Sanitario CLM',
+    correo: 'info@sanirtransporte.es',
+    telefono: '+34 925 220 100',
+    direccion: 'Polígono Industrial, C/ Industria 1',
+    descripcion: 'Empresa de transporte sanitario urgente y no urgente en Castilla-La Mancha',
+    logo_url: null,
+    ciudad: 'Toledo',
+    codigo_postal: '45001',
+    provincia: 'Toledo',
+    pais: 'ES',
+    web: 'https://www.sanirtransporte.es',
+  },
+  configuracion: {
+    modulos_activos: {
+      clientes: true, facturacion: true, empleados: true,
+      nominas: true, fichajes: true, tareas: true,
+      reservas: false, tpv: false, fiscal: true, pedidos: true,
+    },
+    configuracion_modulos: {},
+    criterio_iva: 'devengo',
+  },
+  nif: 'B45000001',
+  legal_name: 'Sanir Transporte Sanitario CLM S.L.',
+  tax_id: 'B45000001',
+  sector: 'ambulancia',
+  cnae: '8621',
+  actividad: 'Actividades de ambulancias',
+  serie_factura: 'F',
+  serie_rectificativa: 'R',
+  serie_proforma: 'P',
+  iban_empresa: 'ES12 2100 0418 4502 0005 1332',
+  bic_empresa: 'CAIXESBBXXX',
+  forma_juridica: 'sl',
+  ccc_ss: '450000000001',
+  cnae_ss: '8621',
+  onboarding_completado: true,
+  es_demo: true,
+};
+
+const FISCAL_DATA = {
+  nif: 'B45000001',
+  razon_social: 'Sanir Transporte Sanitario CLM S.L.',
+  domicilio_fiscal: 'Polígono Industrial, C/ Industria 1, 45001 Toledo',
+  codigo_postal: '45001',
+  municipio: 'Toledo',
+  provincia: 'Toledo',
+  regimen_iva: 'general',
+  epigraf_iae: '721',
+  esta_en_sii: false,
+  criterio_iva: 'devengo',
+  forma_juridica: 'sl',
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // CLIENTES (entidades que contratan servicios de Sanir)
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -823,6 +882,13 @@ const FICHAJES = [
 // LIMPIEZA + ESCRITURA
 // ════════════════════════════════════════════════════════════════════════════
 
+async function seedEmpresa() {
+  console.log('\n🏢 Creando/actualizando empresa y configuración fiscal...');
+  await eRef().set(EMPRESA_DATA, { merge: true });
+  await eRef().collection('configuracion').doc('fiscal').set(FISCAL_DATA, { merge: true });
+  console.log('✅ Empresa y fiscal OK (NIF: B45000001)');
+}
+
 async function limpiar() {
   console.log('\n🧹 Limpiando datos demo anteriores...');
   const ref = eRef();
@@ -980,6 +1046,7 @@ async function main() {
   console.log('\n🚑 SEED DATOS COMPLETOS — SANIR CLM');
   console.log(`📦 Empresa : ${EMPRESA_ID}`);
   try {
+    await seedEmpresa();
     await limpiar();
     await seedClientes();
     await seedFacturas();

@@ -653,16 +653,24 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
       // Generate PDF bytes (usa generarFacturaPdfConDatos que lee los datos correctamente)
       final pdfBytes = await PdfService.generarFacturaPdfConDatos(widget.factura, empresaId);
       final dir = await getTemporaryDirectory();
-      final nombre = 'Factura_${widget.factura.numeroFactura.replaceAll('/', '_')}.pdf';
+      final prefijo = widget.factura.esProforma ? 'Presupuesto' : 'Factura';
+      final clienteSlug = widget.factura.clienteNombre
+          .replaceAll(RegExp(r'[<>:"/\\|?*]'), '')
+          .replaceAll(RegExp(r'\s+'), '_');
+      final clienteParte = clienteSlug.isNotEmpty
+          ? '_${clienteSlug.substring(0, clienteSlug.length.clamp(0, 30))}'
+          : '';
+      final nombre = '${prefijo}_${widget.factura.numeroFactura.replaceAll('/', '_')}$clienteParte.pdf';
       final file = File('${dir.path}/$nombre');
       await file.writeAsBytes(pdfBytes);
-      final xfile = XFile(file.path, mimeType: 'application/pdf');
+      final xfile = XFile(file.path, mimeType: 'application/pdf', name: nombre);
 
+      final tipoLabel = widget.factura.esProforma ? 'Presupuesto' : 'Factura';
       if (opcion == 'share') {
         await Share.shareXFiles(
           [xfile],
-          subject: 'Factura ${widget.factura.numeroFactura}',
-          text: 'Adjunto la factura ${widget.factura.numeroFactura} por ${widget.factura.total.toStringAsFixed(2)}€',
+          subject: '$tipoLabel ${widget.factura.numeroFactura}',
+          text: 'Adjunto el $tipoLabel ${widget.factura.numeroFactura} por ${widget.factura.total.toStringAsFixed(2)}€',
         );
       } else if (opcion == 'email') {
         final correo = widget.factura.clienteCorreo ?? '';
@@ -683,21 +691,21 @@ class _DetalleFacturaScreenState extends State<DetalleFacturaScreen> {
           } catch (_) {
             // Fallback: compartir vía sistema
             if (mounted) {
-              await Share.shareXFiles([xfile], subject: 'Factura ${widget.factura.numeroFactura}');
+              await Share.shareXFiles([xfile], subject: '$tipoLabel ${widget.factura.numeroFactura}');
             }
           }
         } else {
           // Sin correo: compartir vía sistema
-          await Share.shareXFiles([xfile], subject: 'Factura ${widget.factura.numeroFactura}');
+          await Share.shareXFiles([xfile], subject: '$tipoLabel ${widget.factura.numeroFactura}');
         }
       } else if (opcion == 'whatsapp') {
         final tel = widget.factura.clienteTelefono!.replaceAll(RegExp(r'[^0-9+]'), '');
-        final texto = 'Hola, te envío la factura ${widget.factura.numeroFactura} '
+        final texto = 'Hola, te envío el $tipoLabel ${widget.factura.numeroFactura} '
             'por importe de ${widget.factura.total.toStringAsFixed(2)}€.';
         final waUri = Uri.parse('https://wa.me/$tel?text=${Uri.encodeComponent(texto)}');
         await launchUrl(waUri, mode: LaunchMode.externalApplication);
         if (mounted) {
-          await Share.shareXFiles([xfile], subject: 'Factura ${widget.factura.numeroFactura}');
+          await Share.shareXFiles([xfile], subject: '$tipoLabel ${widget.factura.numeroFactura}');
         }
       }
     } catch (e) {
